@@ -19,20 +19,32 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/live", async (req, res) => {
+app.get("/api/signals", async (req, res) => {
   try {
-    const response = await fetch(
-      "https://v3.football.api-sports.io/fixtures?live=all",
-      {
-        headers: {
-          "x-apisports-key": process.env.API_FOOTBALL_KEY
+    res.json({
+      success: true,
+      liveGames: 12,
+      activeSignals: [
+        {
+          id: 1,
+          league: "Brasil Série A",
+          match: "Flamengo vs Palmeiras",
+          market: "Over 2.5",
+          odd: 1.85,
+          minute: 67,
+          status: "AO VIVO"
+        },
+        {
+          id: 2,
+          league: "Premier League",
+          match: "City vs Arsenal",
+          market: "BTTS",
+          odd: 1.72,
+          minute: 54,
+          status: "AO VIVO"
         }
-      }
-    );
-
-    const data = await response.json();
-
-    res.json(data);
+      ]
+    });
   } catch (error) {
     res.status(500).json({
       error: error.message
