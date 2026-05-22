@@ -15,17 +15,17 @@
     "@supabase/supabase-js": "latest",
     "@vitejs/plugin-react": "latest",
     "axios": "latest",
+    "concurrently": "latest",
     "cors": "latest",
-    "dotenv": "latest",
+    "dotenv": "^16.4.5",
     "express": "latest",
     "firebase": "latest",
     "firebase-admin": "latest",
     "lucide-react": "latest",
     "mercadopago": "latest",
-    "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "concurrently": "latest"
+    "vite": "latest"
   },
   "devDependencies": {}
 }
