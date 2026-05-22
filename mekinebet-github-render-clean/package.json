@@ -3,29 +3,29 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
     "server": "node server/index.js",
-    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "deploy:firebase": "npm run build && firebase deploy"
+    "start": "node server/index.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "latest",
-    "@vitejs/plugin-react": "latest",
-    "axios": "latest",
-    "concurrently": "latest",
-    "cors": "latest",
+    "@supabase/supabase-js": "^2.45.4",
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "latest",
-    "firebase": "latest",
-    "firebase-admin": "latest",
-    "lucide-react": "latest",
-    "mercadopago": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "vite": "latest"
+    "express": "^4.21.1",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.6.0",
+    "lucide-react": "^0.468.0",
+    "mercadopago": "^2.0.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.10",
+    "@vitejs/plugin-react": "^4.3.3"
   },
   "devDependencies": {}
 }
