@@ -1,87 +1,50 @@
-import { useEffect, useState } from "react";
-
 export default function App() {
-
-  const [signals, setSignals] = useState([]);
-  const [backendOnline, setBackendOnline] = useState(false);
-
-  useEffect(() => {
-
-    const fetchSignals = async () => {
-
-      try {
-
-        const response = await fetch(
-          "https://mekinebet.onrender.com/api/signals"
-        );
-
-        const data = await response.json();
-
-        setSignals(data.activeSignals || []);
-
-        setBackendOnline(true);
-
-      } catch (error) {
-
-        console.error(error);
-
-        setBackendOnline(false);
-
-      }
-
-    };
-
-    fetchSignals();
-
-  }, []);
+  const sinais = [
+    {
+      jogo: "Flamengo vs Palmeiras",
+      mercado: "Over 2.5 FT",
+      odd: 1.85
+    },
+    {
+      jogo: "Manchester City vs Arsenal",
+      mercado: "BTTS",
+      odd: 1.72
+    },
+    {
+      jogo: "Real Madrid vs Sevilla",
+      mercado: "Favorito Forte",
+      odd: 1.55
+    }
+  ];
 
   return (
     <div
       style={{
         background: "#050816",
-        color: "white",
         minHeight: "100vh",
-        padding: "20px",
+        color: "white",
+        padding: "30px",
         fontFamily: "Arial"
       }}
     >
+      <h1>MekineBet AO VIVO</h1>
 
-      <h1>MekineBet</h1>
-
-      <h2>
-        Backend:
-        {" "}
-        {backendOnline ? "ONLINE ✅" : "OFFLINE ❌"}
-      </h2>
-
-      <hr />
-
-      {signals.map((signal) => (
-
+      {sinais.map((sinal, index) => (
         <div
-          key={signal.id}
+          key={index}
           style={{
-            border: "1px solid #00ff99",
-            borderRadius: "10px",
-            padding: "15px",
-            marginBottom: "15px"
+            background: "#111827",
+            padding: "20px",
+            borderRadius: "12px",
+            marginTop: "20px",
+            border: "1px solid #00ff99"
           }}
         >
-
-          <h2>{signal.match}</h2>
-
-          <p>{signal.league}</p>
-
-          <p>{signal.market}</p>
-
-          <p>Odd: {signal.odd}</p>
-
-          <p>Status: {signal.status}</p>
-
+          <h2>{sinal.jogo}</h2>
+          <p>{sinal.mercado}</p>
+          <strong>Odd: {sinal.odd}</strong>
         </div>
-
       ))}
-
     </div>
   );
 }
