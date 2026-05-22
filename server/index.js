@@ -15,12 +15,29 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", (req, res) => {
   res.json({
-    status: "online",
-    backend: true,
-    apiFootball: true,
-    sportmonks: true,
-    oddsApi: true
+    status: "online"
   });
+});
+
+app.get("/api/live", async (req, res) => {
+  try {
+    const response = await fetch(
+      "https://v3.football.api-sports.io/fixtures?live=all",
+      {
+        headers: {
+          "x-apisports-key": process.env.API_FOOTBALL_KEY
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({
+      error: error.message
+    });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
