@@ -1,57 +1,37 @@
 import { useEffect, useState } from "react";
 
-function App() {
+export default function App() {
 
   const [signals, setSignals] = useState([]);
   const [backendOnline, setBackendOnline] = useState(false);
 
-  const [stats, setStats] = useState({
-    liveGames: 0,
-    activeSignals: 0
-  });
-
-  const fetchSignals = async () => {
-
-    try {
-
-      const response = await fetch(
-        "https://mekinebet.onrender.com/api/signals"
-      );
-
-      const data = await response.json();
-
-      console.log("API DATA:", data);
-
-      setSignals(data.activeSignals || []);
-
-      setStats({
-        liveGames: data.liveGames || 0,
-        activeSignals: data.activeSignals?.length || 0
-      });
-
-      setBackendOnline(true);
-
-    } catch (error) {
-
-      console.error(error);
-
-      setBackendOnline(false);
-
-      setSignals([]);
-
-    }
-
-  };
-
   useEffect(() => {
 
+    const fetchSignals = async () => {
+
+      try {
+
+        const response = await fetch(
+          "https://mekinebet.onrender.com/api/signals"
+        );
+
+        const data = await response.json();
+
+        setSignals(data.activeSignals || []);
+
+        setBackendOnline(true);
+
+      } catch (error) {
+
+        console.error(error);
+
+        setBackendOnline(false);
+
+      }
+
+    };
+
     fetchSignals();
-
-    const interval = setInterval(() => {
-      fetchSignals();
-    }, 30000);
-
-    return () => clearInterval(interval);
 
   }, []);
 
@@ -59,8 +39,8 @@ function App() {
     <div
       style={{
         background: "#050816",
-        minHeight: "100vh",
         color: "white",
+        minHeight: "100vh",
         padding: "20px",
         fontFamily: "Arial"
       }}
@@ -74,91 +54,34 @@ function App() {
         {backendOnline ? "ONLINE ✅" : "OFFLINE ❌"}
       </h2>
 
-      <h3>
-        Jogos ao vivo:
-        {" "}
-        {stats.liveGames}
-      </h3>
-
-      <h3>
-        Sinais ativos:
-        {" "}
-        {stats.activeSignals}
-      </h3>
-
       <hr />
 
-      {signals.length === 0 ? (
+      {signals.map((signal) => (
 
-        <p>Nenhum sinal encontrado.</p>
+        <div
+          key={signal.id}
+          style={{
+            border: "1px solid #00ff99",
+            borderRadius: "10px",
+            padding: "15px",
+            marginBottom: "15px"
+          }}
+        >
 
-      ) : (
+          <h2>{signal.match}</h2>
 
-        signals.map((signal) => (
+          <p>{signal.league}</p>
 
-          <div
-            key={signal.id}
-            style={{
-              border: "1px solid #00ff99",
-              borderRadius: "10px",
-              padding: "15px",
-              marginBottom: "15px",
-              background: "#0b1220"
-            }}
-          >
+          <p>{signal.market}</p>
 
-            <h2>{signal.match}</h2>
+          <p>Odd: {signal.odd}</p>
 
-            <p>
-              Liga:
-              {" "}
-              {signal.league}
-            </p>
+          <p>Status: {signal.status}</p>
 
-            <p>
-              Mercado:
-              {" "}
-              {signal.market}
-            </p>
+        </div>
 
-            <p>
-              Odd:
-              {" "}
-              {signal.odd}
-            </p>
-
-            <p>
-              Minuto:
-              {" "}
-              {signal.minute}
-            </p>
-
-            <p>
-              Categoria:
-              {" "}
-              {signal.category}
-            </p>
-
-            <p>
-              Favorito:
-              {" "}
-              {signal.favorito}
-            </p>
-
-            <p>
-              Status:
-              {" "}
-              {signal.status}
-            </p>
-
-          </div>
-
-        ))
-
-      )}
+      ))}
 
     </div>
   );
 }
-
-export default App;
