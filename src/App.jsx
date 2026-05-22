@@ -78,7 +78,7 @@ export default function App() {
           </p>
 
           <p>
-            <strong>Minuto:</strong> {sinal.minute}'
+            <strong>Minuto:</strong> {sinal.minute}
           </p>
         </div>
       ))}
