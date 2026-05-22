@@ -1,6 +1,5 @@
 import 'dotenv/config'
 import express from 'express'
-import cors from 'cors'
 import axios from 'axios'
 import admin from 'firebase-admin'
 import { createClient } from '@supabase/supabase-js'
@@ -8,7 +7,19 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago'
 import fs from 'fs'
 
 const app = express()
-app.use(cors({ origin: true, credentials: false }))
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-uid, x-user-email')
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200)
+  }
+
+  next()
+})
+
 app.use(express.json())
 
 let firebaseAdminReady = false
@@ -34,7 +45,7 @@ function initFirebaseAdmin() {
       return admin
     }
 
-    console.warn('Firebase Admin não configurado. Usando fallback por UID/email enviados pelo frontend.')
+    console.warn('Firebase Admin não configurado. Usando fallback.')
   } catch (err) {
     console.warn('Falha ao iniciar Firebase Admin:', err.message)
   }
@@ -45,11 +56,13 @@ function initFirebaseAdmin() {
 initFirebaseAdmin()
 
 const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 )
 
-const mpClient = process.env.MP_ACCESS_TOKEN ? new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN }) : null
+const mpClient = process.env.MP_ACCESS_TOKEN
+  ? new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN })
+  : null
 
 async function getUserFromRequest(req) {
   const token = req.headers.authorization?.replace('Bearer ', '')
@@ -81,20 +94,19 @@ async function verifyUser(req, res, next) {
   }
 }
 
-function generateSignalsFromSources({ odds = [], sportmonks = null, apifootball = [] }) {
+function generateSignalsFromSources({ odds = [], apifootball = [] }) {
   const base = []
 
   for (const game of apifootball.slice(0, 20)) {
-    const home = game.match_hometeam_name || game.home_name || 'Mandante'
-    const away = game.match_awayteam_name || game.away_name || 'Visitante'
+    const home = game.match_hometeam_name || 'Mandante'
+    const away = game.match_awayteam_name || 'Visitante'
     const status = game.match_status && game.match_status !== 'Not Started' ? 'live' : 'pre'
     const homeScore = game.match_hometeam_score ?? ''
     const awayScore = game.match_awayteam_score ?? ''
-    const minute = game.match_status || 'Pré-live'
 
     base.push({
       league: game.league_name || game.country_name || 'Futebol',
-      time: status === 'live' ? `AO VIVO ${minute}` : 'Pré-live',
+      time: status === 'live' ? `AO VIVO ${game.match_status}` : 'Pré-live',
       home,
       away,
       score: status === 'live' ? `${homeScore} - ${awayScore}` : 'vs',
@@ -144,7 +156,6 @@ app.get('/api/health', (req, res) => {
     firebaseAdminReady,
     mpConfigured: !!process.env.MP_ACCESS_TOKEN,
     supabaseConfigured: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
-    apiUrl: process.env.API_URL || null,
     appUrl: process.env.APP_URL || null
   })
 })
@@ -154,23 +165,43 @@ app.get('/api/signals', async (req, res) => {
     const today = new Date().toISOString().slice(0, 10)
 
     const results = await Promise.allSettled([
-      process.env.ODDS_API_KEY ? axios.get('https://api.the-odds-api.com/v4/sports/soccer/odds', { params: { apiKey: process.env.ODDS_API_KEY, regions: 'eu,uk', markets: 'h2h,totals', oddsFormat: 'decimal' }, timeout: 10000 }) : Promise.resolve({ data: [] }),
-      process.env.SPORTMONKS_TOKEN ? axios.get('https://api.sportmonks.com/v3/football/fixtures', { params: { api_token: process.env.SPORTMONKS_TOKEN, per_page: 10 }, timeout: 10000 }) : Promise.resolve({ data: null }),
-      process.env.APIFOOTBALL_TOKEN ? axios.get('https://apiv3.apifootball.com/', { params: { action: 'get_events', from: today, to: today, APIkey: process.env.APIFOOTBALL_TOKEN }, timeout: 10000 }) : Promise.resolve({ data: [] })
+      process.env.ODDS_API_KEY
+        ? axios.get('https://api.the-odds-api.com/v4/sports/soccer/odds', {
+            params: {
+              apiKey: process.env.ODDS_API_KEY,
+              regions: 'eu,uk',
+              markets: 'h2h,totals',
+              oddsFormat: 'decimal'
+            },
+            timeout: 10000
+          })
+        : Promise.resolve({ data: [] }),
+
+      process.env.APIFOOTBALL_TOKEN
+        ? axios.get('https://apiv3.apifootball.com/', {
+            params: {
+              action: 'get_events',
+              from: today,
+              to: today,
+              APIkey: process.env.APIFOOTBALL_TOKEN
+            },
+            timeout: 10000
+          })
+        : Promise.resolve({ data: [] })
     ])
 
     const odds = results[0].status === 'fulfilled' ? results[0].value.data : []
-    const sportmonks = results[1].status === 'fulfilled' ? results[1].value.data : null
-    const apifootball = results[2].status === 'fulfilled' && Array.isArray(results[2].value.data) ? results[2].value.data : []
+    const apifootball = results[1].status === 'fulfilled' && Array.isArray(results[1].value.data)
+      ? results[1].value.data
+      : []
 
-    const signals = generateSignalsFromSources({ odds, sportmonks, apifootball })
+    const signals = generateSignalsFromSources({ odds, apifootball })
 
     res.json({
       updated_at: new Date().toISOString(),
       sources: {
         odds: results[0].status,
-        sportmonks: results[1].status,
-        apifootball: results[2].status
+        apifootball: results[1].status
       },
       signals
     })
@@ -181,12 +212,11 @@ app.get('/api/signals', async (req, res) => {
 })
 
 app.get('/api/me/vip', verifyUser, async (req, res) => {
-  const query = supabase
+  const { data, error } = await supabase
     .from('users_vip')
     .select('*')
     .or(`firebase_uid.eq.${req.user.uid},email.eq.${req.user.email}`)
-
-  const { data, error } = await query.maybeSingle()
+    .maybeSingle()
 
   if (error) return res.status(500).json({ error: error.message })
 
@@ -195,7 +225,9 @@ app.get('/api/me/vip', verifyUser, async (req, res) => {
 
 app.post('/api/create-checkout', verifyUser, async (req, res) => {
   try {
-    if (!mpClient) return res.status(500).json({ error: 'MP_ACCESS_TOKEN não configurado no Render' })
+    if (!mpClient) {
+      return res.status(500).json({ error: 'MP_ACCESS_TOKEN não configurado no Render' })
+    }
 
     const preference = new Preference(mpClient)
     const appUrl = process.env.APP_URL || 'https://mekinebet-bd1a6.web.app'
@@ -228,14 +260,12 @@ app.post('/api/create-checkout', verifyUser, async (req, res) => {
       }
     })
 
-    const initPoint = response.init_point || response.body?.init_point
-    const sandboxPoint = response.sandbox_init_point || response.body?.sandbox_init_point
+    const checkoutUrl = response.init_point || response.sandbox_init_point
 
     res.json({
       ok: true,
-      init_point: initPoint,
-      sandbox_init_point: sandboxPoint,
-      checkout_url: initPoint || sandboxPoint
+      checkout_url: checkoutUrl,
+      init_point: checkoutUrl
     })
   } catch (err) {
     console.error('Erro checkout Mercado Pago:', err)
@@ -248,7 +278,6 @@ app.post('/api/webhook/mercadopago', async (req, res) => {
     if (!mpClient) return res.sendStatus(200)
 
     const paymentId = req.query['data.id'] || req.body?.data?.id
-
     if (!paymentId) return res.sendStatus(200)
 
     const payment = new Payment(mpClient)
