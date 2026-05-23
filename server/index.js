@@ -29,9 +29,14 @@ function limparTexto(texto) {
     .toLowerCase();
 }
 
-function linkNovibet(home, away) {
+function gerarLinksCasas(home, away) {
   const busca = encodeURIComponent(`${home} ${away}`);
-  return `https://www.novibet.com/br/apostas-esportivas#search/${busca}`;
+
+  return {
+    novibet: `https://www.novibet.com/br/apostas-esportivas#search/${busca}`,
+    betano: `https://br.betano.com/search?q=${busca}`,
+    bet365: `https://www.bet365.bet.br`
+  };
 }
 
 function detectarStatus(jogo) {
@@ -76,18 +81,25 @@ function favoritoForte(home, away, homeGoals, awayGoals) {
 }
 
 function criarSinaisDoJogo(jogo) {
-  const home = jogo.match_hometeam_name || jogo.home_name || "Mandante";
-  const away = jogo.match_awayteam_name || jogo.away_name || "Visitante";
+
+  const home = jogo.match_hometeam_name || "Mandante";
+  const away = jogo.match_awayteam_name || "Visitante";
 
   const homeGoals = Number(jogo.match_hometeam_score || 0);
   const awayGoals = Number(jogo.match_awayteam_score || 0);
+
   const totalGoals = homeGoals + awayGoals;
 
   const info = detectarStatus(jogo);
 
   if (info.type === "finished") return [];
 
-  const favorito = favoritoForte(home, away, homeGoals, awayGoals);
+  const favorito = favoritoForte(
+    home,
+    away,
+    homeGoals,
+    awayGoals
+  );
 
   const base = {
     idBase: jogo.match_id || `${home}-${away}-${Date.now()}`,
@@ -95,17 +107,23 @@ function criarSinaisDoJogo(jogo) {
     match: `${home} vs ${away}`,
     home,
     away,
-    score: info.type === "live" ? `${homeGoals} - ${awayGoals}` : "vs",
+    score:
+      info.type === "live"
+        ? `${homeGoals} - ${awayGoals}`
+        : "vs",
+
     minute: info.minute,
     type: info.type,
     status: info.status,
     favorito,
-    novibet: linkNovibet(home, away)
+
+    ...gerarLinksCasas(home, away)
   };
 
   const sinais = [];
 
   if (info.type === "live") {
+
     if (totalGoals <= 1 && Number(info.minute) >= 20) {
       sinais.push({
         ...base,
@@ -117,7 +135,11 @@ function criarSinaisDoJogo(jogo) {
       });
     }
 
-    if (totalGoals >= 1 && Number(info.minute) >= 35 && Number(info.minute) <= 75) {
+    if (
+      totalGoals >= 1 &&
+      Number(info.minute) >= 35 &&
+      Number(info.minute) <= 75
+    ) {
       sinais.push({
         ...base,
         id: `${base.idBase}-over25-live`,
@@ -139,11 +161,14 @@ function criarSinaisDoJogo(jogo) {
       });
     }
 
-    if (Math.abs(homeGoals - awayGoals) <= 1 && Number(info.minute) >= 60) {
+    if (
+      Math.abs(homeGoals - awayGoals) <= 1 &&
+      Number(info.minute) >= 60
+    ) {
       sinais.push({
         ...base,
         id: `${base.idBase}-cantos-live`,
-        market: "Cantos HT/FT",
+        market: "Over 8.5 Cantos",
         category: "cantos",
         odd: 1.90,
         confidence: 76
@@ -163,6 +188,7 @@ function criarSinaisDoJogo(jogo) {
   }
 
   if (info.type === "prelive") {
+
     sinais.push({
       ...base,
       id: `${base.idBase}-over15-pre`,
@@ -175,7 +201,7 @@ function criarSinaisDoJogo(jogo) {
     sinais.push({
       ...base,
       id: `${base.idBase}-1x-pre`,
-      market: `Dupla Chance / ${favorito} ou Empate`,
+      market: `${favorito} ou Empate`,
       category: "1x",
       odd: 1.35,
       confidence: 77
@@ -186,15 +212,22 @@ function criarSinaisDoJogo(jogo) {
 }
 
 app.get("/api/signals", async (req, res) => {
+
   try {
-    const hoje = new Date().toISOString().slice(0, 10);
+
+    const hoje = new Date()
+      .toISOString()
+      .slice(0, 10);
+
     let jogos = [];
 
     if (process.env.APIFOOTBALL_TOKEN) {
+
       const url =
         `https://apiv3.apifootball.com/?action=get_events&from=${hoje}&to=${hoje}&APIkey=${process.env.APIFOOTBALL_TOKEN}`;
 
       const response = await fetch(url);
+
       const data = await response.json();
 
       if (Array.isArray(data)) {
@@ -205,6 +238,7 @@ app.get("/api/signals", async (req, res) => {
     let sinais = jogos.flatMap(criarSinaisDoJogo);
 
     if (sinais.length === 0) {
+
       sinais = [
         {
           id: "demo-1",
@@ -221,8 +255,9 @@ app.get("/api/signals", async (req, res) => {
           favorito: "Flamengo",
           status: "AO VIVO",
           confidence: 82,
-          novibet: linkNovibet("Flamengo", "Palmeiras")
+          ...gerarLinksCasas("Flamengo", "Palmeiras")
         },
+
         {
           id: "demo-2",
           league: "Premier League",
@@ -238,23 +273,31 @@ app.get("/api/signals", async (req, res) => {
           favorito: "Manchester City",
           status: "AO VIVO",
           confidence: 80,
-          novibet: linkNovibet("Manchester City", "Arsenal")
+          ...gerarLinksCasas("Manchester City", "Arsenal")
         }
       ];
     }
 
     res.json({
       success: true,
-      liveGames: sinais.filter((s) => s.type === "live").length,
+      liveGames: sinais.filter(
+        (s) => s.type === "live"
+      ).length,
+
       activeSignals: sinais,
+
       updatedAt: new Date().toISOString()
     });
+
   } catch (error) {
+
     res.status(500).json({
       success: false,
       error: error.message
     });
+
   }
+
 });
 
 const PORT = process.env.PORT || 3000;
