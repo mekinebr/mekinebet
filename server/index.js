@@ -61,20 +61,40 @@ function criarSinalReal(jogo, index) {
     jogo.match_hometeam_name ||
     jogo.match_hometeam ||
     jogo.home_team ||
+    jogo.nome_do_time_casa ||
     "Mandante";
 
   const away =
     jogo.match_awayteam_name ||
     jogo.match_awayteam ||
     jogo.away_team ||
+    jogo.nome_do_time_fora ||
     "Visitante";
 
-  const homeGoals = Number(jogo.match_hometeam_score || 0);
-  const awayGoals = Number(jogo.match_awayteam_score || 0);
+  const homeGoals = Number(
+    jogo.match_hometeam_score ||
+    jogo.pontuacao_do_time_casa ||
+    jogo.home_scorer ||
+    0
+  );
+
+  const awayGoals = Number(
+    jogo.match_awayteam_score ||
+    jogo.pontuacao_do_time_fora ||
+    jogo.away_scorer ||
+    0
+  );
+
   const totalGoals = homeGoals + awayGoals;
 
+  const statusRaw =
+    jogo.match_status ||
+    jogo.status_da_partida ||
+    jogo.status ||
+    "LIVE";
+
   const minuto =
-    Number(String(jogo.match_status || "").replace(/[^0-9]/g, "")) || 0;
+    Number(String(statusRaw).replace(/[^0-9]/g, "")) || 0;
 
   let market = "Over 1.5 FT";
   let category = "over15";
@@ -110,15 +130,19 @@ function criarSinalReal(jogo, index) {
   }
 
   return {
-    id: `real-${jogo.match_id || index}`,
-    league: jogo.league_name || jogo.country_name || "Futebol",
+    id: `real-${jogo.match_id || jogo.id_da_partida || index}`,
+    league:
+      jogo.league_name ||
+      jogo.nome_da_liga ||
+      jogo.country_name ||
+      "Futebol",
     match: `${home} vs ${away}`,
     home,
     away,
     score: `${homeGoals} - ${awayGoals}`,
     market,
     odd,
-    minute: minuto || jogo.match_status || "LIVE",
+    minute: minuto || statusRaw || "LIVE",
     type: "live",
     category,
     favorito: homeGoals >= awayGoals ? home : away,
@@ -150,8 +174,6 @@ app.get("/api/signals", async (req, res) => {
       } catch {
         data = [];
       }
-
-      console.log("LIVE API:", data);
 
       if (Array.isArray(data) && data.length > 0) {
         apiFootballRaw = data;
