@@ -1,4 +1,68 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("MekineBet Backend Online");
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "online",
+    backend: true,
+    apiFootball: !!process.env.APIFOOTBALL_TOKEN,
+    oddsApi: !!process.env.ODDS_API_KEY,
+    sportmonks: !!process.env.SPORTMONKS_TOKEN,
+    updatedAt: new Date().toISOString()
+  });
+});
+
+function gerarLinksCasas(home, away) {
+
+  const busca = encodeURIComponent(`${home} ${away}`);
+
+  return {
+    novibet: `https://www.novibet.com/br/apostas-esportivas#search/${busca}`,
+    betano: `https://br.betano.com/search?q=${busca}`,
+    bet365: `https://www.bet365.bet.br`
+  };
+
+}
+
+function criarFallback() {
+
+  return [
+    {
+      id: "fallback-1",
+      league: "Monitoramento IA",
+      match: "Flamengo vs Palmeiras",
+      home: "Flamengo",
+      away: "Palmeiras",
+      score: "1 - 1",
+      market: "Over 2.5 FT",
+      odd: 1.85,
+      minute: 67,
+      type: "live",
+      category: "over25",
+      favorito: "Flamengo",
+      status: "AO VIVO",
+      confidence: 82,
+      fallback: true,
+      ...gerarLinksCasas("Flamengo", "Palmeiras")
+    }
+  ];
+
+}
+
 app.get("/api/signals", async (req, res) => {
+
   try {
 
     let sinais = [];
@@ -18,6 +82,7 @@ app.get("/api/signals", async (req, res) => {
         `&APIkey=${process.env.APIFOOTBALL_TOKEN}`;
 
       const response = await fetch(url);
+
       const jogos = await response.json();
 
       if (Array.isArray(jogos)) {
@@ -60,7 +125,9 @@ app.get("/api/signals", async (req, res) => {
     // =========================
 
     if (sinais.length === 0) {
+
       sinais = criarFallback();
+
     }
 
     res.json({
@@ -83,4 +150,11 @@ app.get("/api/signals", async (req, res) => {
     });
 
   }
+
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
