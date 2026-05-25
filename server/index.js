@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -24,6 +25,7 @@ app.get("/api/health", (req, res) => {
 
 function gerarLinksCasas(home, away) {
   const busca = encodeURIComponent(`${home} ${away}`);
+
   return {
     novibet: `https://www.novibet.com/br/apostas-esportivas#search/${busca}`,
     betano: `https://br.betano.com/search?q=${busca}`,
@@ -55,29 +57,56 @@ function criarFallback() {
 }
 
 function criarSinalReal(jogo, index) {
-  const home = jogo.match_hometeam_name || jogo.match_hometeam || "Mandante";
-  const away = jogo.match_awayteam_name || jogo.match_awayteam || "Visitante";
+  const home =
+    jogo.match_hometeam_name ||
+    jogo.match_hometeam ||
+    jogo.home_team ||
+    "Mandante";
+
+  const away =
+    jogo.match_awayteam_name ||
+    jogo.match_awayteam ||
+    jogo.away_team ||
+    "Visitante";
 
   const homeGoals = Number(jogo.match_hometeam_score || 0);
   const awayGoals = Number(jogo.match_awayteam_score || 0);
   const totalGoals = homeGoals + awayGoals;
 
-  const minuto = Number(String(jogo.match_status || "").replace(/[^0-9]/g, "")) || 0;
+  const minuto =
+    Number(String(jogo.match_status || "").replace(/[^0-9]/g, "")) || 0;
 
   let market = "Over 1.5 FT";
   let category = "over15";
   let odd = 1.45;
+  let confidence = 78;
 
   if (totalGoals >= 1) {
     market = "Over 2.5 FT";
     category = "over25";
     odd = 1.85;
+    confidence = 82;
+  }
+
+  if (totalGoals >= 2) {
+    market = "Over 3.5 FT";
+    category = "over35";
+    odd = 2.1;
+    confidence = 76;
   }
 
   if (homeGoals > 0 && awayGoals > 0) {
     market = "BTTS / Ambas Marcam";
     category = "btts";
     odd = 1.72;
+    confidence = 84;
+  }
+
+  if (minuto >= 60 && Math.abs(homeGoals - awayGoals) <= 1) {
+    market = "Over 8.5 Cantos";
+    category = "cantos";
+    odd = 1.9;
+    confidence = 76;
   }
 
   return {
@@ -94,7 +123,7 @@ function criarSinalReal(jogo, index) {
     category,
     favorito: homeGoals >= awayGoals ? home : away,
     status: "AO VIVO",
-    confidence: 82,
+    confidence,
     fallback: false,
     ...gerarLinksCasas(home, away)
   };
@@ -112,9 +141,19 @@ app.get("/api/signals", async (req, res) => {
         `&APIkey=${process.env.APIFOOTBALL_TOKEN}`;
 
       const response = await fetch(url);
-      const data = await response.json();
+      const texto = await response.text();
 
-      if (Array.isArray(data)) {
+      let data = [];
+
+      try {
+        data = JSON.parse(texto);
+      } catch {
+        data = [];
+      }
+
+      console.log("LIVE API:", data);
+
+      if (Array.isArray(data) && data.length > 0) {
         apiFootballRaw = data;
         sinais = data.map(criarSinalReal);
       }
