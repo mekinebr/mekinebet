@@ -4,7 +4,7 @@ export default function App() {
   const [signals, setSignals] = useState([]);
 
   useEffect(() => {
-    async function load() {
+    async function carregar() {
       try {
         const res = await fetch(
           "https://mekinebet.onrender.com/api/signals"
@@ -18,7 +18,7 @@ export default function App() {
       }
     }
 
-    load();
+    carregar();
   }, []);
 
   return (
@@ -27,13 +27,13 @@ export default function App() {
         background: "#020617",
         minHeight: "100vh",
         color: "white",
-        padding: "20px",
+        padding: 20,
         fontFamily: "Arial"
       }}
     >
       <h1>MekineBet AO VIVO</h1>
 
-      <p>Sinais: {signals.length}</p>
+      <h2>Sinais: {signals.length}</h2>
 
       {signals.map((item) => (
         <div
@@ -42,7 +42,7 @@ export default function App() {
             background: "#111827",
             padding: 20,
             marginTop: 20,
-            borderRadius: 10,
+            borderRadius: 12,
             border: "1px solid #00ffcc"
           }}
         >
