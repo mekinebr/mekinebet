@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 export default function App() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState("LIVE");
+  const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
   const [ultimoAlerta, setUltimoAlerta] = useState(null);
