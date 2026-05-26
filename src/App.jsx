@@ -9,7 +9,9 @@ export default function App() {
 
   async function carregar() {
     try {
-      const res = await fetch("https://mekinebet.onrender.com/api/signals");
+      const res = await fetch(
+        "https://mekinebet.onrender.com/api/signals"
+      );
 
       const data = await res.json();
 
@@ -45,7 +47,7 @@ export default function App() {
   }
 
   const sinaisFiltrados = useMemo(() => {
-    return signals.filter((item) => {
+    let filtrados = signals.filter((item) => {
       const texto =
         `${item.match} ${item.league} ${item.market}`.toLowerCase();
 
@@ -84,6 +86,12 @@ export default function App() {
         );
       }
 
+      if (filtro === "TOP IA") {
+        return (
+          (item.confidence || 70) >= 82
+        );
+      }
+
       if (filtro === "ALERTA") {
         return (
           isLiveReal(item) &&
@@ -93,6 +101,24 @@ export default function App() {
 
       return true;
     });
+
+    filtrados.sort((a, b) => {
+      const confA = a.confidence || 70;
+      const confB = b.confidence || 70;
+
+      const pressA = a.pressure || 70;
+      const pressB = b.pressure || 70;
+
+      const scoreA =
+        confA * 2 + pressA;
+
+      const scoreB =
+        confB * 2 + pressB;
+
+      return scoreB - scoreA;
+    });
+
+    return filtrados;
   }, [signals, busca, filtro]);
 
   const liveCount =
@@ -126,7 +152,9 @@ export default function App() {
         </div>
       </div>
 
-      <h2>Sinais: {sinaisFiltrados.length}</h2>
+      <h2>
+        Sinais: {sinaisFiltrados.length}
+      </h2>
 
       {liveCount === 0 &&
         filtro === "LIVE" && (
@@ -193,6 +221,7 @@ export default function App() {
           "OVER25",
           "BTTS",
           "HISTORICO",
+          "TOP IA",
           "TODOS"
         ].map((btn) => (
           <button
@@ -300,6 +329,13 @@ export default function App() {
                   : "📊 BASE"}
               </div>
             </div>
+
+            {(item.confidence || 70) >=
+              82 && (
+              <div style={topIaBadge}>
+                🔥 TOP IA
+              </div>
+            )}
 
             <div style={infoGrid}>
               <div>
@@ -528,6 +564,17 @@ const historyBadge = {
   padding: "8px 14px",
   borderRadius: 999,
   fontWeight: "bold"
+};
+
+const topIaBadge = {
+  background: "#22c55e",
+  color: "#000",
+  padding: "8px 14px",
+  borderRadius: 999,
+  fontWeight: "900",
+  display: "inline-block",
+  marginTop: 20,
+  marginBottom: 5
 };
 
 const infoGrid = {
