@@ -3,14 +3,16 @@ import React, { useEffect, useMemo, useState } from "react";
 export default function App() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState("TODOS");
+  const [filtro, setFiltro] = useState("LIVE");
   const [busca, setBusca] = useState("");
+  const [lastUpdate, setLastUpdate] = useState("");
 
   async function carregar() {
     try {
       const res = await fetch("https://mekinebet.onrender.com/api/signals");
       const data = await res.json();
       setSignals(data.activeSignals || []);
+      setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (err) {
       console.log(err);
     } finally {
@@ -30,20 +32,29 @@ export default function App() {
     return { texto: "💎 VALOR", cor: "#3b82f6" };
   }
 
+  function isLiveReal(item) {
+    return item.type === "live" && item.source === "api-sports-live";
+  }
+
   const sinaisFiltrados = useMemo(() => {
     return signals.filter((item) => {
       const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
       if (!texto.includes(busca.toLowerCase())) return false;
 
       if (filtro === "TODOS") return true;
-      if (filtro === "LIVE") return item.type === "live";
-      if (filtro === "OVER15") return item.category === "over15";
-      if (filtro === "OVER25") return item.category === "over25";
-      if (filtro === "BTTS") return item.category === "btts";
-      if (filtro === "ALERTA") return item.alert?.includes("GOL");
+      if (filtro === "LIVE") return isLiveReal(item);
+      if (filtro === "HISTORICO") return !isLiveReal(item);
+      if (filtro === "OVER15") return isLiveReal(item) && item.category === "over15";
+      if (filtro === "OVER25") return isLiveReal(item) && item.category === "over25";
+      if (filtro === "BTTS") return isLiveReal(item) && item.category === "btts";
+      if (filtro === "ALERTA") return isLiveReal(item) && item.alert?.includes("GOL");
+
       return true;
     });
   }, [signals, busca, filtro]);
+
+  const liveCount = signals.filter(isLiveReal).length;
+  const alertCount = signals.filter((s) => isLiveReal(s) && s.alert?.includes("GOL")).length;
 
   return (
     <>
@@ -66,10 +77,16 @@ export default function App() {
       <div style={page}>
         <h1 style={title}>MekineBet AO VIVO</h1>
 
+        <div style={statusGrid}>
+          <div style={statusBox}>🔴 Live real: {liveCount}</div>
+          <div style={statusBox}>🚨 Alertas: {alertCount}</div>
+          <div style={statusBox}>🔄 Atualizado: {lastUpdate || "carregando..."}</div>
+        </div>
+
         <h2>Sinais: {sinaisFiltrados.length}</h2>
 
         <div style={filters}>
-          {["TODOS", "LIVE", "OVER15", "OVER25", "BTTS", "ALERTA"].map((btn) => (
+          {["LIVE", "ALERTA", "OVER15", "OVER25", "BTTS", "HISTORICO", "TODOS"].map((btn) => (
             <button
               key={btn}
               onClick={() => setFiltro(btn)}
@@ -89,11 +106,22 @@ export default function App() {
 
         {loading && <p>Carregando sinais...</p>}
 
+        {!loading && sinaisFiltrados.length === 0 && (
+          <div style={emptyBox}>
+            Nenhum sinal encontrado nesse filtro. O sistema continua monitorando.
+          </div>
+        )}
+
         {sinaisFiltrados
-          .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+          .sort((a, b) => {
+            const alertaA = a.alert?.includes("IMINENTE") ? 1000 : 0;
+            const alertaB = b.alert?.includes("IMINENTE") ? 1000 : 0;
+            return alertaB + (b.confidence || 0) - (alertaA + (a.confidence || 0));
+          })
           .map((item) => {
             const badge = badgeIA(item.confidence || 70);
             const golIminente = item.alert?.includes("IMINENTE");
+            const liveReal = isLiveReal(item);
 
             return (
               <div
@@ -119,16 +147,19 @@ export default function App() {
                     {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
                   </div>
 
-                  <div style={liveBadge}>🔴 AO VIVO</div>
+                  <div style={liveReal ? liveBadge : historyBadge}>
+                    {liveReal ? "🔴 AO VIVO" : "📊 BASE"}
+                  </div>
                 </div>
 
                 <div style={infoGrid}>
                   <div><b>⚽ Placar:</b> {item.score}</div>
                   <div><b>🎯 Mercado:</b> {item.market}</div>
                   <div><b>💰 Odd:</b> {item.odd}</div>
-                  <div><b>⏱️ Minuto:</b> {item.minute}'</div>
-                  <div><b>🤖 IA:</b> {item.confidence}%</div>
+                  <div><b>⏱️ Minuto:</b> {liveReal ? `${item.minute}'` : "Pré/Base"}</div>
+                  <div><b>🤖 IA:</b> {item.confidence || 70}%</div>
                   <div><b>🔥 Pressão:</b> {item.pressure || 70}%</div>
+                  <div><b>📡 Fonte:</b> {item.source || "MekineBet IA"}</div>
                 </div>
 
                 <div style={barBg}>
@@ -137,9 +168,9 @@ export default function App() {
                       ...barFill,
                       width: `${item.confidence || 70}%`,
                       background:
-                        item.confidence >= 85
+                        (item.confidence || 70) >= 85
                           ? "#22c55e"
-                          : item.confidence >= 78
+                          : (item.confidence || 70) >= 78
                           ? "#f59e0b"
                           : "#3b82f6"
                     }}
@@ -186,6 +217,21 @@ const title = {
   marginBottom: 10
 };
 
+const statusGrid = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 18
+};
+
+const statusBox = {
+  background: "#111827",
+  border: "1px solid #00ffcc",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: "bold"
+};
+
 const filters = {
   display: "flex",
   gap: 10,
@@ -218,6 +264,14 @@ const input = {
   color: "white",
   marginBottom: 30,
   fontSize: 16
+};
+
+const emptyBox = {
+  background: "#111827",
+  border: "1px solid #00ffcc",
+  borderRadius: 14,
+  padding: 20,
+  fontWeight: "bold"
 };
 
 const card = {
@@ -268,6 +322,13 @@ const liveBadge = {
   borderRadius: 999,
   fontWeight: "bold",
   animation: "livePulse 1.5s infinite"
+};
+
+const historyBadge = {
+  background: "#334155",
+  padding: "8px 14px",
+  borderRadius: 999,
+  fontWeight: "bold"
 };
 
 const infoGrid = {
