@@ -3,26 +3,22 @@ import { useEffect, useState } from "react";
 export default function App() {
   const [signals, setSignals] = useState([]);
 
-  async function carregar() {
-    try {
-      const response = await fetch(
-        "https://mekinebet.onrender.com/api/signals"
-      );
-
-      const data = await response.json();
-
-      setSignals(data.activeSignals || []);
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
   useEffect(() => {
-    carregar();
+    async function load() {
+      try {
+        const res = await fetch(
+          "https://mekinebet.onrender.com/api/signals"
+        );
 
-    const interval = setInterval(carregar, 10000);
+        const data = await res.json();
 
-    return () => clearInterval(interval);
+        setSignals(data.activeSignals || []);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    load();
   }, []);
 
   return (
@@ -31,46 +27,38 @@ export default function App() {
         background: "#020617",
         minHeight: "100vh",
         color: "white",
-        padding: 20,
+        padding: "20px",
         fontFamily: "Arial"
       }}
     >
       <h1>MekineBet AO VIVO</h1>
 
-      <h2>Sinais: {signals.length}</h2>
+      <p>Sinais: {signals.length}</p>
 
-      <div
-        style={{
-          display: "grid",
-          gap: 20
-        }}
-      >
-        {signals.map((s) => (
-          <div
-            key={s.id}
-            style={{
-              background: "#111827",
-              padding: 20,
-              borderRadius: 12,
-              border: "1px solid #00ffcc"
-            }}
-          >
-            <h2>{s.match}</h2>
+      {signals.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            background: "#111827",
+            padding: 20,
+            marginTop: 20,
+            borderRadius: 10,
+            border: "1px solid #00ffcc"
+          }}
+        >
+          <h2>{item.match}</h2>
 
-            <p>Liga: {s.league}</p>
+          <p>Liga: {item.league}</p>
 
-            <p>Placar: {s.score}</p>
+          <p>Placar: {item.score}</p>
 
-            <p>Mercado: {s.market}</p>
+          <p>Mercado: {item.market}</p>
 
-            <p>Odd: {s.odd}</p>
+          <p>Odd: {item.odd}</p>
 
-            <p>Status: {s.status}</p>
-
-            <p>Confiança: {s.confidence}%</p>
-          </div>
-        ))}
-      </div>
+          <p>Status: {item.status}</p>
+        </div>
+      ))}
     </div>
   );
 }
