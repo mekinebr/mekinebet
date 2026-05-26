@@ -170,96 +170,137 @@ export default function App() {
         <p>Carregando sinais...</p>
       )}
 
-      {sinaisFiltrados.map((item) => {
-        const badge = badgeIA(
-          item.confidence || 70
-        );
+      {sinaisFiltrados
+        .sort(
+          (a, b) =>
+            (b.confidence || 0) -
+            (a.confidence || 0)
+        )
+        .map((item) => {
+          const badge = badgeIA(
+            item.confidence || 70
+          );
 
-        return (
-          <div
-            key={item.id}
-            style={{
-              background:
-                "linear-gradient(180deg,#081225,#0f172a)",
-              padding: 25,
-              marginBottom: 25,
-              borderRadius: 18,
-              border: "1px solid #00ffcc",
-              boxShadow:
-                "0 0 15px rgba(0,255,204,0.15)"
-            }}
-          >
+          return (
             <div
+              key={item.id}
               style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 10
+                background:
+                  "linear-gradient(180deg,#081225,#0f172a)",
+                padding: 25,
+                marginBottom: 25,
+                borderRadius: 18,
+                border:
+                  "1px solid #00ffcc",
+                boxShadow:
+                  "0 0 15px rgba(0,255,204,0.15)"
               }}
             >
-              <h2
+              <div
                 style={{
-                  color: "#00ffcc",
-                  fontSize: 35,
-                  margin: 0
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10
                 }}
               >
-                {item.match}
-              </h2>
+                <div>
+                  <h2
+                    style={{
+                      color: "#00ffcc",
+                      fontSize: 35,
+                      margin: 0
+                    }}
+                  >
+                    {item.match}
+                  </h2>
+
+                  <p
+                    style={{
+                      color: "#94a3b8",
+                      marginTop: 10
+                    }}
+                  >
+                    {item.league}
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    background: "#dc2626",
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    fontWeight: "bold"
+                  }}
+                >
+                  🔴 AO VIVO
+                </div>
+              </div>
 
               <div
                 style={{
-                  background: "#dc2626",
-                  padding:
-                    "8px 14px",
-                  borderRadius: 999,
-                  fontWeight: "bold",
-                  animation:
-                    "pulse 1s infinite"
+                  display: "grid",
+                  gap: 12,
+                  marginTop: 20,
+                  fontSize: 20
                 }}
               >
-                🔴 AO VIVO
-              </div>
-            </div>
+                <div>
+                  <b>⚽ Placar:</b>{" "}
+                  {item.score}
+                </div>
 
-            <div
-              style={{
-                marginTop: 20,
-                display: "grid",
-                gap: 12,
-                fontSize: 20
-              }}
-            >
-              <div>
-                <b>Liga:</b>{" "}
-                {item.league}
-              </div>
+                <div>
+                  <b>🎯 Mercado:</b>{" "}
+                  {item.market}
+                </div>
 
-              <div>
-                <b>Placar:</b>{" "}
-                {item.score}
-              </div>
+                <div>
+                  <b>💰 Odd:</b>{" "}
+                  {item.odd}
+                </div>
 
-              <div>
-                <b>Mercado:</b>{" "}
-                {item.market}
-              </div>
+                <div>
+                  <b>⏱️ Minuto:</b>{" "}
+                  {item.minute}'
+                </div>
 
-              <div>
-                <b>Odd:</b>{" "}
-                {item.odd}
+                <div>
+                  <b>🤖 IA:</b>{" "}
+                  {item.confidence}%
+                </div>
               </div>
 
-              <div>
-                <b>Minuto:</b>{" "}
-                {item.minute}'
-              </div>
-
-              <div>
-                <b>Confiança IA:</b>{" "}
-                {item.confidence}%
+              <div
+                style={{
+                  marginTop: 20
+                }}
+              >
+                <div
+                  style={{
+                    height: 16,
+                    background: "#1e293b",
+                    borderRadius: 999,
+                    overflow: "hidden"
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${item.confidence}%`,
+                      background:
+                        item.confidence >=
+                        85
+                          ? "#22c55e"
+                          : item.confidence >=
+                            78
+                          ? "#f59e0b"
+                          : "#3b82f6",
+                      height: "100%"
+                    }}
+                  />
+                </div>
               </div>
 
               <div
@@ -267,76 +308,75 @@ export default function App() {
                   background: badge.cor,
                   color: "white",
                   width: "fit-content",
-                  padding:
-                    "10px 18px",
+                  padding: "10px 18px",
                   borderRadius: 10,
                   fontWeight: "bold",
-                  fontSize: 18
+                  fontSize: 18,
+                  marginTop: 20
                 }}
               >
                 {badge.texto}
               </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginTop: 25
+                }}
+              >
+                <a
+                  href={item.betano}
+                  target="_blank"
+                  style={{
+                    background: "#22c55e",
+                    padding:
+                      "12px 18px",
+                    borderRadius: 10,
+                    color: "white",
+                    textDecoration: "none",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Betano
+                </a>
+
+                <a
+                  href={item.novibet}
+                  target="_blank"
+                  style={{
+                    background: "#2563eb",
+                    padding:
+                      "12px 18px",
+                    borderRadius: 10,
+                    color: "white",
+                    textDecoration: "none",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Novibet
+                </a>
+
+                <a
+                  href={item.bet365}
+                  target="_blank"
+                  style={{
+                    background: "#f59e0b",
+                    padding:
+                      "12px 18px",
+                    borderRadius: 10,
+                    color: "white",
+                    textDecoration: "none",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Bet365
+                </a>
+              </div>
             </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                flexWrap: "wrap",
-                marginTop: 25
-              }}
-            >
-              <a
-                href={item.betano}
-                target="_blank"
-                style={{
-                  background: "#22c55e",
-                  padding:
-                    "12px 18px",
-                  borderRadius: 10,
-                  color: "white",
-                  textDecoration: "none",
-                  fontWeight: "bold"
-                }}
-              >
-                Betano
-              </a>
-
-              <a
-                href={item.novibet}
-                target="_blank"
-                style={{
-                  background: "#2563eb",
-                  padding:
-                    "12px 18px",
-                  borderRadius: 10,
-                  color: "white",
-                  textDecoration: "none",
-                  fontWeight: "bold"
-                }}
-              >
-                Novibet
-              </a>
-
-              <a
-                href={item.bet365}
-                target="_blank"
-                style={{
-                  background: "#f59e0b",
-                  padding:
-                    "12px 18px",
-                  borderRadius: 10,
-                  color: "white",
-                  textDecoration: "none",
-                  fontWeight: "bold"
-                }}
-              >
-                Bet365
-              </a>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }
