@@ -46,95 +46,129 @@ export default function App() {
   }, [signals, busca, filtro]);
 
   return (
-    <div style={page}>
-      <h1 style={title}>MekineBet AO VIVO</h1>
+    <>
+      <style>
+        {`
+          @keyframes pulseCard {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.01); }
+            100% { transform: scale(1); }
+          }
 
-      <h2>Sinais: {sinaisFiltrados.length}</h2>
+          @keyframes livePulse {
+            0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.8); }
+            70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+            100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+          }
+        `}
+      </style>
 
-      <div style={filters}>
-        {["TODOS", "LIVE", "OVER15", "OVER25", "BTTS", "ALERTA"].map((btn) => (
-          <button
-            key={btn}
-            onClick={() => setFiltro(btn)}
-            style={filtro === btn ? activeBtn : btnStyle}
-          >
-            {btn}
-          </button>
-        ))}
-      </div>
+      <div style={page}>
+        <h1 style={title}>MekineBet AO VIVO</h1>
 
-      <input
-        placeholder="Buscar jogo, liga ou mercado..."
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        style={input}
-      />
+        <h2>Sinais: {sinaisFiltrados.length}</h2>
 
-      {loading && <p>Carregando sinais...</p>}
+        <div style={filters}>
+          {["TODOS", "LIVE", "OVER15", "OVER25", "BTTS", "ALERTA"].map((btn) => (
+            <button
+              key={btn}
+              onClick={() => setFiltro(btn)}
+              style={filtro === btn ? activeBtn : btnStyle}
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
 
-      {sinaisFiltrados
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-        .map((item) => {
-          const badge = badgeIA(item.confidence || 70);
+        <input
+          placeholder="Buscar jogo, liga ou mercado..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={input}
+        />
 
-          return (
-            <div key={item.id} style={card}>
-              <div style={header}>
-                <div style={teams}>
-                  {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
+        {loading && <p>Carregando sinais...</p>}
 
-                  <div>
-                    <h2 style={matchTitle}>{item.match}</h2>
-                    <p style={league}>{item.league}</p>
+        {sinaisFiltrados
+          .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+          .map((item) => {
+            const badge = badgeIA(item.confidence || 70);
+            const golIminente = item.alert?.includes("IMINENTE");
+
+            return (
+              <div
+                key={item.id}
+                style={{
+                  ...card,
+                  border: golIminente ? "2px solid #ff0000" : "1px solid #00ffcc",
+                  boxShadow: golIminente
+                    ? "0 0 28px rgba(255,0,0,0.85)"
+                    : "0 0 15px rgba(0,255,204,0.15)",
+                  animation: golIminente ? "pulseCard 1s infinite" : "none"
+                }}
+              >
+                <div style={header}>
+                  <div style={teams}>
+                    {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
+
+                    <div>
+                      <h2 style={matchTitle}>{item.match}</h2>
+                      <p style={league}>{item.league}</p>
+                    </div>
+
+                    {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
                   </div>
 
-                  {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
+                  <div style={liveBadge}>🔴 AO VIVO</div>
                 </div>
 
-                <div style={liveBadge}>🔴 AO VIVO</div>
-              </div>
+                <div style={infoGrid}>
+                  <div><b>⚽ Placar:</b> {item.score}</div>
+                  <div><b>🎯 Mercado:</b> {item.market}</div>
+                  <div><b>💰 Odd:</b> {item.odd}</div>
+                  <div><b>⏱️ Minuto:</b> {item.minute}'</div>
+                  <div><b>🤖 IA:</b> {item.confidence}%</div>
+                  <div><b>🔥 Pressão:</b> {item.pressure || 70}%</div>
+                </div>
 
-              <div style={infoGrid}>
-                <div><b>⚽ Placar:</b> {item.score}</div>
-                <div><b>🎯 Mercado:</b> {item.market}</div>
-                <div><b>💰 Odd:</b> {item.odd}</div>
-                <div><b>⏱️ Minuto:</b> {item.minute}'</div>
-                <div><b>🤖 IA:</b> {item.confidence}%</div>
-                <div><b>🔥 Pressão:</b> {item.pressure || 70}%</div>
-              </div>
+                <div style={barBg}>
+                  <div
+                    style={{
+                      ...barFill,
+                      width: `${item.confidence || 70}%`,
+                      background:
+                        item.confidence >= 85
+                          ? "#22c55e"
+                          : item.confidence >= 78
+                          ? "#f59e0b"
+                          : "#3b82f6"
+                    }}
+                  />
+                </div>
 
-              <div style={barBg}>
+                <div style={{ ...badgeBox, background: badge.cor }}>
+                  {badge.texto}
+                </div>
+
                 <div
                   style={{
-                    ...barFill,
-                    width: `${item.confidence || 70}%`,
-                    background:
-                      item.confidence >= 85
-                        ? "#22c55e"
-                        : item.confidence >= 78
-                        ? "#f59e0b"
-                        : "#3b82f6"
+                    ...alertBox,
+                    background: golIminente ? "#ff0000" : "#dc2626"
                   }}
-                />
-              </div>
+                >
+                  {item.alert || "MONITORAMENTO IA"}
+                </div>
 
-              <div style={{ ...badgeBox, background: badge.cor }}>
-                {badge.texto}
+                <div style={buttons}>
+                  <a href={item.betano} target="_blank" rel="noreferrer" style={betano}>Betano</a>
+                  <a href={item.novibet} target="_blank" rel="noreferrer" style={novibet}>Novibet</a>
+                  <a href={item.bet365} target="_blank" rel="noreferrer" style={bet365}>Bet365</a>
+                </div>
               </div>
-
-              <div style={alertBox}>
-                {item.alert || "MONITORAMENTO IA"}
-              </div>
-
-              <div style={buttons}>
-                <a href={item.betano} target="_blank" rel="noreferrer" style={betano}>Betano</a>
-                <a href={item.novibet} target="_blank" rel="noreferrer" style={novibet}>Novibet</a>
-                <a href={item.bet365} target="_blank" rel="noreferrer" style={bet365}>Bet365</a>
-              </div>
-            </div>
-          );
-        })}
-    </div>
+            );
+          })}
+      </div>
+    </>
   );
 }
 
@@ -190,9 +224,7 @@ const card = {
   background: "linear-gradient(180deg,#081225,#0f172a)",
   padding: 25,
   marginBottom: 25,
-  borderRadius: 18,
-  border: "1px solid #00ffcc",
-  boxShadow: "0 0 15px rgba(0,255,204,0.15)"
+  borderRadius: 18
 };
 
 const header = {
@@ -234,7 +266,8 @@ const liveBadge = {
   background: "#dc2626",
   padding: "8px 14px",
   borderRadius: 999,
-  fontWeight: "bold"
+  fontWeight: "bold",
+  animation: "livePulse 1.5s infinite"
 };
 
 const infoGrid = {
@@ -267,7 +300,6 @@ const badgeBox = {
 };
 
 const alertBox = {
-  background: "#dc2626",
   padding: "10px 15px",
   borderRadius: 10,
   marginTop: 15,
