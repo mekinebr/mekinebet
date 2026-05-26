@@ -52,6 +52,8 @@ function criarFallback() {
       favorito: "Flamengo",
       status: "AO VIVO",
       confidence: 82,
+      pressure: 88,
+      alert: "🚨 GOL IMINENTE IA",
       fallback: true,
       ...gerarLinksCasas("Flamengo", "Palmeiras")
     }
@@ -142,10 +144,29 @@ async function buscarApiSportsLive() {
 
       const homeGoals = jogo.goals?.home ?? 0;
       const awayGoals = jogo.goals?.away ?? 0;
-
       const minuto = jogo.fixture?.status?.elapsed || "LIVE";
 
-      return criarSinalBase({
+      const totalGoals = Number(homeGoals) + Number(awayGoals);
+
+      let pressure = 70;
+      let alert = "MONITORAMENTO IA";
+
+      if (minuto >= 20 && totalGoals === 0) {
+        pressure = 78;
+        alert = "⚡ PRESSÃO OFENSIVA";
+      }
+
+      if (minuto >= 55 && totalGoals >= 1) {
+        pressure = 84;
+        alert = "🔥 GOL PODE SAIR";
+      }
+
+      if (minuto >= 70 && Math.abs(homeGoals - awayGoals) <= 1) {
+        pressure = 90;
+        alert = "🚨 GOL IMINENTE IA";
+      }
+
+      const sinal = criarSinalBase({
         id: `apisports-${jogo.fixture?.id || index}`,
         source: "api-sports-live",
         league: jogo.league?.name || "API-SPORTS",
@@ -157,6 +178,17 @@ async function buscarApiSportsLive() {
         minute: minuto,
         type: "live"
       });
+
+      return {
+        ...sinal,
+        pressure,
+        alert,
+        fixtureId: jogo.fixture?.id,
+        country: jogo.league?.country || "",
+        logoHome: jogo.teams?.home?.logo || "",
+        logoAway: jogo.teams?.away?.logo || "",
+        leagueLogo: jogo.league?.logo || ""
+      };
     });
   } catch (error) {
     console.log("ERRO API-SPORTS:", error.message);
