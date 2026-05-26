@@ -6,13 +6,31 @@ export default function App() {
   const [filtro, setFiltro] = useState("LIVE");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
+  const [ultimoAlerta, setUltimoAlerta] = useState(null);
 
   async function carregar() {
     try {
       const res = await fetch("https://mekinebet.onrender.com/api/signals");
       const data = await res.json();
-      setSignals(data.activeSignals || []);
+
+      const novos = data.activeSignals || [];
+      setSignals(novos);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
+
+      const alerta = novos.find((s) => s.alert?.includes("IMINENTE"));
+
+      if (alerta && alerta.id !== ultimoAlerta) {
+        setUltimoAlerta(alerta.id);
+
+        const audio = new Audio(
+          "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
+        );
+
+        audio.volume = 0.4;
+        audio.play().catch(() => {});
+
+        alert(`🚨 GOL IMINENTE IA\n\n${alerta.match}\n${alerta.market}`);
+      }
     } catch (err) {
       console.log(err);
     } finally {
@@ -24,7 +42,7 @@ export default function App() {
     carregar();
     const intervalo = setInterval(carregar, 30000);
     return () => clearInterval(intervalo);
-  }, []);
+  }, [ultimoAlerta]);
 
   function badgeIA(conf) {
     if (conf >= 85) return { texto: "🔥 SINAL FORTE", cor: "#22c55e" };
@@ -87,11 +105,7 @@ export default function App() {
 
         <div style={filters}>
           {["LIVE", "ALERTA", "OVER15", "OVER25", "BTTS", "HISTORICO", "TODOS"].map((btn) => (
-            <button
-              key={btn}
-              onClick={() => setFiltro(btn)}
-              style={filtro === btn ? activeBtn : btnStyle}
-            >
+            <button key={btn} onClick={() => setFiltro(btn)} style={filtro === btn ? activeBtn : btnStyle}>
               {btn}
             </button>
           ))}
@@ -107,9 +121,7 @@ export default function App() {
         {loading && <p>Carregando sinais...</p>}
 
         {!loading && sinaisFiltrados.length === 0 && (
-          <div style={emptyBox}>
-            Nenhum sinal encontrado nesse filtro. O sistema continua monitorando.
-          </div>
+          <div style={emptyBox}>Nenhum sinal encontrado nesse filtro. O sistema continua monitorando.</div>
         )}
 
         {sinaisFiltrados
@@ -181,12 +193,7 @@ export default function App() {
                   {badge.texto}
                 </div>
 
-                <div
-                  style={{
-                    ...alertBox,
-                    background: golIminente ? "#ff0000" : "#dc2626"
-                  }}
-                >
+                <div style={{ ...alertBox, background: golIminente ? "#ff0000" : "#dc2626" }}>
                   {item.alert || "MONITORAMENTO IA"}
                 </div>
 
@@ -203,197 +210,30 @@ export default function App() {
   );
 }
 
-const page = {
-  background: "#020617",
-  minHeight: "100vh",
-  color: "white",
-  padding: 20,
-  fontFamily: "Arial"
-};
-
-const title = {
-  color: "#00ffcc",
-  fontSize: 50,
-  marginBottom: 10
-};
-
-const statusGrid = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 18
-};
-
-const statusBox = {
-  background: "#111827",
-  border: "1px solid #00ffcc",
-  borderRadius: 10,
-  padding: "10px 14px",
-  fontWeight: "bold"
-};
-
-const filters = {
-  display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
-  marginBottom: 20
-};
-
-const btnStyle = {
-  background: "#111827",
-  color: "#fff",
-  border: "1px solid #00ffcc",
-  padding: "10px 20px",
-  borderRadius: 10,
-  cursor: "pointer",
-  fontWeight: "bold"
-};
-
-const activeBtn = {
-  ...btnStyle,
-  background: "#00ffcc",
-  color: "#000"
-};
-
-const input = {
-  width: "100%",
-  padding: 15,
-  borderRadius: 12,
-  border: "1px solid #00ffcc",
-  background: "#111827",
-  color: "white",
-  marginBottom: 30,
-  fontSize: 16
-};
-
-const emptyBox = {
-  background: "#111827",
-  border: "1px solid #00ffcc",
-  borderRadius: 14,
-  padding: 20,
-  fontWeight: "bold"
-};
-
-const card = {
-  background: "linear-gradient(180deg,#081225,#0f172a)",
-  padding: 25,
-  marginBottom: 25,
-  borderRadius: 18
-};
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: 15
-};
-
-const teams = {
-  display: "flex",
-  alignItems: "center",
-  gap: 18,
-  flexWrap: "wrap"
-};
-
-const logo = {
-  width: 60,
-  height: 60,
-  objectFit: "contain",
-  background: "white",
-  borderRadius: "50%",
-  padding: 5
-};
-
-const matchTitle = {
-  color: "#00ffcc",
-  fontSize: 35,
-  margin: 0
-};
-
-const league = {
-  color: "#94a3b8",
-  marginTop: 10
-};
-
-const liveBadge = {
-  background: "#dc2626",
-  padding: "8px 14px",
-  borderRadius: 999,
-  fontWeight: "bold",
-  animation: "livePulse 1.5s infinite"
-};
-
-const historyBadge = {
-  background: "#334155",
-  padding: "8px 14px",
-  borderRadius: 999,
-  fontWeight: "bold"
-};
-
-const infoGrid = {
-  display: "grid",
-  gap: 12,
-  marginTop: 20,
-  fontSize: 20
-};
-
-const barBg = {
-  height: 16,
-  background: "#1e293b",
-  borderRadius: 999,
-  overflow: "hidden",
-  marginTop: 20
-};
-
-const barFill = {
-  height: "100%"
-};
-
-const badgeBox = {
-  color: "white",
-  width: "fit-content",
-  padding: "10px 18px",
-  borderRadius: 10,
-  fontWeight: "bold",
-  fontSize: 18,
-  marginTop: 20
-};
-
-const alertBox = {
-  padding: "10px 15px",
-  borderRadius: 10,
-  marginTop: 15,
-  fontWeight: "bold",
-  width: "fit-content"
-};
-
-const buttons = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-  marginTop: 25
-};
-
-const linkBase = {
-  padding: "12px 18px",
-  borderRadius: 10,
-  color: "white",
-  textDecoration: "none",
-  fontWeight: "bold"
-};
-
-const betano = {
-  ...linkBase,
-  background: "#22c55e"
-};
-
-const novibet = {
-  ...linkBase,
-  background: "#2563eb"
-};
-
-const bet365 = {
-  ...linkBase,
-  background: "#f59e0b"
-};
+const page = { background: "#020617", minHeight: "100vh", color: "white", padding: 20, fontFamily: "Arial" };
+const title = { color: "#00ffcc", fontSize: 50, marginBottom: 10 };
+const statusGrid = { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 };
+const statusBox = { background: "#111827", border: "1px solid #00ffcc", borderRadius: 10, padding: "10px 14px", fontWeight: "bold" };
+const filters = { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 };
+const btnStyle = { background: "#111827", color: "#fff", border: "1px solid #00ffcc", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontWeight: "bold" };
+const activeBtn = { ...btnStyle, background: "#00ffcc", color: "#000" };
+const input = { width: "100%", padding: 15, borderRadius: 12, border: "1px solid #00ffcc", background: "#111827", color: "white", marginBottom: 30, fontSize: 16 };
+const emptyBox = { background: "#111827", border: "1px solid #00ffcc", borderRadius: 14, padding: 20, fontWeight: "bold" };
+const card = { background: "linear-gradient(180deg,#081225,#0f172a)", padding: 25, marginBottom: 25, borderRadius: 18 };
+const header = { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 15 };
+const teams = { display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" };
+const logo = { width: 60, height: 60, objectFit: "contain", background: "white", borderRadius: "50%", padding: 5 };
+const matchTitle = { color: "#00ffcc", fontSize: 35, margin: 0 };
+const league = { color: "#94a3b8", marginTop: 10 };
+const liveBadge = { background: "#dc2626", padding: "8px 14px", borderRadius: 999, fontWeight: "bold", animation: "livePulse 1.5s infinite" };
+const historyBadge = { background: "#334155", padding: "8px 14px", borderRadius: 999, fontWeight: "bold" };
+const infoGrid = { display: "grid", gap: 12, marginTop: 20, fontSize: 20 };
+const barBg = { height: 16, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 20 };
+const barFill = { height: "100%" };
+const badgeBox = { color: "white", width: "fit-content", padding: "10px 18px", borderRadius: 10, fontWeight: "bold", fontSize: 18, marginTop: 20 };
+const alertBox = { padding: "10px 15px", borderRadius: 10, marginTop: 15, fontWeight: "bold", width: "fit-content" };
+const buttons = { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 25 };
+const linkBase = { padding: "12px 18px", borderRadius: 10, color: "white", textDecoration: "none", fontWeight: "bold" };
+const betano = { ...linkBase, background: "#22c55e" };
+const novibet = { ...linkBase, background: "#2563eb" };
+const bet365 = { ...linkBase, background: "#f59e0b" };
