@@ -60,7 +60,6 @@ export default function App() {
         const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
         audio.volume = 0.45;
         audio.play().catch(() => {});
-
         setTimeout(() => setPopupAlerta(null), 9000);
       }
     } catch (err) {
@@ -82,8 +81,7 @@ export default function App() {
   }
 
   function totalGols(item) {
-    const score = item.score || "0-0";
-    const nums = score.match(/\d+/g) || [0, 0];
+    const nums = String(item.score || "0-0").match(/\d+/g) || [0, 0];
     return Number(nums[0] || 0) + Number(nums[1] || 0);
   }
 
@@ -112,10 +110,8 @@ export default function App() {
     if (market.includes("1.5")) return "OVER15";
     if (market.includes("2.5")) return "OVER25";
     if (market.includes("3.5")) return "OVER35";
-    if (market.includes("cart")) return "CARTOES";
-    if (market.includes("card")) return "CARTOES";
-    if (market.includes("canto")) return "CANTOS";
-    if (market.includes("corner")) return "CANTOS";
+    if (market.includes("cart") || market.includes("card")) return "CARTOES";
+    if (market.includes("canto") || market.includes("corner")) return "CANTOS";
     if (market.includes("btts") || market.includes("ambas")) return "BTTS";
     return item.category?.toUpperCase() || "OUTROS";
   }
@@ -184,6 +180,16 @@ export default function App() {
 
   return (
     <div style={page}>
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: .45; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
+
       {popupAlerta && (
         <div style={popup}>
           <b>🚨 ALERTA IA</b>
@@ -255,7 +261,18 @@ export default function App() {
             const cat = categoriaMercado(item);
 
             return (
-              <section key={item.id || index} style={card}>
+              <section
+                key={item.id || index}
+                style={card}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-4px)";
+                  e.currentTarget.style.boxShadow = "0 0 25px rgba(0,255,135,.25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 0 18px rgba(0,255,135,.10)";
+                }}
+              >
                 <div style={cardHeader}>
                   <div style={teams}>
                     {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
@@ -284,7 +301,7 @@ export default function App() {
                     <div style={signalBox}>
                       <b>{item.market}</b>
                       <span>Status: {status}</span>
-                      <span>Odd: {item.odd || "1.72"}</span>
+                      <span style={oddBlink}>Odd: {item.odd || "1.72"}</span>
                     </div>
 
                     <div style={bars}>
@@ -298,6 +315,16 @@ export default function App() {
 
                   <div style={miniMap}>
                     <div style={field}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: `${item.pressure || 70}%`,
+                          background: "linear-gradient(90deg,rgba(255,255,0,.12),rgba(255,0,0,.10))"
+                        }}
+                      />
                       <div style={midLine}></div>
                       <div style={{ ...dot, left: `${Math.min(82, stats.ataques)}%`, top: "44%" }}></div>
                       <div style={{ ...dot2, left: `${100 - Math.min(82, stats.ataques)}%`, top: "56%" }}></div>
@@ -318,7 +345,7 @@ export default function App() {
                   <button style={betano}>Betano</button>
                   <button style={novibet}>Novibet</button>
                   <button style={bet365}>Bet365</button>
-                  <button style={vipBtn}>Liberar VIP</button>
+                  <button style={vipBtn}>VIP</button>
                 </div>
               </section>
             );
@@ -425,16 +452,19 @@ const search = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-  gap: 12
+  gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))",
+  gap: 10,
+  alignItems: "start"
 };
 
 const card = {
-  background: "linear-gradient(180deg,#101820,#07110c)",
-  border: "1px solid #00ff87",
+  background: "linear-gradient(180deg,#0b1320,#07110c)",
+  border: "1px solid rgba(0,255,135,.45)",
   borderRadius: 12,
-  padding: 12,
-  boxShadow: "0 0 14px rgba(0,255,135,.12)"
+  padding: 10,
+  minHeight: 540,
+  boxShadow: "0 0 18px rgba(0,255,135,.10)",
+  transition: ".25s"
 };
 
 const cardHeader = {
@@ -462,9 +492,10 @@ const logo = {
 
 const match = {
   color: "#00ff87",
-  fontSize: "clamp(18px, 3vw, 26px)",
+  fontSize: "clamp(15px,2vw,20px)",
   margin: 0,
-  lineHeight: 1.1
+  lineHeight: 1.05,
+  fontWeight: 900
 };
 
 const league = {
@@ -515,8 +546,9 @@ const marketBadge = {
 
 const bodyGrid = {
   display: "grid",
-  gridTemplateColumns: "1fr 220px",
-  gap: 12
+  gridTemplateColumns: "1fr 180px",
+  gap: 8,
+  alignItems: "start"
 };
 
 const mainInfo = {
@@ -574,12 +606,13 @@ const miniMap = {
 };
 
 const field = {
-  height: 110,
+  height: 95,
   background: "linear-gradient(90deg,#14532d,#166534)",
   border: "2px solid #d1fae5",
   borderRadius: 8,
   position: "relative",
-  overflow: "hidden"
+  overflow: "hidden",
+  boxShadow: "inset 0 0 25px rgba(255,255,255,.05)"
 };
 
 const midLine = {
@@ -620,9 +653,10 @@ const statsGrid = {
 
 const footer = {
   display: "flex",
-  gap: 8,
+  gap: 6,
   flexWrap: "wrap",
-  marginTop: 12
+  marginTop: 10,
+  justifyContent: "space-between"
 };
 
 const betano = {
@@ -648,6 +682,12 @@ const vipBtn = {
   ...betano,
   background: "#facc15",
   color: "#000"
+};
+
+const oddBlink = {
+  color: "#facc15",
+  fontWeight: 900,
+  animation: "pulse 1s infinite"
 };
 
 const popup = {
