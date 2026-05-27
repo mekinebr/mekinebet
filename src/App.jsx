@@ -11,13 +11,8 @@ export default function App() {
 
   async function ativarNotificacoes() {
     try {
-      if ("Notification" in window) {
-        await Notification.requestPermission();
-      }
-
-      if ("serviceWorker" in navigator) {
-        await navigator.serviceWorker.register("/sw.js");
-      }
+      if ("Notification" in window) await Notification.requestPermission();
+      if ("serviceWorker" in navigator) await navigator.serviceWorker.register("/sw.js");
     } catch (err) {
       console.log(err);
     }
@@ -26,21 +21,15 @@ export default function App() {
   async function mostrarPush(alerta) {
     try {
       if (Notification.permission !== "granted") return;
+      const registration = await navigator.serviceWorker.ready;
 
-      const registration =
-        await navigator.serviceWorker.ready;
-
-      registration.showNotification(
-        "🚨 MekineBet ALERTA",
-        {
-          body: `${alerta.match} | ${alerta.market}
-IA ${alerta.confidence || 70}%`,
-          icon: "/logo192.png",
-          badge: "/logo192.png",
-          vibrate: [200, 100, 200],
-          tag: "mekine-alerta"
-        }
-      );
+      registration.showNotification("🚨 MekineBet ALERTA", {
+        body: `${alerta.match} | ${alerta.market} | IA ${alerta.confidence || 70}%`,
+        icon: "/logo192.png",
+        badge: "/logo192.png",
+        vibrate: [200, 100, 200],
+        tag: "mekine-alerta"
+      });
     } catch (err) {
       console.log(err);
     }
@@ -48,52 +37,31 @@ IA ${alerta.confidence || 70}%`,
 
   async function carregar() {
     try {
-      const res = await fetch(
-        "https://mekinebet.onrender.com/api/signals"
-      );
-
+      const res = await fetch("https://mekinebet.onrender.com/api/signals");
       const data = await res.json();
-
-      const novos =
-        data.activeSignals || [];
+      const novos = data.activeSignals || [];
 
       setSignals(novos);
-
-      setLastUpdate(
-        new Date().toLocaleTimeString("pt-BR")
-      );
+      setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
 
       const alerta = novos.find(
         (s) =>
           s.source === "api-sports-live" &&
-          (
-            s.alert?.includes("IMINENTE") ||
+          (s.alert?.includes("IMINENTE") ||
             (s.confidence || 0) >= 85 ||
-            (s.pressure || 0) >= 88
-          )
+            (s.pressure || 0) >= 88)
       );
 
-      if (
-        alerta &&
-        alerta.id !== ultimoAlerta
-      ) {
+      if (alerta && alerta.id !== ultimoAlerta) {
         setUltimoAlerta(alerta.id);
-
         setPopupAlerta(alerta);
-
         mostrarPush(alerta);
 
-        const audio = new Audio(
-          "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
-        );
-
+        const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
         audio.volume = 0.45;
-
         audio.play().catch(() => {});
 
-        setTimeout(() => {
-          setPopupAlerta(null);
-        }, 9000);
+        setTimeout(() => setPopupAlerta(null), 9000);
       }
     } catch (err) {
       console.log(err);
@@ -104,22 +72,52 @@ IA ${alerta.confidence || 70}%`,
 
   useEffect(() => {
     ativarNotificacoes();
-
     carregar();
-
-    const intervalo = setInterval(
-      carregar,
-      30000
-    );
-
+    const intervalo = setInterval(carregar, 30000);
     return () => clearInterval(intervalo);
   }, []);
 
   function isLiveReal(item) {
-    return (
-      item.type === "live" &&
-      item.source === "api-sports-live"
-    );
+    return item.type === "live" && item.source === "api-sports-live";
+  }
+
+  function totalGols(item) {
+    const score = item.score || "0-0";
+    const nums = score.match(/\d+/g) || [0, 0];
+    return Number(nums[0] || 0) + Number(nums[1] || 0);
+  }
+
+  function minuto(item) {
+    return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
+  }
+
+  function mercadoStatus(item) {
+    const gols = totalGols(item);
+    const min = minuto(item);
+    const market = String(item.market || "").toLowerCase();
+
+    if (market.includes("0.5")) return gols >= 1 ? "GREEN" : min >= 70 ? "RISCO" : "AO VIVO";
+    if (market.includes("1.5")) return gols >= 2 ? "GREEN" : min >= 75 ? "RISCO" : "AO VIVO";
+    if (market.includes("2.5")) return gols >= 3 ? "GREEN" : min >= 80 ? "RISCO" : "AO VIVO";
+    if (market.includes("3.5")) return gols >= 4 ? "GREEN" : min >= 82 ? "RISCO" : "AO VIVO";
+    if (market.includes("btts") || market.includes("ambas")) return gols >= 2 ? "AO VIVO" : "MONITORAR";
+
+    return item.status || "MONITORAMENTO IA";
+  }
+
+  function categoriaMercado(item) {
+    const market = String(item.market || "").toLowerCase();
+
+    if (market.includes("0.5")) return "OVER05";
+    if (market.includes("1.5")) return "OVER15";
+    if (market.includes("2.5")) return "OVER25";
+    if (market.includes("3.5")) return "OVER35";
+    if (market.includes("cart")) return "CARTOES";
+    if (market.includes("card")) return "CARTOES";
+    if (market.includes("canto")) return "CANTOS";
+    if (market.includes("corner")) return "CANTOS";
+    if (market.includes("btts") || market.includes("ambas")) return "BTTS";
+    return item.category?.toUpperCase() || "OUTROS";
   }
 
   function isVipLiberado(item) {
@@ -130,86 +128,50 @@ IA ${alerta.confidence || 70}%`,
     );
   }
 
+  function estatisticasFake(item) {
+    const conf = item.confidence || 70;
+    const press = item.pressure || 70;
+    const gols = totalGols(item);
+
+    return {
+      posseCasa: Math.min(68, Math.max(42, conf - 18)),
+      finalizacoes: Math.max(6, Math.round(press / 8 + gols * 2)),
+      ataques: Math.max(18, Math.round(press / 2)),
+      cantos: Math.max(2, Math.round(press / 18)),
+      cartoes: Math.max(1, Math.round((100 - conf) / 25))
+    };
+  }
+
   const sinaisFiltrados = useMemo(() => {
-    let filtrados = signals.filter(
-      (item) => {
-        const texto =
-          `${item.match}
-${item.league}
-${item.market}`.toLowerCase();
+    let filtrados = signals.filter((item) => {
+      const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
+      if (!texto.includes(busca.toLowerCase())) return false;
 
-        if (
-          !texto.includes(
-            busca.toLowerCase()
-          )
-        )
-          return false;
+      const cat = categoriaMercado(item);
 
-        if (filtro === "TODOS")
-          return true;
+      if (filtro === "TODOS") return true;
+      if (filtro === "LIVE") return isLiveReal(item);
+      if (filtro === "HISTORICO") return !isLiveReal(item);
+      if (filtro === "OVER05") return cat === "OVER05";
+      if (filtro === "OVER15") return cat === "OVER15";
+      if (filtro === "OVER25") return cat === "OVER25";
+      if (filtro === "OVER35") return cat === "OVER35";
+      if (filtro === "CARTOES") return cat === "CARTOES";
+      if (filtro === "CANTOS") return cat === "CANTOS";
+      if (filtro === "BTTS") return cat === "BTTS";
+      if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
+      if (filtro === "VIP") return isVipLiberado(item);
+      if (filtro === "ALERTA") return item.alert?.includes("GOL") || item.alert?.includes("IMINENTE");
 
-        if (filtro === "LIVE")
-          return isLiveReal(item);
-
-        if (filtro === "HISTORICO")
-          return !isLiveReal(item);
-
-        if (filtro === "OVER15")
-          return (
-            isLiveReal(item) &&
-            item.category === "over15"
-          );
-
-        if (filtro === "OVER25")
-          return (
-            isLiveReal(item) &&
-            item.category === "over25"
-          );
-
-        if (filtro === "BTTS")
-          return (
-            isLiveReal(item) &&
-            item.category === "btts"
-          );
-
-        if (filtro === "TOP IA")
-          return (
-            (item.confidence || 70) >= 82
-          );
-
-        if (filtro === "VIP")
-          return isVipLiberado(item);
-
-        if (filtro === "ALERTA")
-          return (
-            isLiveReal(item) &&
-            item.alert?.includes("GOL")
-          );
-
-        return true;
-      }
-    );
+      return true;
+    });
 
     filtrados.sort((a, b) => {
-      const alertaA =
-        a.alert?.includes("IMINENTE")
-          ? 1000
-          : 0;
+      const alertaA = a.alert?.includes("IMINENTE") ? 1000 : 0;
+      const alertaB = b.alert?.includes("IMINENTE") ? 1000 : 0;
 
-      const alertaB =
-        b.alert?.includes("IMINENTE")
-          ? 1000
-          : 0;
-
-      const scoreA =
-        alertaA +
-        (a.confidence || 70) * 2 +
-        (a.pressure || 70);
-
-      const scoreB =
-        alertaB +
-        (b.confidence || 70) * 2 +
-        (b.pressure || 70);
+      const scoreA = alertaA + (a.confidence || 70) * 2 + (a.pressure || 70);
+      const scoreB = alertaB + (b.confidence || 70) * 2 + (b.pressure || 70);
 
       return scoreB - scoreA;
     });
@@ -217,306 +179,493 @@ ${item.market}`.toLowerCase();
     return filtrados;
   }, [signals, busca, filtro]);
 
-  const liveCount =
-    signals.filter(isLiveReal).length;
-
-  const alertCount =
-    signals.filter(
-      (s) =>
-        isLiveReal(s) &&
-        s.alert?.includes("GOL")
-    ).length;
+  const liveCount = signals.filter(isLiveReal).length;
+  const alertCount = signals.filter((s) => s.alert?.includes("GOL") || s.alert?.includes("IMINENTE")).length;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#020617",
-        padding: "25px",
-        color: "white",
-        fontFamily: "Arial"
-      }}
-    >
-      <h1
-        style={{
-          color: "#00ffd0",
-          fontSize: "72px",
-          fontWeight: "900",
-          marginBottom: "20px"
-        }}
-      >
-        MekineBet AO VIVO
-      </h1>
+    <div style={page}>
+      {popupAlerta && (
+        <div style={popup}>
+          <b>🚨 ALERTA IA</b>
+          <div>{popupAlerta.match}</div>
+          <small>{popupAlerta.market} • IA {popupAlerta.confidence || 70}%</small>
+        </div>
+      )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "20px"
-        }}
-      >
-        <div className="top-info">
-          🔴 Live real: {liveCount}
+      <header style={topBar}>
+        <div>
+          <h1 style={title}>MekineBet AO VIVO</h1>
+          <div style={subTitle}>Scanner live • odds • pressão • mercados</div>
         </div>
 
-        <div className="top-info">
-          🚨 Alertas: {alertCount}
+        <div style={statusWrap}>
+          <span style={pill}>🔴 Live: {liveCount}</span>
+          <span style={pill}>🚨 Alertas: {alertCount}</span>
+          <span style={pill}>👑 VIP</span>
+          <span style={pill}>🔄 {lastUpdate || "carregando..."}</span>
         </div>
+      </header>
 
-        <div className="top-info">
-          👑 VIP visual ativo
+      {liveCount === 0 && (
+        <div style={notice}>
+          📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
         </div>
+      )}
 
-        <div className="top-info">
-          🔄 Atualizado: {lastUpdate}
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: "#7c2d12",
-          border: "1px solid #f97316",
-          padding: "25px",
-          borderRadius: "18px",
-          marginBottom: "20px",
-          boxShadow:
-            "0 0 25px rgba(249,115,22,.4)"
-        }}
-      >
-        📊 Mostrando base IA e histórico.
-        Nenhum LIVE real disponível
-        neste momento.
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "20px"
-        }}
-      >
+      <nav style={filters}>
         {[
+          "TODOS",
           "LIVE",
           "ALERTA",
+          "OVER05",
           "OVER15",
           "OVER25",
+          "OVER35",
+          "CARTOES",
+          "CANTOS",
           "BTTS",
-          "HISTORICO",
           "TOP IA",
           "VIP",
-          "TODOS"
+          "HISTORICO"
         ].map((btn) => (
-          <button
-            key={btn}
-            onClick={() => setFiltro(btn)}
-            style={{
-              padding: "12px 22px",
-              borderRadius: "14px",
-              border:
-                "1px solid #00ffd0",
-              background:
-                filtro === btn
-                  ? "#00ffd0"
-                  : "transparent",
-              color:
-                filtro === btn
-                  ? "#000"
-                  : "#fff",
-              fontWeight: "700",
-              cursor: "pointer"
-            }}
-          >
+          <button key={btn} onClick={() => setFiltro(btn)} style={filtro === btn ? activeBtn : btnStyle}>
             {btn}
           </button>
         ))}
-      </div>
+      </nav>
 
       <input
         placeholder="Buscar jogo, liga ou mercado..."
         value={busca}
-        onChange={(e) =>
-          setBusca(e.target.value)
-        }
-        style={{
-          width: "100%",
-          padding: "18px",
-          borderRadius: "14px",
-          background: "#0f172a",
-          border: "1px solid #00ffd0",
-          color: "white",
-          marginBottom: "25px",
-          fontSize: "18px"
-        }}
+        onChange={(e) => setBusca(e.target.value)}
+        style={search}
       />
 
-      {popupAlerta && (
-        <div
-          style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            background: "#7f1d1d",
-            padding: "20px",
-            borderRadius: "18px",
-            zIndex: 9999,
-            width: "320px",
-            border:
-              "2px solid #ef4444",
-            boxShadow:
-              "0 0 30px rgba(239,68,68,.7)"
-          }}
-        >
-          <h2>
-            🚨 GOL IMINENTE
-          </h2>
-
-          <p>
-            {popupAlerta.match}
-          </p>
-
-          <p>
-            IA:
-            {" "}
-            {popupAlerta.confidence}%
-          </p>
-        </div>
-      )}
-
       {loading ? (
-        <h2>Carregando...</h2>
+        <div style={empty}>Carregando sinais...</div>
       ) : sinaisFiltrados.length === 0 ? (
-        <div
-          style={{
-            background: "#111827",
-            padding: "30px",
-            borderRadius: "18px",
-            border:
-              "1px solid #00ffd0"
-          }}
-        >
-          Nenhum sinal encontrado
-          nesse filtro.
-        </div>
+        <div style={empty}>Nenhum sinal encontrado nesse filtro.</div>
       ) : (
-        sinaisFiltrados.map(
-          (item, index) => (
-            <div
-              key={index}
-              style={{
-                background:
-                  "linear-gradient(135deg,#0f172a,#020617)",
-                border:
-                  isVipLiberado(item)
-                    ? "2px solid gold"
-                    : "1px solid #00ffd0",
-                borderRadius: "24px",
-                padding: "25px",
-                marginBottom: "25px",
-                boxShadow:
-                  isVipLiberado(item)
-                    ? "0 0 30px rgba(255,215,0,.4)"
-                    : "0 0 20px rgba(0,255,208,.2)"
-              }}
-            >
-              <h1
-                style={{
-                  color: "#00ffd0",
-                  fontSize: "56px",
-                  marginBottom: "10px"
-                }}
-              >
-                {item.match}
-              </h1>
+        <main style={grid}>
+          {sinaisFiltrados.map((item, index) => {
+            const liveReal = isLiveReal(item);
+            const vip = isVipLiberado(item);
+            const stats = estatisticasFake(item);
+            const status = mercadoStatus(item);
+            const cat = categoriaMercado(item);
 
-              <p
-                style={{
-                  color: "#cbd5e1"
-                }}
-              >
-                {item.league}
-              </p>
+            return (
+              <section key={item.id || index} style={card}>
+                <div style={cardHeader}>
+                  <div style={teams}>
+                    {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
+                    <div>
+                      <h2 style={match}>{item.match}</h2>
+                      <p style={league}>{item.league}</p>
+                    </div>
+                    {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
+                  </div>
 
-              <div
-                style={{
-                  marginTop: "25px",
-                  lineHeight: "2.1",
-                  fontSize: "18px"
-                }}
-              >
-                ⚽ Placar: {item.score || "0-0"}
+                  <div style={rightBadges}>
+                    <span style={liveReal ? liveBadge : baseBadge}>{liveReal ? "AO VIVO" : "BASE"}</span>
+                    {vip && <span style={vipBadge}>VIP</span>}
+                    <span style={marketBadge}>{cat}</span>
+                  </div>
+                </div>
 
-                <br />
+                <div style={bodyGrid}>
+                  <div style={mainInfo}>
+                    <div style={scoreBox}>
+                      <span>Placar</span>
+                      <b>{item.score || "0-0"}</b>
+                      <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
+                    </div>
 
-                🎯 Mercado: {item.market}
+                    <div style={signalBox}>
+                      <b>{item.market}</b>
+                      <span>Status: {status}</span>
+                      <span>Odd: {item.odd || "1.72"}</span>
+                    </div>
 
-                <br />
+                    <div style={bars}>
+                      <label>IA {item.confidence || 70}%</label>
+                      <div style={barBg}><div style={{ ...bar, width: `${item.confidence || 70}%` }} /></div>
 
-                💰 Odd: {item.odd || "1.72"}
+                      <label>Pressão {item.pressure || 70}%</label>
+                      <div style={barBg}><div style={{ ...barGold, width: `${item.pressure || 70}%` }} /></div>
+                    </div>
+                  </div>
 
-                <br />
+                  <div style={miniMap}>
+                    <div style={field}>
+                      <div style={midLine}></div>
+                      <div style={{ ...dot, left: `${Math.min(82, stats.ataques)}%`, top: "44%" }}></div>
+                      <div style={{ ...dot2, left: `${100 - Math.min(82, stats.ataques)}%`, top: "56%" }}></div>
+                    </div>
 
-                🤖 IA: {item.confidence || 70}%
+                    <div style={statsGrid}>
+                      <span>Posse {stats.posseCasa}%</span>
+                      <span>Final. {stats.finalizacoes}</span>
+                      <span>Ataques {stats.ataques}</span>
+                      <span>Cantos {stats.cantos}</span>
+                      <span>Cartões {stats.cartoes}</span>
+                      <span>Escalação 4-3-3</span>
+                    </div>
+                  </div>
+                </div>
 
-                <br />
-
-                🔥 Pressão: {item.pressure || 70}%
-
-                <br />
-
-                📢 Alerta:
-                {" "}
-                {item.alert ||
-                  "MONITORAMENTO IA"}
-              </div>
-
-              <div
-                style={{
-                  width: "100%",
-                  height: "18px",
-                  background: "#1e293b",
-                  borderRadius: "999px",
-                  overflow: "hidden",
-                  marginTop: "18px"
-                }}
-              >
-                <div
-                  style={{
-                    width: `${
-                      item.confidence || 70
-                    }%`,
-                    height: "100%",
-                    background:
-                      "linear-gradient(90deg,gold,#facc15)"
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  marginTop: "22px",
-                  flexWrap: "wrap"
-                }}
-              >
-                <button className="bet-btn">
-                  Betano
-                </button>
-
-                <button className="bet-btn blue">
-                  Novibet
-                </button>
-
-                <button className="bet-btn orange">
-                  Bet365
-                </button>
-              </div>
-            </div>
-          )
-        )
+                <div style={footer}>
+                  <button style={betano}>Betano</button>
+                  <button style={novibet}>Novibet</button>
+                  <button style={bet365}>Bet365</button>
+                  <button style={vipBtn}>Liberar VIP</button>
+                </div>
+              </section>
+            );
+          })}
+        </main>
       )}
     </div>
   );
 }
+
+const page = {
+  minHeight: "100vh",
+  background: "#07110c",
+  color: "#fff",
+  padding: 14,
+  fontFamily: "Arial, sans-serif"
+};
+
+const topBar = {
+  background: "#0b1f13",
+  border: "1px solid #1f8f4d",
+  borderRadius: 10,
+  padding: 16,
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 12
+};
+
+const title = {
+  color: "#00ff87",
+  fontSize: "clamp(30px, 5vw, 52px)",
+  margin: 0,
+  fontWeight: 900
+};
+
+const subTitle = {
+  color: "#9ca3af",
+  marginTop: 4
+};
+
+const statusWrap = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  alignItems: "center"
+};
+
+const pill = {
+  border: "1px solid #00ff87",
+  background: "#06150d",
+  padding: "8px 10px",
+  borderRadius: 8,
+  fontWeight: 700,
+  fontSize: 13
+};
+
+const notice = {
+  background: "#4a1f08",
+  border: "1px solid #ff8a00",
+  padding: 12,
+  borderRadius: 8,
+  marginBottom: 12,
+  fontWeight: 700
+};
+
+const filters = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto",
+  paddingBottom: 8,
+  marginBottom: 10
+};
+
+const btnStyle = {
+  background: "#08140d",
+  color: "#fff",
+  border: "1px solid #00ff87",
+  padding: "10px 14px",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontWeight: 800,
+  whiteSpace: "nowrap"
+};
+
+const activeBtn = {
+  ...btnStyle,
+  background: "#00ff87",
+  color: "#001b0b"
+};
+
+const search = {
+  width: "100%",
+  boxSizing: "border-box",
+  background: "#0b1720",
+  border: "1px solid #00ff87",
+  color: "#fff",
+  padding: 13,
+  borderRadius: 8,
+  marginBottom: 12,
+  fontSize: 15
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+  gap: 12
+};
+
+const card = {
+  background: "linear-gradient(180deg,#101820,#07110c)",
+  border: "1px solid #00ff87",
+  borderRadius: 12,
+  padding: 12,
+  boxShadow: "0 0 14px rgba(0,255,135,.12)"
+};
+
+const cardHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  alignItems: "flex-start",
+  marginBottom: 10
+};
+
+const teams = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center"
+};
+
+const logo = {
+  width: 34,
+  height: 34,
+  objectFit: "contain",
+  background: "#fff",
+  borderRadius: "50%",
+  padding: 3
+};
+
+const match = {
+  color: "#00ff87",
+  fontSize: "clamp(18px, 3vw, 26px)",
+  margin: 0,
+  lineHeight: 1.1
+};
+
+const league = {
+  color: "#94a3b8",
+  margin: "4px 0 0",
+  fontSize: 13
+};
+
+const rightBadges = {
+  display: "flex",
+  gap: 5,
+  flexWrap: "wrap",
+  justifyContent: "flex-end"
+};
+
+const liveBadge = {
+  background: "#ef4444",
+  padding: "5px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900
+};
+
+const baseBadge = {
+  background: "#334155",
+  padding: "5px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900
+};
+
+const vipBadge = {
+  background: "#facc15",
+  color: "#000",
+  padding: "5px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900
+};
+
+const marketBadge = {
+  background: "#0ea5e9",
+  padding: "5px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900
+};
+
+const bodyGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 220px",
+  gap: 12
+};
+
+const mainInfo = {
+  display: "grid",
+  gap: 10
+};
+
+const scoreBox = {
+  background: "#071a10",
+  border: "1px solid #174f32",
+  borderRadius: 8,
+  padding: 10,
+  display: "grid",
+  gap: 2
+};
+
+const signalBox = {
+  background: "#071a10",
+  border: "1px solid #174f32",
+  borderRadius: 8,
+  padding: 10,
+  display: "grid",
+  gap: 5
+};
+
+const bars = {
+  display: "grid",
+  gap: 5,
+  fontSize: 13,
+  fontWeight: 700
+};
+
+const barBg = {
+  height: 10,
+  background: "#1e293b",
+  borderRadius: 999,
+  overflow: "hidden"
+};
+
+const bar = {
+  height: "100%",
+  background: "#00ff87"
+};
+
+const barGold = {
+  height: "100%",
+  background: "#facc15"
+};
+
+const miniMap = {
+  background: "#071a10",
+  border: "1px solid #174f32",
+  borderRadius: 8,
+  padding: 8
+};
+
+const field = {
+  height: 110,
+  background: "linear-gradient(90deg,#14532d,#166534)",
+  border: "2px solid #d1fae5",
+  borderRadius: 8,
+  position: "relative",
+  overflow: "hidden"
+};
+
+const midLine = {
+  position: "absolute",
+  left: "50%",
+  top: 0,
+  bottom: 0,
+  width: 2,
+  background: "rgba(255,255,255,.7)"
+};
+
+const dot = {
+  position: "absolute",
+  width: 14,
+  height: 14,
+  borderRadius: "50%",
+  background: "#facc15",
+  boxShadow: "0 0 12px #facc15"
+};
+
+const dot2 = {
+  position: "absolute",
+  width: 12,
+  height: 12,
+  borderRadius: "50%",
+  background: "#00e5ff",
+  boxShadow: "0 0 12px #00e5ff"
+};
+
+const statsGrid = {
+  marginTop: 8,
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 6,
+  fontSize: 12,
+  color: "#d1d5db"
+};
+
+const footer = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 12
+};
+
+const betano = {
+  background: "#22c55e",
+  color: "#fff",
+  border: 0,
+  borderRadius: 8,
+  padding: "9px 12px",
+  fontWeight: 900
+};
+
+const novibet = {
+  ...betano,
+  background: "#2563eb"
+};
+
+const bet365 = {
+  ...betano,
+  background: "#f59e0b"
+};
+
+const vipBtn = {
+  ...betano,
+  background: "#facc15",
+  color: "#000"
+};
+
+const popup = {
+  position: "fixed",
+  top: 18,
+  right: 18,
+  zIndex: 9999,
+  background: "#7f1d1d",
+  border: "2px solid #ef4444",
+  padding: 16,
+  borderRadius: 10,
+  boxShadow: "0 0 25px rgba(239,68,68,.7)"
+};
+
+const empty = {
+  background: "#101820",
+  border: "1px solid #00ff87",
+  borderRadius: 10,
+  padding: 18,
+  fontWeight: 800
+};
