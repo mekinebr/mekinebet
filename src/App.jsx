@@ -138,14 +138,14 @@ export default function App() {
     const stats = statsDoJogo(item);
     const market = String(item.market || "").toLowerCase();
 
-    if (market.includes("0.5")) {
+    if (market.includes("0.5") || market.includes("0,5")) {
       if (gols >= 1) return "✅ GREEN";
       if (min >= 12 && pressure >= 70 && stats.ataques >= 28) return "🔥 GOL IMINENTE";
       if (min >= 30 && pressure >= 60) return "📈 OVER FORTE";
       return "👀 MONITORANDO";
     }
 
-    if (market.includes("1.5")) {
+    if (market.includes("1.5") || market.includes("1,5")) {
       if (gols >= 2) return "✅ GREEN";
       if (gols === 1 && min <= 68 && pressure >= 72) return "🔥 2º GOL MUITO FORTE";
       if (gols === 0 && min >= 35 && pressure < 55) return "❄️ JOGO FRIO";
@@ -153,14 +153,14 @@ export default function App() {
       return "📊 MONITORANDO";
     }
 
-    if (market.includes("2.5")) {
+    if (market.includes("2.5") || market.includes("2,5")) {
       if (gols >= 3) return "✅ GREEN";
       if (gols >= 2 && pressure >= 74 && min <= 82) return "🔥 OVER MUITO FORTE";
       if (min >= 60 && stats.perigosos >= 20) return "⚡ ATAQUE TOTAL";
       return "📊 MONITORANDO";
     }
 
-    if (market.includes("3.5")) {
+    if (market.includes("3.5") || market.includes("3,5")) {
       if (gols >= 4) return "✅ GREEN";
       if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
       if (gols <= 1 && min >= 65) return "📉 RISCO ALTO";
@@ -205,14 +205,17 @@ export default function App() {
   function categoriaMercado(item) {
     const market = String(item.market || "").toLowerCase();
 
-    if (market.includes("0.5")) return "OVER05";
-    if (market.includes("1.5")) return "OVER15";
-    if (market.includes("2.5")) return "OVER25";
-    if (market.includes("3.5")) return "OVER35";
+    if (market.includes("0.5") || market.includes("0,5")) return "OVER 0,5";
+    if (market.includes("1.5") || market.includes("1,5")) return "OVER 1,5";
+    if (market.includes("2.5") || market.includes("2,5")) return "OVER 2,5";
+    if (market.includes("3.5") || market.includes("3,5")) return "OVER 3,5";
+
     if (market.includes("under") && (market.includes("cart") || market.includes("card"))) return "UNDER CARTÕES";
     if (market.includes("cart") || market.includes("card")) return "OVER CARTÕES";
+
     if (market.includes("under") && (market.includes("canto") || market.includes("corner"))) return "UNDER CANTOS";
     if (market.includes("canto") || market.includes("corner")) return "OVER CANTOS";
+
     if (market.includes("btts") || market.includes("ambas")) return "BTTS";
 
     return item.category?.toUpperCase() || "OUTROS";
@@ -236,10 +239,10 @@ export default function App() {
       if (filtro === "TODOS") return true;
       if (filtro === "LIVE") return isLiveReal(item);
       if (filtro === "HISTORICO") return !isLiveReal(item);
-      if (filtro === "OVER05") return cat === "OVER 0.5";
-      if (filtro === "OVER15") return cat === "OVER 1.5";
-      if (filtro === "OVER25") return cat === "OVER 2.5";
-      if (filtro === "OVER35") return cat === "OVER 3.5";
+      if (filtro === "OVER05") return cat === "OVER 0,5";
+      if (filtro === "OVER15") return cat === "OVER 1,5";
+      if (filtro === "OVER25") return cat === "OVER 2,5";
+      if (filtro === "OVER35") return cat === "OVER 3,5";
       if (filtro === "CARTÕES") return cat.includes("CARTÕES");
       if (filtro === "CANTOS") return cat.includes("CANTOS");
       if (filtro === "BTTS") return cat === "BTTS";
@@ -293,14 +296,14 @@ export default function App() {
       <header style={topBar}>
         <div>
           <h1 style={title}>MekineBet AO VIVO</h1>
-          <div style={subTitle}>Scanner live • odds • pressão • mercados</div>
+          <div style={subTitle}>🟢 Scanner live • odds • pressão • mercados</div>
         </div>
 
         <div style={statusWrap}>
           <span style={pill}>🔴 Live: {liveCount}</span>
           <span style={pill}>🚨 Alertas: {alertCount}</span>
           <span style={pill}>👑 VIP</span>
-          <span style={pill}>🔄 {lastUpdate || "carregando..."}</span>
+          <span style={pill}>🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
@@ -312,28 +315,32 @@ export default function App() {
 
       <nav style={filters}>
         {[
-          "TODOS",
-          "LIVE",
-          "ALERTA",
-          "OVER05",
-          "OVER15",
-          "OVER25",
-          "OVER35",
-          "CARTÕES",
-          "CANTOS",
-          "BTTS",
-          "TOP IA",
-          "VIP",
-          "HISTORICO"
+          { value: "TODOS", label: "▦ TODOS" },
+          { value: "LIVE", label: "📡 LIVE" },
+          { value: "ALERTA", label: "🔔 ALERTA" },
+          { value: "OVER05", label: "↗ OVER 0,5" },
+          { value: "OVER15", label: "↗ OVER 1,5" },
+          { value: "OVER25", label: "↗ OVER 2,5" },
+          { value: "OVER35", label: "↗ OVER 3,5" },
+          { value: "CARTÕES", label: "🟨 CARTÕES" },
+          { value: "CANTOS", label: "🚩 CANTOS" },
+          { value: "BTTS", label: "👥 BTTS" },
+          { value: "TOP IA", label: "🧠 TOP IA" },
+          { value: "VIP", label: "👑 VIP" },
+          { value: "HISTORICO", label: "🕘 HISTÓRICO" }
         ].map((btn) => (
-          <button key={btn} onClick={() => setFiltro(btn)} style={filtro === btn ? activeBtn : btnStyle}>
-            {btn}
+          <button
+            key={btn.value}
+            onClick={() => setFiltro(btn.value)}
+            style={filtro === btn.value ? activeBtn : btnStyle}
+          >
+            {btn.label}
           </button>
         ))}
       </nav>
 
       <input
-        placeholder="Buscar jogo, liga ou mercado..."
+        placeholder="🔍  Buscar jogo, liga ou mercado..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
         style={search}
@@ -353,30 +360,17 @@ export default function App() {
             const cat = categoriaMercado(item);
 
             return (
-              <section
-                key={item.id || index}
-                style={card}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-4px)";
-                  e.currentTarget.style.boxShadow = "0 0 25px rgba(0,255,135,.25)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 0 18px rgba(0,255,135,.08)";
-                }}
-              >
+              <section key={item.id || index} style={card}>
                 <div style={cardHeader}>
                   <div style={teams}>
-                    {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
                     <div>
                       <h2 style={match}>{item.match}</h2>
-                      <p style={league}>{item.league}</p>
+                      <p style={league}>🦁 {item.league}</p>
                     </div>
-                    {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
                   </div>
 
                   <div style={rightBadges}>
-                    <span style={liveReal ? liveBadge : baseBadge}>{liveReal ? "AO VIVO" : "BASE"}</span>
+                    <span style={baseBadge}>{liveReal ? "AO VIVO" : "BASE"}</span>
                     {vip && <span style={vipBadge}>VIP</span>}
                     <span style={marketBadge}>{cat}</span>
                   </div>
@@ -395,18 +389,6 @@ export default function App() {
                       <span>Status: {status}</span>
                       <span style={oddBlink}>Odd: {item.odd || "1.72"}</span>
                     </div>
-
-                    <div style={bars}>
-                      <label>IA {item.confidence || 70}%</label>
-                      <div style={barBg}>
-                        <div style={{ ...bar, width: `${item.confidence || 70}%` }} />
-                      </div>
-
-                      <label>Pressão {item.pressure || 70}%</label>
-                      <div style={barBg}>
-                        <div style={{ ...barGold, width: `${item.pressure || 70}%` }} />
-                      </div>
-                    </div>
                   </div>
 
                   <div style={miniMap}>
@@ -421,10 +403,8 @@ export default function App() {
                       }} />
 
                       <div style={midLine}></div>
-
                       <div style={areaLeft}></div>
                       <div style={areaRight}></div>
-
                       <div style={{ ...dot, left: `${Math.min(82, stats.ataques)}%`, top: "44%" }} />
                       <div style={{ ...dot2, left: `${100 - Math.min(82, stats.ataques)}%`, top: "56%" }} />
                     </div>
@@ -440,15 +420,27 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={bars}>
+                  <label>IA {item.confidence || 70}%</label>
+                  <div style={barBg}>
+                    <div style={{ ...bar, width: `${item.confidence || 70}%` }} />
+                  </div>
+
+                  <label>Pressão {item.pressure || 70}%</label>
+                  <div style={barBg}>
+                    <div style={{ ...barGold, width: `${item.pressure || 70}%` }} />
+                  </div>
+                </div>
+
                 <div style={momentumBox}>
                   <div style={momentumTitle}>Momentum IA</div>
                   <div style={momentumBar}>
                     <div style={{ ...momentumFill, width: `${item.pressure || 70}%` }} />
                   </div>
                   <div style={momentumInfo}>
-                    {status.includes("🔥") || status.includes("🚨")
+                    ⚡ {status.includes("🔥") || status.includes("🚨")
                       ? "Alerta forte detectado"
-                      : "Ataque perigoso monitorado"}
+                      : "Ataque perigoso detectado"}
                   </div>
                 </div>
 
@@ -463,114 +455,119 @@ export default function App() {
           })}
         </main>
       )}
+
+      <footer style={bottomBar}>
+        <span>📊 Sinais carregados: <b>{signals.length}</b></span>
+        <span>🟢 IA Ativa 24h</span>
+        <span>⚡ Atualização: <b>20s</b></span>
+        <span>🗓️ Última atualização: <b>{lastUpdate}</b></span>
+        <span>🔒 Fonte: <b>API-Sports (Live Real)</b></span>
+      </footer>
     </div>
   );
 }
 
 const page = {
   minHeight: "100vh",
-  background: "#07110c",
+  background: "#06100b",
   color: "#fff",
-  padding: 14,
+  padding: 12,
   fontFamily: "Arial, sans-serif",
   scrollBehavior: "smooth"
 };
 
 const topBar = {
-  background: "#0b1f13",
-  border: "1px solid #1f8f4d",
+  background: "linear-gradient(180deg,#071a10,#081018)",
+  border: "1px solid #00b85f",
   borderRadius: 10,
-  padding: 16,
+  padding: 18,
   display: "flex",
   justifyContent: "space-between",
   gap: 12,
   flexWrap: "wrap",
-  marginBottom: 12
+  marginBottom: 12,
+  boxShadow: "0 0 20px rgba(0,255,135,.08)"
 };
 
-const title = { color: "#00ff87", fontSize: "clamp(30px, 5vw, 52px)", margin: 0, fontWeight: 900 };
-const subTitle = { color: "#9ca3af", marginTop: 4 };
-const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
-const pill = { border: "1px solid #00ff87", background: "#06150d", padding: "8px 10px", borderRadius: 8, fontWeight: 700, fontSize: 13 };
-const notice = { background: "#4a1f08", border: "1px solid #ff8a00", padding: 12, borderRadius: 8, marginBottom: 12, fontWeight: 700 };
-const filters = { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 10 };
-const btnStyle = { background: "#08140d", color: "#fff", border: "1px solid #00ff87", padding: "10px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 800, whiteSpace: "nowrap" };
+const title = { color: "#00ff87", fontSize: "clamp(34px,5vw,58px)", margin: 0, fontWeight: 900 };
+const subTitle = { color: "#cbd5e1", marginTop: 4 };
+const statusWrap = { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" };
+const pill = { border: "1px solid #00ff87", background: "#06150d", padding: "10px 14px", borderRadius: 8, fontWeight: 900, fontSize: 15 };
+
+const notice = {
+  background: "linear-gradient(90deg,#451a03,#5b2206)",
+  border: "1px solid #ff8a00",
+  padding: 14,
+  borderRadius: 8,
+  marginBottom: 12,
+  fontWeight: 900
+};
+
+const filters = { display: "flex", gap: 9, overflowX: "auto", paddingBottom: 8, marginBottom: 12 };
+const btnStyle = { background: "#08140d", color: "#fff", border: "1px solid #00ff87", padding: "12px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 900, whiteSpace: "nowrap" };
 const activeBtn = { ...btnStyle, background: "#00ff87", color: "#001b0b" };
-const search = { width: "100%", boxSizing: "border-box", background: "#0b1720", border: "1px solid #00ff87", color: "#fff", padding: 13, borderRadius: 8, marginBottom: 12, fontSize: 15 };
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(380px,1fr))",
-  gap: 10,
-  alignItems: "start"
-};
+const search = { width: "100%", boxSizing: "border-box", background: "#07131a", border: "1px solid #00ff87", color: "#fff", padding: 15, borderRadius: 8, marginBottom: 12, fontSize: 16 };
 
-const card = {
-  background: "linear-gradient(180deg,#07140d,#081018)",
-  border: "1px solid rgba(0,255,135,.35)",
-  borderRadius: 10,
-  padding: 10,
-  minHeight: 340,
-  boxShadow: "0 0 18px rgba(0,255,135,.06)",
-  transition: ".25s",
-  overflow: "hidden"
-};
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))", gap: 12, alignItems: "start" };
+const card = { background: "linear-gradient(180deg,#07140d,#081018)", border: "1px solid rgba(0,255,135,.45)", borderRadius: 10, padding: 12, minHeight: 390, boxShadow: "0 0 20px rgba(0,255,135,.08)", overflow: "hidden" };
 
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 8 };
+const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 };
 const teams = { display: "flex", gap: 8, alignItems: "center" };
-const logo = { width: 30, height: 30, objectFit: "contain", background: "#fff", borderRadius: "50%", padding: 3 };
-const match = { color: "#00ff87", fontSize: "clamp(13px,1.3vw,17px)", margin: 0, lineHeight: 1, fontWeight: 900 };
-const league = { color: "#94a3b8", margin: "3px 0 0", fontSize: 12 };
-const rightBadges = { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" };
-const liveBadge = { background: "#ef4444", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
-const baseBadge = { background: "#334155", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
-const vipBadge = { background: "#facc15", color: "#000", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
+const match = { color: "#00ff87", fontSize: "clamp(18px,1.6vw,23px)", margin: 0, lineHeight: 1, fontWeight: 900 };
+const league = { color: "#cbd5e1", margin: "5px 0 0", fontSize: 13 };
 
-const bodyGrid = {
-  display: "grid",
-  gridTemplateColumns: "1fr 165px",
-  gap: 8,
-  alignItems: "start"
-};
+const rightBadges = { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" };
+const baseBadge = { background: "#334155", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
+const vipBadge = { background: "#facc15", color: "#000", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
+const marketBadge = { background: "#0ea5e9", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
 
-const mainInfo = { display: "grid", gap: 8 };
-const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8, display: "grid", gap: 2 };
-const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8, display: "grid", gap: 4 };
-const bars = { display: "grid", gap: 4, fontSize: 12, fontWeight: 700 };
-const barBg = { height: 9, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, alignItems: "start" };
+const mainInfo = { display: "grid", gap: 10 };
+const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 11, display: "grid", gap: 2, fontSize: 16 };
+const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 11, display: "grid", gap: 4, fontSize: 16 };
+
+const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8 };
+const field = { height: 105, background: "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)", border: "2px solid rgba(255,255,255,.35)", borderRadius: 8, position: "relative", overflow: "hidden", boxShadow: "inset 0 0 18px rgba(255,255,255,.08)" };
+const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
+const areaLeft = { position: "absolute", left: "8%", top: "35%", width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(255,255,255,.28)" };
+const areaRight = { position: "absolute", right: "8%", top: "35%", width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(255,255,255,.28)" };
+const dot = { position: "absolute", width: 15, height: 15, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 15px #facc15" };
+const dot2 = { position: "absolute", width: 13, height: 13, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 15px #00e5ff" };
+
+const statsGrid = { marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13, color: "#e5e7eb" };
+
+const bars = { display: "grid", gap: 4, fontSize: 13, fontWeight: 900, marginTop: 10 };
+const barBg = { height: 10, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
 const bar = { height: "100%", background: "#00ff87" };
 const barGold = { height: "100%", background: "#facc15" };
-const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 7 };
 
-const field = {
-  height: 88,
-  background: "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)",
-  border: "2px solid rgba(255,255,255,.15)",
-  borderRadius: 8,
-  position: "relative",
-  overflow: "hidden",
-  boxShadow: "inset 0 0 18px rgba(255,255,255,.05)"
-};
-
-const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.5)" };
-const areaLeft = { position: "absolute", left: "8%", top: "38%", width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)" };
-const areaRight = { position: "absolute", right: "8%", top: "38%", width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)" };
-const dot = { position: "absolute", width: 13, height: 13, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 12px #facc15" };
-const dot2 = { position: "absolute", width: 11, height: 11, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 12px #00e5ff" };
-const statsGrid = { marginTop: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11, color: "#d1d5db" };
-
-const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 7 };
-const momentumTitle = { fontWeight: 900, marginBottom: 5, color: "#00ff87", fontSize: 13 };
-const momentumBar = { height: 11, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const momentumBox = { marginTop: 10, background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 9 };
+const momentumTitle = { fontWeight: 900, marginBottom: 5, color: "#00ff87", fontSize: 15 };
+const momentumBar = { height: 12, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
 const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999, transition: ".4s" };
-const momentumInfo = { marginTop: 5, fontSize: 11, color: "#cbd5e1" };
+const momentumInfo = { marginTop: 6, fontSize: 13, color: "#e5e7eb" };
 
-const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
-const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "8px 11px", fontWeight: 900 };
+const footer = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, justifyContent: "space-between" };
+const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "10px 20px", fontWeight: 900 };
 const novibet = { ...betano, background: "#2563eb" };
 const bet365 = { ...betano, background: "#f59e0b" };
 const vipBtn = { ...betano, background: "#facc15", color: "#000" };
+
 const oddBlink = { color: "#facc15", fontWeight: 900, animation: "pulse 1s infinite" };
 const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10, boxShadow: "0 0 25px rgba(239,68,68,.7)" };
 const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
+
+const bottomBar = {
+  marginTop: 14,
+  background: "#07131a",
+  border: "1px solid rgba(0,255,135,.35)",
+  borderRadius: 8,
+  padding: 12,
+  display: "flex",
+  gap: 20,
+  flexWrap: "wrap",
+  justifyContent: "space-around",
+  color: "#e5e7eb",
+  fontSize: 15
+};
