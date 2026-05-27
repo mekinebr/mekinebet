@@ -6,22 +6,41 @@ export default function App() {
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
+  const [ultimoAlerta, setUltimoAlerta] = useState("");
+  const [popupAlerta, setPopupAlerta] = useState(null);
 
   async function carregar() {
     try {
-      const res = await fetch(
-        "https://mekinebet.onrender.com/api/signals"
-      );
-
+      const res = await fetch("https://mekinebet.onrender.com/api/signals");
       const data = await res.json();
-
       const novos = data.activeSignals || [];
 
       setSignals(novos);
+      setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
 
-      setLastUpdate(
-        new Date().toLocaleTimeString("pt-BR")
+      const alerta = novos.find(
+        (s) =>
+          s.source === "api-sports-live" &&
+          (s.alert?.includes("IMINENTE") ||
+            (s.confidence || 0) >= 85 ||
+            (s.pressure || 0) >= 88)
       );
+
+      if (alerta && alerta.id !== ultimoAlerta) {
+        setUltimoAlerta(alerta.id);
+        setPopupAlerta(alerta);
+
+        const audio = new Audio(
+          "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
+        );
+
+        audio.volume = 0.45;
+        audio.play().catch(() => {});
+
+        setTimeout(() => {
+          setPopupAlerta(null);
+        }, 9000);
+      }
     } catch (err) {
       console.log(err);
     } finally {
@@ -37,83 +56,39 @@ export default function App() {
     }, 30000);
 
     return () => clearInterval(intervalo);
-  }, []);
+  }, [ultimoAlerta]);
 
   function isLiveReal(item) {
-    return (
-      item.type === "live" &&
-      item.source === "api-sports-live"
-    );
+    return item.type === "live" && item.source === "api-sports-live";
   }
 
   const sinaisFiltrados = useMemo(() => {
     let filtrados = signals.filter((item) => {
-      const texto =
-        `${item.match} ${item.league} ${item.market}`.toLowerCase();
+      const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
 
-      if (!texto.includes(busca.toLowerCase())) {
-        return false;
-      }
+      if (!texto.includes(busca.toLowerCase())) return false;
 
       if (filtro === "TODOS") return true;
-
-      if (filtro === "LIVE") {
-        return isLiveReal(item);
-      }
-
-      if (filtro === "HISTORICO") {
-        return !isLiveReal(item);
-      }
-
-      if (filtro === "OVER15") {
-        return (
-          isLiveReal(item) &&
-          item.category === "over15"
-        );
-      }
-
-      if (filtro === "OVER25") {
-        return (
-          isLiveReal(item) &&
-          item.category === "over25"
-        );
-      }
-
-      if (filtro === "BTTS") {
-        return (
-          isLiveReal(item) &&
-          item.category === "btts"
-        );
-      }
-
-      if (filtro === "TOP IA") {
-        return (
-          (item.confidence || 70) >= 82
-        );
-      }
-
-      if (filtro === "ALERTA") {
-        return (
-          isLiveReal(item) &&
-          item.alert?.includes("GOL")
-        );
-      }
+      if (filtro === "LIVE") return isLiveReal(item);
+      if (filtro === "HISTORICO") return !isLiveReal(item);
+      if (filtro === "OVER15") return isLiveReal(item) && item.category === "over15";
+      if (filtro === "OVER25") return isLiveReal(item) && item.category === "over25";
+      if (filtro === "BTTS") return isLiveReal(item) && item.category === "btts";
+      if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
+      if (filtro === "ALERTA") return isLiveReal(item) && item.alert?.includes("GOL");
 
       return true;
     });
 
     filtrados.sort((a, b) => {
-      const confA = a.confidence || 70;
-      const confB = b.confidence || 70;
-
-      const pressA = a.pressure || 70;
-      const pressB = b.pressure || 70;
+      const alertaA = a.alert?.includes("IMINENTE") ? 1000 : 0;
+      const alertaB = b.alert?.includes("IMINENTE") ? 1000 : 0;
 
       const scoreA =
-        confA * 2 + pressA;
+        alertaA + (a.confidence || 70) * 2 + (a.pressure || 70);
 
       const scoreB =
-        confB * 2 + pressB;
+        alertaB + (b.confidence || 70) * 2 + (b.pressure || 70);
 
       return scoreB - scoreA;
     });
@@ -121,299 +96,227 @@ export default function App() {
     return filtrados;
   }, [signals, busca, filtro]);
 
-  const liveCount =
-    signals.filter(isLiveReal).length;
+  const liveCount = signals.filter(isLiveReal).length;
 
-  const alertCount =
-    signals.filter(
-      (s) =>
-        isLiveReal(s) &&
-        s.alert?.includes("GOL")
-    ).length;
+  const alertCount = signals.filter(
+    (s) => isLiveReal(s) && s.alert?.includes("GOL")
+  ).length;
 
   return (
-    <div style={page}>
-      <h1 style={title}>
-        MekineBet AO VIVO
-      </h1>
+    <>
+      <style>
+        {`
+          @keyframes pulseCard {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.015); }
+            100% { transform: scale(1); }
+          }
 
-      <div style={statusGrid}>
-        <div style={statusBox}>
-          🔴 Live real: {liveCount}
-        </div>
+          @keyframes livePulse {
+            0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.8); }
+            70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+            100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+          }
 
-        <div style={statusBox}>
-          🚨 Alertas: {alertCount}
-        </div>
+          @keyframes popupIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}
+      </style>
 
-        <div style={statusBox}>
-          🔄 Atualizado:{" "}
-          {lastUpdate || "carregando..."}
-        </div>
-      </div>
+      <div style={page}>
+        {popupAlerta && (
+          <div style={popup}>
+            <button onClick={() => setPopupAlerta(null)} style={popupClose}>
+              ×
+            </button>
 
-      <h2>
-        Sinais: {sinaisFiltrados.length}
-      </h2>
-
-      {liveCount === 0 &&
-        filtro === "LIVE" && (
-          <div style={warningBox}>
-            <p>
-              ⚠️ Nenhum jogo ao vivo detectado
-              agora.
+            <h2 style={{ margin: 0 }}>🚨 ALERTA IA</h2>
+            <p style={{ fontSize: 20, fontWeight: "bold" }}>
+              {popupAlerta.alert || "GOL IMINENTE"}
             </p>
+            <p>{popupAlerta.match}</p>
+            <p>
+              {popupAlerta.market} • IA {popupAlerta.confidence || 70}% •
+              Pressão {popupAlerta.pressure || 70}%
+            </p>
+          </div>
+        )}
+
+        <h1 style={title}>MekineBet AO VIVO</h1>
+
+        <div style={statusGrid}>
+          <div style={statusBox}>🔴 Live real: {liveCount}</div>
+          <div style={statusBox}>🚨 Alertas: {alertCount}</div>
+          <div style={statusBox}>🔄 Atualizado: {lastUpdate || "carregando..."}</div>
+        </div>
+
+        <h2>Sinais: {sinaisFiltrados.length}</h2>
+
+        {liveCount === 0 && filtro === "LIVE" && (
+          <div style={warningBox}>
+            <p>⚠️ Nenhum jogo ao vivo detectado agora.</p>
 
             <div style={noticeButtons}>
-              <button
-                onClick={() =>
-                  setFiltro("TODOS")
-                }
-                style={activeBtn}
-              >
+              <button onClick={() => setFiltro("TODOS")} style={activeBtn}>
                 Ver base IA
               </button>
 
-              <button
-                onClick={carregar}
-                style={btnStyle}
-              >
+              <button onClick={carregar} style={btnStyle}>
                 Atualizar agora
               </button>
             </div>
           </div>
         )}
 
-      {liveCount === 0 &&
-        filtro === "TODOS" && (
+        {liveCount === 0 && filtro === "TODOS" && (
           <div style={warningBox}>
             <p>
-              📊 Mostrando base IA e histórico.
-              Nenhum LIVE real disponível neste
-              momento.
+              📊 Mostrando base IA e histórico. Nenhum LIVE real disponível
+              neste momento.
             </p>
 
             <div style={noticeButtons}>
-              <button
-                onClick={() =>
-                  setFiltro("LIVE")
-                }
-                style={activeBtn}
-              >
+              <button onClick={() => setFiltro("LIVE")} style={activeBtn}>
                 Ver somente LIVE
               </button>
 
-              <button
-                onClick={carregar}
-                style={btnStyle}
-              >
+              <button onClick={carregar} style={btnStyle}>
                 Atualizar agora
               </button>
             </div>
           </div>
         )}
 
-      <div style={filters}>
-        {[
-          "LIVE",
-          "ALERTA",
-          "OVER15",
-          "OVER25",
-          "BTTS",
-          "HISTORICO",
-          "TOP IA",
-          "TODOS"
-        ].map((btn) => (
-          <button
-            key={btn}
-            onClick={() => setFiltro(btn)}
-            style={
-              filtro === btn
-                ? activeBtn
-                : btnStyle
-            }
-          >
-            {btn}
-          </button>
-        ))}
-      </div>
+        <div style={filters}>
+          {[
+            "LIVE",
+            "ALERTA",
+            "OVER15",
+            "OVER25",
+            "BTTS",
+            "HISTORICO",
+            "TOP IA",
+            "TODOS"
+          ].map((btn) => (
+            <button
+              key={btn}
+              onClick={() => setFiltro(btn)}
+              style={filtro === btn ? activeBtn : btnStyle}
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
 
-      <input
-        placeholder="Buscar jogo, liga ou mercado..."
-        value={busca}
-        onChange={(e) =>
-          setBusca(e.target.value)
-        }
-        style={input}
-      />
+        <input
+          placeholder="Buscar jogo, liga ou mercado..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={input}
+        />
 
-      {loading && (
-        <p>Carregando sinais...</p>
-      )}
+        {loading && <p>Carregando sinais...</p>}
 
-      {!loading &&
-        sinaisFiltrados.length === 0 && (
+        {!loading && sinaisFiltrados.length === 0 && (
           <div style={emptyBox}>
-            <p>
-              Nenhum sinal encontrado nesse
-              filtro.
-            </p>
+            <p>Nenhum sinal encontrado nesse filtro.</p>
 
             <div style={noticeButtons}>
-              <button
-                onClick={() =>
-                  setFiltro("TODOS")
-                }
-                style={activeBtn}
-              >
+              <button onClick={() => setFiltro("TODOS")} style={activeBtn}>
                 Ver base IA
               </button>
 
-              <button
-                onClick={carregar}
-                style={btnStyle}
-              >
+              <button onClick={carregar} style={btnStyle}>
                 Atualizar agora
               </button>
             </div>
           </div>
         )}
 
-      {sinaisFiltrados.map((item) => {
-        const liveReal =
-          isLiveReal(item);
+        {sinaisFiltrados.map((item) => {
+          const liveReal = isLiveReal(item);
+          const golIminente = item.alert?.includes("IMINENTE");
+          const topIa = (item.confidence || 70) >= 82;
 
-        return (
-          <div
-            key={item.id}
-            style={card}
-          >
-            <div style={header}>
-              <div style={teams}>
-                {item.logoHome && (
-                  <img
-                    src={item.logoHome}
-                    alt=""
-                    style={logo}
-                  />
-                )}
+          return (
+            <div
+              key={item.id}
+              style={{
+                ...card,
+                border: golIminente
+                  ? "2px solid #ff0000"
+                  : topIa
+                  ? "2px solid #22c55e"
+                  : "1px solid #00ffcc",
+                boxShadow: golIminente
+                  ? "0 0 30px rgba(255,0,0,0.85)"
+                  : topIa
+                  ? "0 0 22px rgba(34,197,94,0.35)"
+                  : "0 0 15px rgba(0,255,204,0.15)",
+                animation: golIminente ? "pulseCard 1s infinite" : "none"
+              }}
+            >
+              <div style={header}>
+                <div style={teams}>
+                  {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
 
-                <div>
-                  <h2 style={matchTitle}>
-                    {item.match}
-                  </h2>
+                  <div>
+                    <h2 style={matchTitle}>{item.match}</h2>
+                    <p style={league}>{item.league}</p>
+                  </div>
 
-                  <p style={league}>
-                    {item.league}
-                  </p>
+                  {item.logoAway && <img src={item.logoAway} alt="" style={logo} />}
                 </div>
 
-                {item.logoAway && (
-                  <img
-                    src={item.logoAway}
-                    alt=""
-                    style={logo}
-                  />
-                )}
+                <div style={liveReal ? liveBadge : historyBadge}>
+                  {liveReal ? "🔴 AO VIVO" : "📊 BASE"}
+                </div>
               </div>
 
-              <div
-                style={
-                  liveReal
-                    ? liveBadge
-                    : historyBadge
-                }
-              >
-                {liveReal
-                  ? "🔴 AO VIVO"
-                  : "📊 BASE"}
-              </div>
-            </div>
+              {topIa && <div style={topIaBadge}>🔥 TOP IA</div>}
 
-            {(item.confidence || 70) >=
-              82 && (
-              <div style={topIaBadge}>
-                🔥 TOP IA
-              </div>
-            )}
+              {golIminente && <div style={dangerBadge}>🚨 GOL IMINENTE</div>}
 
-            <div style={infoGrid}>
-              <div>
-                <b>⚽ Placar:</b>{" "}
-                {item.score}
+              <div style={infoGrid}>
+                <div><b>⚽ Placar:</b> {item.score}</div>
+                <div><b>🎯 Mercado:</b> {item.market}</div>
+                <div><b>💰 Odd:</b> {item.odd}</div>
+                <div><b>⏱️ Minuto:</b> {liveReal ? `${item.minute}'` : "Pré/Base"}</div>
+                <div><b>🤖 IA:</b> {item.confidence || 70}%</div>
+                <div><b>🔥 Pressão:</b> {item.pressure || 70}%</div>
+                <div><b>📢 Alerta:</b> {item.alert || "MONITORAMENTO IA"}</div>
               </div>
 
-              <div>
-                <b>🎯 Mercado:</b>{" "}
-                {item.market}
+              <div style={barBg}>
+                <div
+                  style={{
+                    ...barFill,
+                    width: `${item.confidence || 70}%`,
+                    background: topIa ? "#22c55e" : "#00ffcc"
+                  }}
+                />
               </div>
 
-              <div>
-                <b>💰 Odd:</b>{" "}
-                {item.odd}
-              </div>
+              <div style={buttons}>
+                <a href={item.betano} target="_blank" rel="noreferrer" style={betano}>
+                  Betano
+                </a>
 
-              <div>
-                <b>⏱️ Minuto:</b>{" "}
-                {liveReal
-                  ? `${item.minute}'`
-                  : "Pré/Base"}
-              </div>
+                <a href={item.novibet} target="_blank" rel="noreferrer" style={novibet}>
+                  Novibet
+                </a>
 
-              <div>
-                <b>🤖 IA:</b>{" "}
-                {item.confidence || 70}%
-              </div>
-
-              <div>
-                <b>🔥 Pressão:</b>{" "}
-                {item.pressure || 70}%
+                <a href={item.bet365} target="_blank" rel="noreferrer" style={bet365}>
+                  Bet365
+                </a>
               </div>
             </div>
-
-            <div style={barBg}>
-              <div
-                style={{
-                  ...barFill,
-                  width: `${
-                    item.confidence || 70
-                  }%`
-                }}
-              />
-            </div>
-
-            <div style={buttons}>
-              <a
-                href={item.betano}
-                target="_blank"
-                rel="noreferrer"
-                style={betano}
-              >
-                Betano
-              </a>
-
-              <a
-                href={item.novibet}
-                target="_blank"
-                rel="noreferrer"
-                style={novibet}
-              >
-                Novibet
-              </a>
-
-              <a
-                href={item.bet365}
-                target="_blank"
-                rel="noreferrer"
-                style={bet365}
-              >
-                Bet365
-              </a>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -430,6 +333,32 @@ const title = {
   fontSize: "clamp(32px,6vw,58px)",
   marginBottom: 10,
   fontWeight: "900"
+};
+
+const popup = {
+  position: "fixed",
+  top: 20,
+  right: 20,
+  zIndex: 9999,
+  background: "#7f1d1d",
+  border: "2px solid #ff0000",
+  color: "white",
+  padding: 20,
+  borderRadius: 18,
+  width: "min(420px, calc(100% - 40px))",
+  boxShadow: "0 0 30px rgba(255,0,0,0.8)",
+  animation: "popupIn 0.3s ease"
+};
+
+const popupClose = {
+  position: "absolute",
+  top: 8,
+  right: 12,
+  background: "transparent",
+  border: "none",
+  color: "white",
+  fontSize: 28,
+  cursor: "pointer"
 };
 
 const statusGrid = {
@@ -455,8 +384,7 @@ const warningBox = {
   borderRadius: 14,
   marginBottom: 20,
   fontWeight: "bold",
-  boxShadow:
-    "0 0 15px rgba(249,115,22,0.35)"
+  boxShadow: "0 0 15px rgba(249,115,22,0.35)"
 };
 
 const noticeButtons = {
@@ -509,12 +437,10 @@ const emptyBox = {
 };
 
 const card = {
-  background:
-    "linear-gradient(180deg,#081225,#0f172a)",
+  background: "linear-gradient(180deg,#081225,#0f172a)",
   padding: 22,
   marginBottom: 22,
-  borderRadius: 18,
-  border: "1px solid #00ffcc"
+  borderRadius: 18
 };
 
 const header = {
@@ -556,7 +482,8 @@ const liveBadge = {
   background: "#dc2626",
   padding: "8px 14px",
   borderRadius: 999,
-  fontWeight: "bold"
+  fontWeight: "bold",
+  animation: "livePulse 1.5s infinite"
 };
 
 const historyBadge = {
@@ -577,6 +504,17 @@ const topIaBadge = {
   marginBottom: 5
 };
 
+const dangerBadge = {
+  background: "#ff0000",
+  color: "white",
+  padding: "8px 14px",
+  borderRadius: 999,
+  fontWeight: "900",
+  display: "inline-block",
+  marginTop: 12,
+  marginBottom: 5
+};
+
 const infoGrid = {
   display: "grid",
   gap: 12,
@@ -593,8 +531,7 @@ const barBg = {
 };
 
 const barFill = {
-  height: "100%",
-  background: "#00ffcc"
+  height: "100%"
 };
 
 const buttons = {
