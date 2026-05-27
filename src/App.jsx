@@ -209,13 +209,10 @@ export default function App() {
     if (market.includes("1.5") || market.includes("1,5")) return "OVER 1,5";
     if (market.includes("2.5") || market.includes("2,5")) return "OVER 2,5";
     if (market.includes("3.5") || market.includes("3,5")) return "OVER 3,5";
-
     if (market.includes("under") && (market.includes("cart") || market.includes("card"))) return "UNDER CARTÕES";
     if (market.includes("cart") || market.includes("card")) return "OVER CARTÕES";
-
     if (market.includes("under") && (market.includes("canto") || market.includes("corner"))) return "UNDER CANTOS";
     if (market.includes("canto") || market.includes("corner")) return "OVER CANTOS";
-
     if (market.includes("btts") || market.includes("ambas")) return "BTTS";
 
     return item.category?.toUpperCase() || "OUTROS";
@@ -444,6 +441,16 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={dangerBox}>
+                  <div style={dangerHeader}>⚠️ Perigo AO VIVO</div>
+                  <div style={dangerContent}>
+                    Domínio: {item.pressure || 70}% • Ataques perigosos: {stats.perigosos}
+                  </div>
+                  <div style={dangerBar}>
+                    <div style={{ ...dangerFill, width: `${item.pressure || 70}%` }} />
+                  </div>
+                </div>
+
                 <div style={footer}>
                   <button style={betano}>Betano</button>
                   <button style={novibet}>Novibet</button>
@@ -509,8 +516,8 @@ const activeBtn = { ...btnStyle, background: "#00ff87", color: "#001b0b" };
 
 const search = { width: "100%", boxSizing: "border-box", background: "#07131a", border: "1px solid #00ff87", color: "#fff", padding: 15, borderRadius: 8, marginBottom: 12, fontSize: 16 };
 
-const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))", gap: 12, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#07140d,#081018)", border: "1px solid rgba(0,255,135,.45)", borderRadius: 10, padding: 12, minHeight: 390, boxShadow: "0 0 20px rgba(0,255,135,.08)", overflow: "hidden" };
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(390px,1fr))", gap: 10, alignItems: "start" };
+const card = { background: "linear-gradient(180deg,#07140d,#081018)", border: "1px solid rgba(0,255,135,.45)", borderRadius: 10, padding: 10, minHeight: 320, boxShadow: "0 0 18px rgba(0,255,135,.08)", overflow: "hidden", transition: ".25s" };
 
 const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 };
 const teams = { display: "flex", gap: 8, alignItems: "center" };
@@ -520,15 +527,15 @@ const league = { color: "#cbd5e1", margin: "5px 0 0", fontSize: 13 };
 const rightBadges = { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" };
 const baseBadge = { background: "#334155", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
 const vipBadge = { background: "#facc15", color: "#000", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
+const marketBadge = { background: "#0ea5e9", padding: "6px 10px", borderRadius: 999, fontSize: 11, fontWeight: 900, boxShadow: "0 0 12px rgba(14,165,233,.5)" };
 
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, alignItems: "start" };
+const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 200px", gap: 8, alignItems: "start" };
 const mainInfo = { display: "grid", gap: 10 };
 const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 11, display: "grid", gap: 2, fontSize: 16 };
 const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 11, display: "grid", gap: 4, fontSize: 16 };
 
 const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8 };
-const field = { height: 105, background: "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)", border: "2px solid rgba(255,255,255,.35)", borderRadius: 8, position: "relative", overflow: "hidden", boxShadow: "inset 0 0 18px rgba(255,255,255,.08)" };
+const field = { height: 92, background: "repeating-linear-gradient(90deg,#14532d 0px,#14532d 38px,#166534 38px,#166534 76px)", border: "2px solid rgba(255,255,255,.25)", borderRadius: 8, position: "relative", overflow: "hidden", boxShadow: "inset 0 0 20px rgba(255,255,255,.08)" };
 const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
 const areaLeft = { position: "absolute", left: "8%", top: "35%", width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(255,255,255,.28)" };
 const areaRight = { position: "absolute", right: "8%", top: "35%", width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(255,255,255,.28)" };
@@ -544,9 +551,15 @@ const barGold = { height: "100%", background: "#facc15" };
 
 const momentumBox = { marginTop: 10, background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 9 };
 const momentumTitle = { fontWeight: 900, marginBottom: 5, color: "#00ff87", fontSize: 15 };
-const momentumBar = { height: 12, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
-const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999, transition: ".4s" };
+const momentumBar = { height: 10, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999, transition: ".4s", animation: "pulse 1s infinite" };
 const momentumInfo = { marginTop: 6, fontSize: 13, color: "#e5e7eb" };
+
+const dangerBox = { marginTop: 8, background: "#09150d", border: "1px solid #174f32", borderRadius: 8, padding: 8 };
+const dangerHeader = { color: "#ff5252", fontWeight: 900, marginBottom: 5, fontSize: 13 };
+const dangerContent = { color: "#d1d5db", fontSize: 12, marginBottom: 6 };
+const dangerBar = { height: 10, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const dangerFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999, animation: "pulse 1s infinite" };
 
 const footer = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, justifyContent: "space-between" };
 const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "10px 20px", fontWeight: 900 };
@@ -554,7 +567,7 @@ const novibet = { ...betano, background: "#2563eb" };
 const bet365 = { ...betano, background: "#f59e0b" };
 const vipBtn = { ...betano, background: "#facc15", color: "#000" };
 
-const oddBlink = { color: "#facc15", fontWeight: 900, animation: "pulse 1s infinite" };
+const oddBlink = { color: "#facc15", fontWeight: 900, animation: "pulse 0.8s infinite" };
 const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10, boxShadow: "0 0 25px rgba(239,68,68,.7)" };
 const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
 
