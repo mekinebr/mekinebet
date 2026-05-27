@@ -50,16 +50,20 @@ export default function App() {
 
   useEffect(() => {
     carregar();
-
-    const intervalo = setInterval(() => {
-      carregar();
-    }, 30000);
-
+    const intervalo = setInterval(carregar, 30000);
     return () => clearInterval(intervalo);
   }, [ultimoAlerta]);
 
   function isLiveReal(item) {
     return item.type === "live" && item.source === "api-sports-live";
+  }
+
+  function isVipLiberado(item) {
+    return (
+      (item.confidence || 70) >= 82 ||
+      item.alert?.includes("IMINENTE") ||
+      item.alert?.includes("GOL")
+    );
   }
 
   const sinaisFiltrados = useMemo(() => {
@@ -75,6 +79,7 @@ export default function App() {
       if (filtro === "OVER25") return isLiveReal(item) && item.category === "over25";
       if (filtro === "BTTS") return isLiveReal(item) && item.category === "btts";
       if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
+      if (filtro === "VIP") return isVipLiberado(item);
       if (filtro === "ALERTA") return isLiveReal(item) && item.alert?.includes("GOL");
 
       return true;
@@ -84,11 +89,8 @@ export default function App() {
       const alertaA = a.alert?.includes("IMINENTE") ? 1000 : 0;
       const alertaB = b.alert?.includes("IMINENTE") ? 1000 : 0;
 
-      const scoreA =
-        alertaA + (a.confidence || 70) * 2 + (a.pressure || 70);
-
-      const scoreB =
-        alertaB + (b.confidence || 70) * 2 + (b.pressure || 70);
+      const scoreA = alertaA + (a.confidence || 70) * 2 + (a.pressure || 70);
+      const scoreB = alertaB + (b.confidence || 70) * 2 + (b.pressure || 70);
 
       return scoreB - scoreA;
     });
@@ -97,7 +99,6 @@ export default function App() {
   }, [signals, busca, filtro]);
 
   const liveCount = signals.filter(isLiveReal).length;
-
   const alertCount = signals.filter(
     (s) => isLiveReal(s) && s.alert?.includes("GOL")
   ).length;
@@ -149,32 +150,17 @@ export default function App() {
         <div style={statusGrid}>
           <div style={statusBox}>🔴 Live real: {liveCount}</div>
           <div style={statusBox}>🚨 Alertas: {alertCount}</div>
+          <div style={statusBox}>👑 VIP visual ativo</div>
           <div style={statusBox}>🔄 Atualizado: {lastUpdate || "carregando..."}</div>
         </div>
 
         <h2>Sinais: {sinaisFiltrados.length}</h2>
 
-        {liveCount === 0 && filtro === "LIVE" && (
-          <div style={warningBox}>
-            <p>⚠️ Nenhum jogo ao vivo detectado agora.</p>
-
-            <div style={noticeButtons}>
-              <button onClick={() => setFiltro("TODOS")} style={activeBtn}>
-                Ver base IA
-              </button>
-
-              <button onClick={carregar} style={btnStyle}>
-                Atualizar agora
-              </button>
-            </div>
-          </div>
-        )}
-
         {liveCount === 0 && filtro === "TODOS" && (
           <div style={warningBox}>
             <p>
-              📊 Mostrando base IA e histórico. Nenhum LIVE real disponível
-              neste momento.
+              📊 Mostrando base IA e histórico. Nenhum LIVE real disponível neste
+              momento.
             </p>
 
             <div style={noticeButtons}>
@@ -198,6 +184,7 @@ export default function App() {
             "BTTS",
             "HISTORICO",
             "TOP IA",
+            "VIP",
             "TODOS"
           ].map((btn) => (
             <button
@@ -239,6 +226,8 @@ export default function App() {
           const liveReal = isLiveReal(item);
           const golIminente = item.alert?.includes("IMINENTE");
           const topIa = (item.confidence || 70) >= 82;
+          const vipLiberado = isVipLiberado(item);
+          const bloqueado = !vipLiberado && filtro !== "TODOS" && filtro !== "HISTORICO";
 
           return (
             <div
@@ -247,17 +236,28 @@ export default function App() {
                 ...card,
                 border: golIminente
                   ? "2px solid #ff0000"
+                  : vipLiberado
+                  ? "2px solid #facc15"
                   : topIa
                   ? "2px solid #22c55e"
                   : "1px solid #00ffcc",
                 boxShadow: golIminente
                   ? "0 0 30px rgba(255,0,0,0.85)"
-                  : topIa
-                  ? "0 0 22px rgba(34,197,94,0.35)"
+                  : vipLiberado
+                  ? "0 0 24px rgba(250,204,21,0.35)"
                   : "0 0 15px rgba(0,255,204,0.15)",
-                animation: golIminente ? "pulseCard 1s infinite" : "none"
+                animation: golIminente ? "pulseCard 1s infinite" : "none",
+                position: "relative"
               }}
             >
+              {bloqueado && (
+                <div style={vipOverlay}>
+                  <h2>🔒 SINAL VIP</h2>
+                  <p>Este sinal fica disponível no plano VIP.</p>
+                  <button style={vipButton}>Liberar VIP</button>
+                </div>
+              )}
+
               <div style={header}>
                 <div style={teams}>
                   {item.logoHome && <img src={item.logoHome} alt="" style={logo} />}
@@ -275,8 +275,8 @@ export default function App() {
                 </div>
               </div>
 
+              {vipLiberado && <div style={vipBadge}>👑 VIP LIBERADO</div>}
               {topIa && <div style={topIaBadge}>🔥 TOP IA</div>}
-
               {golIminente && <div style={dangerBadge}>🚨 GOL IMINENTE</div>}
 
               <div style={infoGrid}>
@@ -294,7 +294,7 @@ export default function App() {
                   style={{
                     ...barFill,
                     width: `${item.confidence || 70}%`,
-                    background: topIa ? "#22c55e" : "#00ffcc"
+                    background: vipLiberado ? "#facc15" : topIa ? "#22c55e" : "#00ffcc"
                   }}
                 />
               </div>
@@ -440,7 +440,32 @@ const card = {
   background: "linear-gradient(180deg,#081225,#0f172a)",
   padding: 22,
   marginBottom: 22,
-  borderRadius: 18
+  borderRadius: 18,
+  overflow: "hidden"
+};
+
+const vipOverlay = {
+  position: "absolute",
+  inset: 0,
+  background: "rgba(2,6,23,0.88)",
+  backdropFilter: "blur(5px)",
+  zIndex: 5,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  padding: 20
+};
+
+const vipButton = {
+  background: "#facc15",
+  color: "#000",
+  border: "none",
+  padding: "12px 22px",
+  borderRadius: 12,
+  fontWeight: "900",
+  cursor: "pointer"
 };
 
 const header = {
@@ -493,6 +518,17 @@ const historyBadge = {
   fontWeight: "bold"
 };
 
+const vipBadge = {
+  background: "#facc15",
+  color: "#000",
+  padding: "8px 14px",
+  borderRadius: 999,
+  fontWeight: "900",
+  display: "inline-block",
+  marginTop: 20,
+  marginRight: 8
+};
+
 const topIaBadge = {
   background: "#22c55e",
   color: "#000",
@@ -501,7 +537,7 @@ const topIaBadge = {
   fontWeight: "900",
   display: "inline-block",
   marginTop: 20,
-  marginBottom: 5
+  marginRight: 8
 };
 
 const dangerBadge = {
@@ -511,8 +547,7 @@ const dangerBadge = {
   borderRadius: 999,
   fontWeight: "900",
   display: "inline-block",
-  marginTop: 12,
-  marginBottom: 5
+  marginTop: 20
 };
 
 const infoGrid = {
