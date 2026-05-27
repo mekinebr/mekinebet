@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+const API_URL = "https://mekinebet.onrender.com/api/signals";
+
 export default function App() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,8 +13,12 @@ export default function App() {
 
   async function ativarNotificacoes() {
     try {
-      if ("Notification" in window) await Notification.requestPermission();
-      if ("serviceWorker" in navigator) await navigator.serviceWorker.register("/sw.js");
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("/sw.js");
+      }
     } catch (err) {
       console.log(err);
     }
@@ -37,20 +43,35 @@ export default function App() {
 
   async function carregar() {
     try {
-      const res = await fetch("https://mekinebet.onrender.com/api/signals");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 9000);
+
+      const res = await fetch(API_URL, {
+        signal: controller.signal,
+        cache: "no-store"
+      });
+
+      clearTimeout(timer);
+
       const data = await res.json();
       const novos = data.activeSignals || [];
 
       setSignals(novos);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
 
-      const alerta = novos.find(
-        (s) =>
+      const alerta = novos.find((s) => {
+        const status = mercadoStatus(s);
+        return (
           s.source === "api-sports-live" &&
-          (s.alert?.includes("IMINENTE") ||
-            (s.confidence || 0) >= 85 ||
-            (s.pressure || 0) >= 88)
-      );
+          (
+            status.includes("GOL IMINENTE") ||
+            status.includes("PRESSÃO EXTREMA") ||
+            status.includes("OVER MUITO FORTE") ||
+            (s.confidence || 0) >= 86 ||
+            (s.pressure || 0) >= 88
+          )
+        );
+      });
 
       if (alerta && alerta.id !== ultimoAlerta) {
         setUltimoAlerta(alerta.id);
@@ -60,6 +81,7 @@ export default function App() {
         const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
         audio.volume = 0.45;
         audio.play().catch(() => {});
+
         setTimeout(() => setPopupAlerta(null), 9000);
       }
     } catch (err) {
@@ -72,7 +94,11 @@ export default function App() {
   useEffect(() => {
     ativarNotificacoes();
     carregar();
-    const intervalo = setInterval(carregar, 30000);
+
+    const intervalo = setInterval(() => {
+      if (!document.hidden) carregar();
+    }, 20000);
+
     return () => clearInterval(intervalo);
   }, []);
 
@@ -89,46 +115,68 @@ export default function App() {
     return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
   }
 
+  function statsDoJogo(item) {
+    const conf = item.confidence || 70;
+    const press = item.pressure || 70;
+    const gols = totalGols(item);
+
+    return {
+      posse: item.possession || Math.min(68, Math.max(42, conf - 18)),
+      finalizacoes: item.shots || Math.max(6, Math.round(press / 8 + gols * 2)),
+      ataques: item.attacks || Math.max(18, Math.round(press / 2)),
+      cantos: item.corners || Math.max(2, Math.round(press / 18)),
+      cartoes: item.cards || Math.max(1, Math.round((100 - conf) / 25)),
+      perigosos: item.dangerousAttacks || Math.max(8, Math.round(press / 3))
+    };
+  }
+
   function mercadoStatus(item) {
     const gols = totalGols(item);
     const min = minuto(item);
     const pressure = item.pressure || 70;
     const confidence = item.confidence || 70;
-    const ataques = Math.round(pressure / 2);
-    const finalizacoes = Math.round(pressure / 8);
+    const stats = statsDoJogo(item);
     const market = String(item.market || "").toLowerCase();
 
     if (market.includes("0.5")) {
       if (gols >= 1) return "✅ GREEN";
-      if (min >= 15 && pressure >= 72 && ataques >= 28) return "🔥 GOL IMINENTE";
+      if (min >= 12 && pressure >= 70 && stats.ataques >= 28) return "🔥 GOL IMINENTE";
       if (min >= 30 && pressure >= 60) return "📈 OVER FORTE";
       return "👀 MONITORANDO";
     }
 
     if (market.includes("1.5")) {
       if (gols >= 2) return "✅ GREEN";
-      if (gols === 1 && min <= 70 && pressure >= 74) return "🔥 2º GOL QUENTE";
-      if (min >= 55 && pressure >= 78 && finalizacoes >= 8) return "🚨 PRESSÃO EXTREMA";
-      return "📊 AO VIVO";
+      if (gols === 1 && min <= 68 && pressure >= 72) return "🔥 2º GOL MUITO FORTE";
+      if (gols === 0 && min >= 35 && pressure < 55) return "❄️ JOGO FRIO";
+      if (stats.finalizacoes >= 8 && stats.ataques >= 32) return "⚡ PRESSÃO ALTA";
+      return "📊 MONITORANDO";
     }
 
     if (market.includes("2.5")) {
       if (gols >= 3) return "✅ GREEN";
-      if (gols >= 2 && pressure >= 75 && min <= 80) return "🔥 OVER MUITO FORTE";
-      if (min >= 60 && ataques >= 35) return "⚡ ATAQUE TOTAL";
+      if (gols >= 2 && pressure >= 74 && min <= 82) return "🔥 OVER MUITO FORTE";
+      if (min >= 60 && stats.perigosos >= 20) return "⚡ ATAQUE TOTAL";
       return "📊 MONITORANDO";
     }
 
     if (market.includes("3.5")) {
       if (gols >= 4) return "✅ GREEN";
       if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
+      if (gols <= 1 && min >= 65) return "📉 RISCO ALTO";
       return "📉 RISCO MÉDIO";
     }
 
     if (market.includes("btts") || market.includes("ambas")) {
       if (gols >= 2) return "🔥 BTTS QUENTE";
-      if (pressure >= 75 && ataques >= 30) return "⚡ AMBAS PRESSIONANDO";
+      if (pressure >= 75 && stats.ataques >= 30) return "⚡ AMBAS PRESSIONANDO";
       return "👀 OBSERVAÇÃO";
+    }
+
+    if (market.includes("under") && (market.includes("cart") || market.includes("card"))) {
+      if (stats.cartoes <= 2 && min >= 60) return "🟢 UNDER CARTÕES BOM";
+      if (stats.cartoes >= 4) return "🔴 RISCO UNDER CARTÕES";
+      return "📊 UNDER CARTÕES";
     }
 
     if (market.includes("cart") || market.includes("card")) {
@@ -137,9 +185,15 @@ export default function App() {
       return "📊 CARTÕES AO VIVO";
     }
 
+    if (market.includes("under") && (market.includes("canto") || market.includes("corner"))) {
+      if (stats.cantos <= 5 && min >= 60) return "🟢 UNDER CANTOS BOM";
+      if (pressure >= 78) return "🔴 RISCO UNDER CANTOS";
+      return "📊 UNDER CANTOS";
+    }
+
     if (market.includes("canto") || market.includes("corner")) {
       if (pressure >= 78) return "🚩 PRESSÃO EM ESCANTEIOS";
-      if (ataques >= 35) return "⚡ OVER CANTOS";
+      if (stats.ataques >= 35) return "⚡ OVER CANTOS";
       return "📈 CANTOS AO VIVO";
     }
 
@@ -155,9 +209,12 @@ export default function App() {
     if (market.includes("1.5")) return "OVER15";
     if (market.includes("2.5")) return "OVER25";
     if (market.includes("3.5")) return "OVER35";
-    if (market.includes("cart") || market.includes("card")) return "CARTOES";
-    if (market.includes("canto") || market.includes("corner")) return "CANTOS";
+    if (market.includes("under") && (market.includes("cart") || market.includes("card"))) return "UNDER CARTÕES";
+    if (market.includes("cart") || market.includes("card")) return "OVER CARTÕES";
+    if (market.includes("under") && (market.includes("canto") || market.includes("corner"))) return "UNDER CANTOS";
+    if (market.includes("canto") || market.includes("corner")) return "OVER CANTOS";
     if (market.includes("btts") || market.includes("ambas")) return "BTTS";
+
     return item.category?.toUpperCase() || "OUTROS";
   }
 
@@ -167,20 +224,6 @@ export default function App() {
       item.alert?.includes("IMINENTE") ||
       item.alert?.includes("GOL")
     );
-  }
-
-  function estatisticasFake(item) {
-    const conf = item.confidence || 70;
-    const press = item.pressure || 70;
-    const gols = totalGols(item);
-
-    return {
-      posseCasa: Math.min(68, Math.max(42, conf - 18)),
-      finalizacoes: Math.max(6, Math.round(press / 8 + gols * 2)),
-      ataques: Math.max(18, Math.round(press / 2)),
-      cantos: Math.max(2, Math.round(press / 18)),
-      cartoes: Math.max(1, Math.round((100 - conf) / 25))
-    };
   }
 
   const sinaisFiltrados = useMemo(() => {
@@ -197,22 +240,26 @@ export default function App() {
       if (filtro === "OVER15") return cat === "OVER15";
       if (filtro === "OVER25") return cat === "OVER25";
       if (filtro === "OVER35") return cat === "OVER35";
-      if (filtro === "CARTOES") return cat === "CARTOES";
-      if (filtro === "CANTOS") return cat === "CANTOS";
+      if (filtro === "CARTÕES") return cat.includes("CARTÕES");
+      if (filtro === "CANTOS") return cat.includes("CANTOS");
       if (filtro === "BTTS") return cat === "BTTS";
       if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
       if (filtro === "VIP") return isVipLiberado(item);
-      if (filtro === "ALERTA") return item.alert?.includes("GOL") || item.alert?.includes("IMINENTE");
+      if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
 
       return true;
     });
 
     filtrados.sort((a, b) => {
-      const alertaA = a.alert?.includes("IMINENTE") ? 1000 : 0;
-      const alertaB = b.alert?.includes("IMINENTE") ? 1000 : 0;
+      const scoreA =
+        (mercadoStatus(a).includes("🔥") ? 1000 : 0) +
+        (a.confidence || 70) * 2 +
+        (a.pressure || 70);
 
-      const scoreA = alertaA + (a.confidence || 70) * 2 + (a.pressure || 70);
-      const scoreB = alertaB + (b.confidence || 70) * 2 + (b.pressure || 70);
+      const scoreB =
+        (mercadoStatus(b).includes("🔥") ? 1000 : 0) +
+        (b.confidence || 70) * 2 +
+        (b.pressure || 70);
 
       return scoreB - scoreA;
     });
@@ -221,7 +268,7 @@ export default function App() {
   }, [signals, busca, filtro]);
 
   const liveCount = signals.filter(isLiveReal).length;
-  const alertCount = signals.filter((s) => s.alert?.includes("GOL") || s.alert?.includes("IMINENTE")).length;
+  const alertCount = signals.filter((s) => mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨")).length;
 
   return (
     <div style={page}>
@@ -272,7 +319,7 @@ export default function App() {
           "OVER15",
           "OVER25",
           "OVER35",
-          "CARTOES",
+          "CARTÕES",
           "CANTOS",
           "BTTS",
           "TOP IA",
@@ -301,7 +348,7 @@ export default function App() {
           {sinaisFiltrados.map((item, index) => {
             const liveReal = isLiveReal(item);
             const vip = isVipLiberado(item);
-            const stats = estatisticasFake(item);
+            const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
 
@@ -315,7 +362,7 @@ export default function App() {
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 0 30px rgba(0,255,135,.08)";
+                  e.currentTarget.style.boxShadow = "0 0 18px rgba(0,255,135,.08)";
                 }}
               >
                 <div style={cardHeader}>
@@ -351,55 +398,57 @@ export default function App() {
 
                     <div style={bars}>
                       <label>IA {item.confidence || 70}%</label>
-                      <div style={barBg}><div style={{ ...bar, width: `${item.confidence || 70}%` }} /></div>
+                      <div style={barBg}>
+                        <div style={{ ...bar, width: `${item.confidence || 70}%` }} />
+                      </div>
 
                       <label>Pressão {item.pressure || 70}%</label>
-                      <div style={barBg}><div style={{ ...barGold, width: `${item.pressure || 70}%` }} /></div>
+                      <div style={barBg}>
+                        <div style={{ ...barGold, width: `${item.pressure || 70}%` }} />
+                      </div>
                     </div>
                   </div>
 
                   <div style={miniMap}>
                     <div style={field}>
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: `${item.pressure || 70}%`,
-                          background: "linear-gradient(90deg,rgba(255,255,0,.12),rgba(255,0,0,.10))"
-                        }}
-                      />
+                      <div style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${item.pressure || 70}%`,
+                        background: "linear-gradient(90deg,rgba(255,255,0,.10),rgba(255,0,0,.18))"
+                      }} />
+
                       <div style={midLine}></div>
-                      <div style={{ ...dot, left: `${Math.min(82, stats.ataques)}%`, top: "44%" }}></div>
-                      <div style={{ ...dot2, left: `${100 - Math.min(82, stats.ataques)}%`, top: "56%" }}></div>
+
+                      <div style={areaLeft}></div>
+                      <div style={areaRight}></div>
+
+                      <div style={{ ...dot, left: `${Math.min(82, stats.ataques)}%`, top: "44%" }} />
+                      <div style={{ ...dot2, left: `${100 - Math.min(82, stats.ataques)}%`, top: "56%" }} />
                     </div>
 
                     <div style={statsGrid}>
-                      <span>Posse {stats.posseCasa}%</span>
+                      <span>Posse {stats.posse}%</span>
                       <span>Final. {stats.finalizacoes}</span>
                       <span>Ataques {stats.ataques}</span>
                       <span>Cantos {stats.cantos}</span>
                       <span>Cartões {stats.cartoes}</span>
-                      <span>Escalação 4-3-3</span>
+                      <span>Perig. {stats.perigosos}</span>
                     </div>
                   </div>
                 </div>
 
                 <div style={momentumBox}>
                   <div style={momentumTitle}>Momentum IA</div>
-
                   <div style={momentumBar}>
-                    <div
-                      style={{
-                        ...momentumFill,
-                        width: `${item.pressure || 70}%`
-                      }}
-                    />
+                    <div style={{ ...momentumFill, width: `${item.pressure || 70}%` }} />
                   </div>
-
                   <div style={momentumInfo}>
-                    Ataque perigoso detectado
+                    {status.includes("🔥") || status.includes("🚨")
+                      ? "Alerta forte detectado"
+                      : "Ataque perigoso monitorado"}
                   </div>
                 </div>
 
@@ -451,108 +500,74 @@ const search = { width: "100%", boxSizing: "border-box", background: "#0b1720", 
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))",
-  gap: 12,
+  gridTemplateColumns: "repeat(auto-fit,minmax(380px,1fr))",
+  gap: 10,
   alignItems: "start"
 };
 
 const card = {
   background: "linear-gradient(180deg,#07140d,#081018)",
-  border: "1px solid rgba(0,255,135,.45)",
-  borderRadius: 12,
+  border: "1px solid rgba(0,255,135,.35)",
+  borderRadius: 10,
   padding: 10,
-  minHeight: 420,
-  boxShadow: "0 0 30px rgba(0,255,135,.08)",
-  transition: ".25s"
+  minHeight: 340,
+  boxShadow: "0 0 18px rgba(0,255,135,.06)",
+  transition: ".25s",
+  overflow: "hidden"
 };
 
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 };
-const teams = { display: "flex", gap: 10, alignItems: "center" };
-const logo = { width: 34, height: 34, objectFit: "contain", background: "#fff", borderRadius: "50%", padding: 3 };
-
-const match = {
-  color: "#00ff87",
-  fontSize: "clamp(14px,1.4vw,18px)",
-  margin: 0,
-  lineHeight: 1.05,
-  fontWeight: 900
-};
-
-const league = { color: "#94a3b8", margin: "4px 0 0", fontSize: 13 };
+const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 8 };
+const teams = { display: "flex", gap: 8, alignItems: "center" };
+const logo = { width: 30, height: 30, objectFit: "contain", background: "#fff", borderRadius: "50%", padding: 3 };
+const match = { color: "#00ff87", fontSize: "clamp(13px,1.3vw,17px)", margin: 0, lineHeight: 1, fontWeight: 900 };
+const league = { color: "#94a3b8", margin: "3px 0 0", fontSize: 12 };
 const rightBadges = { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" };
-const liveBadge = { background: "#ef4444", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
-const baseBadge = { background: "#334155", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
-const vipBadge = { background: "#facc15", color: "#000", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
+const liveBadge = { background: "#ef4444", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
+const baseBadge = { background: "#334155", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
+const vipBadge = { background: "#facc15", color: "#000", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
+const marketBadge = { background: "#0ea5e9", padding: "5px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
 
 const bodyGrid = {
   display: "grid",
-  gridTemplateColumns: "1fr 180px",
+  gridTemplateColumns: "1fr 165px",
   gap: 8,
   alignItems: "start"
 };
 
-const mainInfo = { display: "grid", gap: 10 };
-const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 10, display: "grid", gap: 2 };
-const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 10, display: "grid", gap: 5 };
-const bars = { display: "grid", gap: 5, fontSize: 13, fontWeight: 700 };
-const barBg = { height: 10, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const mainInfo = { display: "grid", gap: 8 };
+const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8, display: "grid", gap: 2 };
+const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8, display: "grid", gap: 4 };
+const bars = { display: "grid", gap: 4, fontSize: 12, fontWeight: 700 };
+const barBg = { height: 9, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
 const bar = { height: "100%", background: "#00ff87" };
 const barGold = { height: "100%", background: "#facc15" };
-const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8 };
+const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 7 };
 
 const field = {
-  height: 95,
-  background:
-    "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)",
-  border: "2px solid #d1fae5",
+  height: 88,
+  background: "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)",
+  border: "2px solid rgba(255,255,255,.15)",
   borderRadius: 8,
   position: "relative",
   overflow: "hidden",
-  boxShadow: "inset 0 0 25px rgba(255,255,255,.05)"
+  boxShadow: "inset 0 0 18px rgba(255,255,255,.05)"
 };
 
-const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.7)" };
-const dot = { position: "absolute", width: 14, height: 14, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 12px #facc15" };
-const dot2 = { position: "absolute", width: 12, height: 12, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 12px #00e5ff" };
-const statsGrid = { marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#d1d5db" };
+const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.5)" };
+const areaLeft = { position: "absolute", left: "8%", top: "38%", width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)" };
+const areaRight = { position: "absolute", right: "8%", top: "38%", width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)" };
+const dot = { position: "absolute", width: 13, height: 13, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 12px #facc15" };
+const dot2 = { position: "absolute", width: 11, height: 11, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 12px #00e5ff" };
+const statsGrid = { marginTop: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11, color: "#d1d5db" };
 
-const momentumBox = {
-  marginTop: 10,
-  background: "#071a10",
-  border: "1px solid #174f32",
-  borderRadius: 8,
-  padding: 8
-};
+const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 7 };
+const momentumTitle = { fontWeight: 900, marginBottom: 5, color: "#00ff87", fontSize: 13 };
+const momentumBar = { height: 11, background: "#1e293b", borderRadius: 999, overflow: "hidden" };
+const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999, transition: ".4s" };
+const momentumInfo = { marginTop: 5, fontSize: 11, color: "#cbd5e1" };
 
-const momentumTitle = {
-  fontWeight: 900,
-  marginBottom: 6,
-  color: "#00ff87"
-};
-
-const momentumBar = {
-  height: 12,
-  background: "#1e293b",
-  borderRadius: 999,
-  overflow: "hidden"
-};
-
-const momentumFill = {
-  height: "100%",
-  background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)",
-  borderRadius: 999,
-  transition: ".4s"
-};
-
-const momentumInfo = {
-  marginTop: 6,
-  fontSize: 12,
-  color: "#cbd5e1"
-};
-
-const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, justifyContent: "space-between" };
-const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "9px 12px", fontWeight: 900 };
+const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
+const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "8px 11px", fontWeight: 900 };
 const novibet = { ...betano, background: "#2563eb" };
 const bet365 = { ...betano, background: "#f59e0b" };
 const vipBtn = { ...betano, background: "#facc15", color: "#000" };
