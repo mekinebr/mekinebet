@@ -315,7 +315,7 @@ export default function App() {
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 0 18px rgba(0,255,135,.10)";
+                  e.currentTarget.style.boxShadow = "0 0 30px rgba(0,255,135,.08)";
                 }}
               >
                 <div style={cardHeader}>
@@ -386,6 +386,23 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={momentumBox}>
+                  <div style={momentumTitle}>Momentum IA</div>
+
+                  <div style={momentumBar}>
+                    <div
+                      style={{
+                        ...momentumFill,
+                        width: `${item.pressure || 70}%`
+                      }}
+                    />
+                  </div>
+
+                  <div style={momentumInfo}>
+                    Ataque perigoso detectado
+                  </div>
+                </div>
+
                 <div style={footer}>
                   <button style={betano}>Betano</button>
                   <button style={novibet}>Novibet</button>
@@ -401,8 +418,27 @@ export default function App() {
   );
 }
 
-const page = { minHeight: "100vh", background: "#07110c", color: "#fff", padding: 14, fontFamily: "Arial, sans-serif" };
-const topBar = { background: "#0b1f13", border: "1px solid #1f8f4d", borderRadius: 10, padding: 16, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 };
+const page = {
+  minHeight: "100vh",
+  background: "#07110c",
+  color: "#fff",
+  padding: 14,
+  fontFamily: "Arial, sans-serif",
+  scrollBehavior: "smooth"
+};
+
+const topBar = {
+  background: "#0b1f13",
+  border: "1px solid #1f8f4d",
+  borderRadius: 10,
+  padding: 16,
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 12
+};
+
 const title = { color: "#00ff87", fontSize: "clamp(30px, 5vw, 52px)", margin: 0, fontWeight: 900 };
 const subTitle = { color: "#9ca3af", marginTop: 4 };
 const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
@@ -412,19 +448,50 @@ const filters = { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, 
 const btnStyle = { background: "#08140d", color: "#fff", border: "1px solid #00ff87", padding: "10px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 800, whiteSpace: "nowrap" };
 const activeBtn = { ...btnStyle, background: "#00ff87", color: "#001b0b" };
 const search = { width: "100%", boxSizing: "border-box", background: "#0b1720", border: "1px solid #00ff87", color: "#fff", padding: 13, borderRadius: 8, marginBottom: 12, fontSize: 15 };
-const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 10, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#0b1320,#07110c)", border: "1px solid rgba(0,255,135,.45)", borderRadius: 12, padding: 10, minHeight: 540, boxShadow: "0 0 18px rgba(0,255,135,.10)", transition: ".25s" };
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))",
+  gap: 12,
+  alignItems: "start"
+};
+
+const card = {
+  background: "linear-gradient(180deg,#07140d,#081018)",
+  border: "1px solid rgba(0,255,135,.45)",
+  borderRadius: 12,
+  padding: 10,
+  minHeight: 420,
+  boxShadow: "0 0 30px rgba(0,255,135,.08)",
+  transition: ".25s"
+};
+
 const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 };
 const teams = { display: "flex", gap: 10, alignItems: "center" };
 const logo = { width: 34, height: 34, objectFit: "contain", background: "#fff", borderRadius: "50%", padding: 3 };
-const match = { color: "#00ff87", fontSize: "clamp(15px,2vw,20px)", margin: 0, lineHeight: 1.05, fontWeight: 900 };
+
+const match = {
+  color: "#00ff87",
+  fontSize: "clamp(14px,1.4vw,18px)",
+  margin: 0,
+  lineHeight: 1.05,
+  fontWeight: 900
+};
+
 const league = { color: "#94a3b8", margin: "4px 0 0", fontSize: 13 };
 const rightBadges = { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" };
 const liveBadge = { background: "#ef4444", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
 const baseBadge = { background: "#334155", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
 const vipBadge = { background: "#facc15", color: "#000", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
 const marketBadge = { background: "#0ea5e9", padding: "5px 8px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 180px", gap: 8, alignItems: "start" };
+
+const bodyGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 180px",
+  gap: 8,
+  alignItems: "start"
+};
+
 const mainInfo = { display: "grid", gap: 10 };
 const scoreBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 10, display: "grid", gap: 2 };
 const signalBox = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 10, display: "grid", gap: 5 };
@@ -433,11 +500,57 @@ const barBg = { height: 10, background: "#1e293b", borderRadius: 999, overflow: 
 const bar = { height: "100%", background: "#00ff87" };
 const barGold = { height: "100%", background: "#facc15" };
 const miniMap = { background: "#071a10", border: "1px solid #174f32", borderRadius: 8, padding: 8 };
-const field = { height: 95, background: "linear-gradient(90deg,#14532d,#166534)", border: "2px solid #d1fae5", borderRadius: 8, position: "relative", overflow: "hidden", boxShadow: "inset 0 0 25px rgba(255,255,255,.05)" };
+
+const field = {
+  height: 95,
+  background:
+    "repeating-linear-gradient(90deg,#14532d 0px,#14532d 40px,#166534 40px,#166534 80px)",
+  border: "2px solid #d1fae5",
+  borderRadius: 8,
+  position: "relative",
+  overflow: "hidden",
+  boxShadow: "inset 0 0 25px rgba(255,255,255,.05)"
+};
+
 const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.7)" };
 const dot = { position: "absolute", width: 14, height: 14, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 12px #facc15" };
 const dot2 = { position: "absolute", width: 12, height: 12, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 12px #00e5ff" };
 const statsGrid = { marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#d1d5db" };
+
+const momentumBox = {
+  marginTop: 10,
+  background: "#071a10",
+  border: "1px solid #174f32",
+  borderRadius: 8,
+  padding: 8
+};
+
+const momentumTitle = {
+  fontWeight: 900,
+  marginBottom: 6,
+  color: "#00ff87"
+};
+
+const momentumBar = {
+  height: 12,
+  background: "#1e293b",
+  borderRadius: 999,
+  overflow: "hidden"
+};
+
+const momentumFill = {
+  height: "100%",
+  background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)",
+  borderRadius: 999,
+  transition: ".4s"
+};
+
+const momentumInfo = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#cbd5e1"
+};
+
 const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, justifyContent: "space-between" };
 const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 8, padding: "9px 12px", fontWeight: 900 };
 const novibet = { ...betano, background: "#2563eb" };
