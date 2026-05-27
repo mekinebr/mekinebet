@@ -1,1 +1,20 @@
-public/manifest.json
+{
+  "short_name": "MekineBet",
+  "name": "MekineBet AO VIVO",
+  "icons": [
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#00ffcc",
+  "background_color": "#020617"
+}
