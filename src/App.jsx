@@ -236,10 +236,10 @@ export default function App() {
       if (filtro === "TODOS") return true;
       if (filtro === "LIVE") return isLiveReal(item);
       if (filtro === "HISTORICO") return !isLiveReal(item);
-      if (filtro === "OVER05") return cat === "OVER05";
-      if (filtro === "OVER15") return cat === "OVER15";
-      if (filtro === "OVER25") return cat === "OVER25";
-      if (filtro === "OVER35") return cat === "OVER35";
+      if (filtro === "OVER05") return cat === "OVER 0.5";
+      if (filtro === "OVER15") return cat === "OVER 1.5";
+      if (filtro === "OVER25") return cat === "OVER 2.5";
+      if (filtro === "OVER35") return cat === "OVER 3.5";
       if (filtro === "CARTÕES") return cat.includes("CARTÕES");
       if (filtro === "CANTOS") return cat.includes("CANTOS");
       if (filtro === "BTTS") return cat === "BTTS";
