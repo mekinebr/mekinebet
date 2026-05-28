@@ -60,7 +60,8 @@ export default function App() {
       .replace(/Football Club/gi, "")
       .replace(/\bAFC\b/gi, "")
       .replace(/\bFC\b/gi, "")
-      .replace(/\bUnited\b/gi, "Utd")
+      .replace(/\bTown\b/gi, "")
+      .replace(/\bUnited\b/gi, "")
       .replace(/\bWanderers\b/gi, "Wolves")
       .replace(/\bHotspur\b/gi, "Spurs")
       .replace(/\bCrystal Palace\b/gi, "Crystal")
@@ -366,148 +367,54 @@ const css = `
 *{box-sizing:border-box}
 body{margin:0;background:#1f1f1f;font-family:Arial,Helvetica,sans-serif}
 .page{min-height:100vh;background:#1f1f1f;color:#fff;padding:6px;overflow-x:hidden}
-
 .topBar{background:linear-gradient(180deg,#10281d,#0b1511);border:1px solid #00d66f;border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-height:1}
 .subTitle{color:#d8d8d8;margin-top:3px;font-size:11px}
 .statusWrap{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .pill{border:1px solid #00d66f;background:#0b1511;padding:6px 10px;border-radius:7px;font-weight:900;font-size:12px}
-
 .notice{background:#4a1c08;border:1px solid #ff7b00;padding:7px;border-radius:7px;margin-bottom:6px;font-weight:900;font-size:12px}
-
 .filters{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;margin-bottom:6px}
 .filters button{background:#252525;color:#fff;border:1px solid #00d66f;padding:7px 2px;border-radius:6px;cursor:pointer;font-weight:900;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .filters .activeBtn{background:#00d66f;color:#001b0b}
-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
-
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
-
-.card{
-  background:linear-gradient(180deg,#102016,#0a1411);
-  border:1px solid rgba(0,214,111,.58);
-  border-radius:9px;
-  padding:7px;
-  box-shadow:0 0 8px rgba(0,255,80,.08);
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  min-height:370px;
-}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:370px}
 
 .matchHero{
   position:relative;
   display:grid;
-  grid-template-columns:52px minmax(0,1fr) 52px;
+  grid-template-columns:48px minmax(0,1fr) 48px;
   align-items:center;
-  gap:10px;
-  min-height:82px;
-  padding:10px;
+  gap:9px;
+  min-height:72px;
+  padding:8px;
   margin-bottom:6px;
   border:1px solid rgba(0,214,111,.45);
   border-radius:12px;
   overflow:hidden;
-  background:
-    radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),
-    linear-gradient(180deg,#101f18,#07100c);
+  background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);
   box-shadow:inset 0 0 18px rgba(0,255,112,.06);
 }
+.matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:18px}
+.heroLogo{width:48px;height:48px;border-radius:50%;object-fit:contain;background:#fff;padding:4px;box-shadow:0 0 8px rgba(255,255,255,.25)}
+.heroCenter{min-width:0;text-align:center}
+.heroCenter h2{color:#00ff70;font-size:clamp(13px,1.2vw,18px);margin:0;line-height:1;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heroCenter p{margin:5px 0 0;color:#c8d6cc;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.matchHero{
-  grid-template-columns:46px minmax(0,1fr) 46px;
-  min-height:72px;
-  padding:8px;
-}
-
-.heroLogo{
-  width:46px;
-  height:46px;
-  padding:4px;
-}
-
-.heroCenter h2{
-  font-size:clamp(13px,1.15vw,18px);
-  white-space:normal;
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
-}
-
-.heroCenter p{
-  margin:5px 0 0;
-  font-size:10px;
-}
-
-.heroCenter h2{
-  color:#00ff70;
-  font-size:clamp(15px,1.45vw,22px);
-  margin:0;
-  line-height:1.05;
-  font-weight:900;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.heroCenter p{
-  margin:8px 0 0;
-  color:#c8d6cc;
-  font-size:clamp(10px,.85vw,13px);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.badges{
-  display:flex;
-  gap:4px;
-  flex-wrap:nowrap;
-  justify-content:flex-end;
-  align-items:flex-start;
-  margin-bottom:6px;
-}
-
+.badges{display:flex;gap:4px;flex-wrap:nowrap;justify-content:flex-end;align-items:flex-start;margin-bottom:6px}
 .badges span{padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
 .base{background:#3a4655}
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
 
-.bodyGrid{
-  display:grid;
-  grid-template-columns:.82fr 1.18fr;
-  gap:6px;
-  align-items:start;
-}
-
+.bodyGrid{display:grid;grid-template-columns:.82fr 1.18fr;gap:6px;align-items:start}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:11px}
 .scoreBox{height:68px;align-content:center}
 .scoreBox b{font-size:18px;line-height:1}
 .marketBox{margin-top:6px;text-align:center}
 .marketBox strong{color:#facc15}
-
-.miniMap{
-  background:#071a10;
-  border:1px solid #0f7a3e;
-  border-radius:7px;
-  padding:4px;
-  width:100%;
-}
-
-.field3d{
-  width:100%;
-  max-width:220px;
-  aspect-ratio:16/9;
-  margin:0 auto;
-  border:1px solid rgba(255,255,255,.70);
-  border-radius:7px;
-  position:relative;
-  overflow:hidden;
-  background:linear-gradient(180deg,#2b9a3c 0%,#17732c 50%,#0c4f1f 100%);
-  box-shadow:inset 0 15px 25px rgba(255,255,255,.08),inset 0 -20px 30px rgba(0,0,0,.35),0 8px 20px rgba(0,0,0,.35);
-  transform:perspective(800px) rotateX(10deg);
-  transform-origin:center bottom;
-}
-
+.miniMap{background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:4px;width:100%}
+.field3d{width:100%;max-width:220px;aspect-ratio:16/9;margin:0 auto;border:1px solid rgba(255,255,255,.70);border-radius:7px;position:relative;overflow:hidden;background:linear-gradient(180deg,#2b9a3c 0%,#17732c 50%,#0c4f1f 100%);box-shadow:inset 0 15px 25px rgba(255,255,255,.08),inset 0 -20px 30px rgba(0,0,0,.35),0 8px 20px rgba(0,0,0,.35);transform:perspective(800px) rotateX(10deg);transform-origin:center bottom}
 .grass{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 24px,rgba(255,255,255,.05) 24px 48px)}
 .shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.12),transparent 45%),linear-gradient(90deg,rgba(0,0,0,.28),transparent 30%,transparent 70%,rgba(0,0,0,.28))}
 .midLine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.85)}
@@ -528,26 +435,21 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .p3{left:73%;top:35%;background:#00ff70;color:#00ff70;opacity:.85}
 .ballLive{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 14px #00ff70;transform:translate(-50%,-50%);transition:all .8s ease;animation:ballPulse 1.4s infinite}
 @keyframes ballPulse{0%,100%{scale:1}50%{scale:1.35}}
-
 .stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8px;color:#f1f5f9;text-align:center}
-
 .bars{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;font-weight:900;margin-top:6px}
 .barBg{height:6px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:2px}
 .barGreen{height:100%;background:#00ff70}
 .barGold{height:100%;background:#facc15}
-
 .momentum{margin-top:6px;background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:5px}
 .momentum b{color:#00ff70;font-size:11px}
 .momentum small{display:block;margin-top:3px;font-size:10px}
 .momentumFill{height:100%;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);border-radius:999px}
-
 .bookies{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:6px;justify-content:space-between}
 .bookies button{border:0;border-radius:5px;padding:6px 10px;font-weight:900;font-size:11px;color:#fff}
 .bookies button:nth-child(1){background:#22c55e}
 .bookies button:nth-child(2){background:#2563eb}
 .bookies button:nth-child(3){background:#f97316}
 .bookies button:nth-child(4){background:#facc15;color:#000}
-
 .empty{background:#101820;border:1px solid #00ff87;border-radius:10px;padding:18px;font-weight:800}
 
 @media(max-width:900px){
