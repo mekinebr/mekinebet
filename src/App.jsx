@@ -1,6 +1,34 @@
+{/* MENU FILTROS */}
+<div style={filters}>
+  {[
+    { value: "TODOS", label: "TODOS" },
+    { value: "LIVE", label: "LIVE" },
+    { value: "ALERTA", label: "ALERTA" },
+    { value: "OVER05", label: "O0,5" },
+    { value: "OVER15", label: "O1,5" },
+    { value: "OVER25", label: "O2,5" },
+    { value: "OVER35", label: "O3,5" },
+    { value: "CARTÕES", label: "CART" },
+    { value: "CANTOS", label: "CANT" },
+    { value: "BTTS", label: "BTTS" },
+    { value: "TOP IA", label: "TOP" },
+    { value: "VIP", label: "VIP" },
+    { value: "HISTORICO", label: "HIST" }
+  ].map((btn) => (
+    <button
+      key={btn.value}
+      onClick={() => setFiltro(btn.value)}
+      style={filtro === btn.value ? activeBtn : btnStyle}
+    >
+      {btn.label}
+    </button>
+  ))}
+</div>
+
+{/* ESTILOS */}
 const filters = {
   display: "grid",
-  gridTemplateColumns: "repeat(13, 1fr)",
+  gridTemplateColumns: "repeat(13, minmax(0, 1fr))",
   gap: 4,
   marginBottom: 6,
   width: "100%",
