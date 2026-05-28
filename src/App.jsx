@@ -310,31 +310,32 @@ export default function App() {
         </div>
       )}
 
-      <div style={filters}>
-        {[
-          ["TODOS", "TODOS"],
-          ["LIVE", "LIVE"],
-          ["ALERTA", "ALERTA"],
-          ["OVER05", "O,5"],
-          ["OVER15", "1,5"],
-          ["OVER25", "2,5"],
-          ["OVER35", "3,5"],
-          ["CARTÕES", "CART"],
-          ["CANTOS", "CANT"],
-          ["BTTS", "BTTS"],
-          ["TOP IA", "TOP"],
-          ["VIP", "VIP"],
-          ["HISTORICO", "HIST"]
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setFiltro(value)}
-            style={filtro === value ? activeBtn : btnStyle}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* MENU FILTROS */}
+<div style={filters}>
+  {[
+    { value: "TODOS", label: "🎛 TODOS" },
+    { value: "LIVE", label: "📡 LIVE" },
+    { value: "ALERTA", label: "🚨 ALERTA" },
+    { value: "OVER05", label: "⚽ 0,5+" },
+    { value: "OVER15", label: "🔥 1,5+" },
+    { value: "OVER25", label: "🚀 2,5+" },
+    { value: "OVER35", label: "💣 3,5+" },
+    { value: "CARTÕES", label: "🟨 CART" },
+    { value: "CANTOS", label: "🚩 CANT" },
+    { value: "BTTS", label: "🤝 BTTS" },
+    { value: "TOP IA", label: "🧠 TOP" },
+    { value: "VIP", label: "👑 VIP" },
+    { value: "HISTORICO", label: "🕘 HIST" }
+  ].map((btn) => (
+    <button
+      key={btn.value}
+      onClick={() => setFiltro(btn.value)}
+      style={filtro === btn.value ? activeBtn : btnStyle}
+    >
+      {btn.label}
+    </button>
+  ))}
+</div>
 
       <input
         placeholder="🔍  Buscar jogo, liga ou mercado..."
@@ -501,11 +502,10 @@ const notice = {
 
 const filters = {
   display: "grid",
-  gridTemplateColumns: "repeat(13, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(13, minmax(0,1fr))",
   gap: 4,
   marginBottom: 6,
-  width: "100%",
-  overflow: "hidden"
+  width: "100%"
 };
 
 const btnStyle = {
