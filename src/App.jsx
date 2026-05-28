@@ -101,15 +101,9 @@ export default function App() {
 
       <div className="filters">
         {[
-          ["TODOS", "▦ TODOS"],
-          ["LIVE", "📡 LIVE"],
-          ["ALERTA", "🔔 ALERTA"],
-          ["OVER05", "↗ OVER 0,5"],
-          ["OVER15", "↗ OVER 1,5"],
-          ["OVER25", "↗ OVER 2,5"],
-          ["BTTS", "👥 BTTS"],
-          ["VIP", "👑 VIP"],
-          ["HISTORICO", "🕘 HISTÓRICO"]
+          ["TODOS", "▦ TODOS"], ["LIVE", "📡 LIVE"], ["ALERTA", "🔔 ALERTA"],
+          ["OVER05", "↗ OVER 0,5"], ["OVER15", "↗ OVER 1,5"], ["OVER25", "↗ OVER 2,5"],
+          ["BTTS", "👥 BTTS"], ["VIP", "👑 VIP"], ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "active" : ""}>
             {label}
@@ -215,7 +209,13 @@ h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
 
-.card { background: linear-gradient(180deg, #102016, #0a1411); border: 1px solid #00d66f; border-radius: 10px; padding: 12px; }
+.card { 
+  background: linear-gradient(180deg, #102016, #0a1411); 
+  border: 1px solid #00d66f; 
+  border-radius: 10px; 
+  padding: 12px; 
+  min-height: 460px; /* Padrão consistente */
+}
 
 /* LOGOS GRANDES + NOMES MENORES */
 .teams { display: flex; align-items: center; gap: 10px; }
@@ -254,49 +254,10 @@ h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
   background: repeating-linear-gradient(90deg, transparent 0px, transparent 26px, rgba(255,255,255,0.25) 26px, rgba(255,255,255,0.25) 28px);
 }
 
-.centerCircle {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 36px; height: 36px;
-  border: 2.5px solid rgba(255,255,255,0.85);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.midLine {
-  position: absolute;
-  left: 50%; top: 0; bottom: 0;
-  width: 3px;
-  background: rgba(255,255,255,0.9);
-}
-
-.goalLeft, .goalRight {
-  position: absolute;
-  top: 22%; width: 26px; height: 56%;
-  border: 4px solid rgba(255,255,255,0.95);
-  border-radius: 4px;
-}
-.goalLeft { left: 0; border-right: none; }
-.goalRight { right: 0; border-left: none; }
-
-.ball {
-  position: absolute;
-  top: 41%;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.7), 0 0 12px currentColor;
-}
-
+.centerCircle, .midLine, .goalLeft, .goalRight { position: absolute; }
+.ball { position: absolute; top: 41%; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.7); }
 .home { background: #facc15; left: 34%; }
 .away { background: #00d9ff; left: 62%; }
-
-/* Outros elementos */
-.bttsBox, .bars, .bookies { margin-top: 10px; }
-.bars .bar { height: 7px; background: #1e293b; border-radius: 999px; overflow: hidden; }
-.fill { height: 100%; border-radius: 999px; }
-.green { background: #00ff70; }
-.gold { background: #facc15; }
 `;
 
 export default App;
