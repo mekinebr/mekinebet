@@ -1,29 +1,30 @@
 const filters = {
   display: "grid",
-  gridTemplateColumns: "repeat(13, minmax(0, 1fr))",
-  gap: 5,
+  gridTemplateColumns: "repeat(13, 1fr)",
+  gap: 4,
   marginBottom: 6,
-  overflow: "hidden"
+  overflow: "hidden",
+  width: "100%"
 };
 
 const btnStyle = {
   background: "#08140d",
   color: "#fff",
   border: "1px solid #00ff87",
-  padding: "9px 5px",
-  borderRadius: 8,
+  padding: "8px 2px",
+  borderRadius: 7,
   cursor: "pointer",
   fontWeight: 900,
   fontSize: 11,
   whiteSpace: "nowrap",
-  textAlign: "center"
+  textAlign: "center",
+  minWidth: 0
 };
 
 const activeBtn = {
   ...btnStyle,
   background: "#00ff87",
-  color: "#001b0b",
-  boxShadow: "0 0 12px rgba(0,255,135,.35)"
+  color: "#001b0b"
 };
 
 const grid = {
