@@ -55,6 +55,29 @@ export default function App() {
     };
   }
 
+  function nomeCurto(nome = "") {
+    return String(nome)
+      .replace(/Football Club/gi, "")
+      .replace(/\bAFC\b/gi, "")
+      .replace(/\bFC\b/gi, "")
+      .replace(/\bUnited\b/gi, "Utd")
+      .replace(/\bWanderers\b/gi, "Wolves")
+      .replace(/\bHotspur\b/gi, "Spurs")
+      .replace(/\bCrystal Palace\b/gi, "Crystal")
+      .replace(/\bSouthampton\b/gi, "Saints")
+      .replace(/\bManchester\b/gi, "Man.")
+      .replace(/\bNewcastle\b/gi, "Newcastle")
+      .replace(/\bBrighton & Hove Albion\b/gi, "Brighton")
+      .replace(/\bNottingham Forest\b/gi, "Nottm Forest")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function tituloJogo(item) {
+    const t = timesDoJogo(item);
+    return `${nomeCurto(t.casa)} vs ${nomeCurto(t.fora)}`;
+  }
+
   function logoCasa(item) {
     const t = timesDoJogo(item);
     const key = normalizar(t.casa);
@@ -252,7 +275,7 @@ export default function App() {
                   <div className="teams">
                     <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
                     <div className="teamText">
-                      <h2>{item.match}</h2>
+                      <h2>{tituloJogo(item)}</h2>
                       <p>🦁 {item.league}</p>
                     </div>
                     <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
@@ -383,15 +406,15 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 
 .teams{
   display:grid;
-  grid-template-columns:22px minmax(0,1fr) 22px;
-  gap:5px;
+  grid-template-columns:30px minmax(0,1fr) 30px;
+  gap:7px;
   align-items:center;
   min-width:0;
 }
 
 .teams img{
-  width:22px;
-  height:22px;
+  width:30px;
+  height:30px;
   border-radius:50%;
   object-fit:contain;
   background:#fff;
@@ -403,16 +426,13 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 
 .teamText h2{
   color:#00ff70;
-  font-size:clamp(11px,.9vw,14px);
+  font-size:clamp(12px,1vw,15px);
   margin:0;
-  line-height:1.08;
+  line-height:1;
   font-weight:900;
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
+  white-space:nowrap;
   overflow:hidden;
-  min-height:24px;
-  max-height:30px;
+  text-overflow:ellipsis;
 }
 
 .teamText p{
@@ -460,16 +480,16 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 
 .field3d{
   width:100%;
-  max-width:210px;
+  max-width:220px;
   aspect-ratio:16/9;
   margin:0 auto;
   border:1px solid rgba(255,255,255,.70);
   border-radius:7px;
   position:relative;
   overflow:hidden;
-  background:linear-gradient(180deg,#1a8b3d 0%,#0d6d2b 45%,#06491d 100%);
-  box-shadow:inset 0 10px 18px rgba(255,255,255,.10),inset 0 -18px 28px rgba(0,0,0,.55),0 5px 14px rgba(0,0,0,.35);
-  transform:perspective(420px) rotateX(7deg);
+  background:linear-gradient(180deg,#2b9a3c 0%,#17732c 50%,#0c4f1f 100%);
+  box-shadow:inset 0 15px 25px rgba(255,255,255,.08),inset 0 -20px 30px rgba(0,0,0,.35),0 8px 20px rgba(0,0,0,.35);
+  transform:perspective(800px) rotateX(10deg);
   transform-origin:center bottom;
 }
 
@@ -523,5 +543,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .badges{justify-content:flex-start!important}
   .bars{grid-template-columns:1fr!important}
   .field3d{max-width:100%;aspect-ratio:16/9}
+  .teams{grid-template-columns:30px minmax(0,1fr) 30px}
+  .teams img{width:30px;height:30px}
 }
 `;
