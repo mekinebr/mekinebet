@@ -1,9 +1,29 @@
 const filters = {
-  display: "flex",
-  gap: 6,
-  flexWrap: "wrap",
+  display: "grid",
+  gridTemplateColumns: "repeat(13, minmax(0, 1fr))",
+  gap: 5,
   marginBottom: 6,
   overflow: "hidden"
+};
+
+const btnStyle = {
+  background: "#08140d",
+  color: "#fff",
+  border: "1px solid #00ff87",
+  padding: "9px 5px",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontWeight: 900,
+  fontSize: 11,
+  whiteSpace: "nowrap",
+  textAlign: "center"
+};
+
+const activeBtn = {
+  ...btnStyle,
+  background: "#00ff87",
+  color: "#001b0b",
+  boxShadow: "0 0 12px rgba(0,255,135,.35)"
 };
 
 const grid = {
@@ -124,4 +144,20 @@ const betano = {
   padding: "6px 10px",
   fontWeight: 900,
   fontSize: 11
+};
+
+const novibet = {
+  ...betano,
+  background: "#2563eb"
+};
+
+const bet365 = {
+  ...betano,
+  background: "#f59e0b"
+};
+
+const vipBtn = {
+  ...betano,
+  background: "#facc15",
+  color: "#000"
 };
