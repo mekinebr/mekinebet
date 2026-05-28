@@ -156,6 +156,11 @@ export default function App() {
 
                 <div className="miniField">
                   <div className="field">
+                    <div className="fieldOverlay"></div>
+                    <div className="centerCircle"></div>
+                    <div className="midLine"></div>
+                    <div className="goalLeft"></div>
+                    <div className="goalRight"></div>
                     <div className="ball home"></div>
                     <div className="ball away"></div>
                   </div>
@@ -197,135 +202,101 @@ const css = `
 * { box-sizing: border-box; }
 body { margin: 0; background: #0a0f0c; font-family: Arial, sans-serif; color: #fff; }
 
-.topBar {
-  background: linear-gradient(180deg, #10281d, #0b1511);
-  border: 1px solid #00d66f;
-  border-radius: 8px;
-  padding: 10px 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
+.topBar { background: linear-gradient(180deg, #10281d, #0b1511); border: 1px solid #00d66f; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
 h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
 
-.notice {
-  background: #4a1c08;
-  border: 1px solid #ff8800;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  font-weight: bold;
-}
+.notice { background: #4a1c08; border: 1px solid #ff8800; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; }
 
-.filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 6px;
-  margin-bottom: 10px;
-}
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.filters button { padding: 9px 6px; background: #1f2a25; border: 1px solid #00d66f; border-radius: 6px; font-size: 11px; font-weight: bold; }
+.filters button.active { background: #00d66f; color: #001b0b; }
 
-.filters button {
-  padding: 9px 6px;
-  background: #1f2a25;
-  border: 1px solid #00d66f;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-}
+.search { width: 100%; padding: 12px; background: #1a2520; border: 1px solid #00d66f; border-radius: 8px; margin-bottom: 12px; }
 
-.filters button.active {
-  background: #00d66f;
-  color: #001b0b;
-}
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
 
-.search {
-  width: 100%;
-  padding: 12px;
-  background: #1a2520;
-  border: 1px solid #00d66f;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
+.card { background: linear-gradient(180deg, #102016, #0a1411); border: 1px solid #00d66f; border-radius: 10px; padding: 12px; }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 12px;
-}
+/* LOGOS GRANDES + NOMES MENORES */
+.teams { display: flex; align-items: center; gap: 10px; }
+.teams img { width: 52px; height: 52px; border-radius: 50%; background: #fff; padding: 4px; border: 2px solid #1e3a2f; flex-shrink: 0; }
 
-.card {
-  background: linear-gradient(180deg, #102016, #0a1411);
-  border: 1px solid #00d66f;
-  border-radius: 10px;
-  padding: 12px;
+.teamName { 
+  font-size: 13px; 
+  font-weight: 700; 
+  color: #ffffff; 
+  flex: 1; 
+  min-width: 0; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
 }
-
-/* ALINHAMENTO PERFEITO - LOGOS MAIORES */
-.teams {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.teams img {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #fff;
-  padding: 4px;
-  border: 2px solid #1e3a2f;
-  flex-shrink: 0;
-}
-
-.teamName {
-  font-size: 13px;
-  font-weight: 700;
-  color: #ffffff;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
-}
-
 .home { text-align: right; }
 .away { text-align: left; }
+.vs { font-size: 15px; font-weight: 900; color: #00ff9d; padding: 0 8px; }
 
-.vs {
-  font-size: 15px;
-  font-weight: 900;
-  color: #00ff9d;
-  padding: 0 8px;
-}
-
-/* RESTO DO CARD */
-.placarBox { text-align: center; background: #071a10; border: 1px solid #0f7a3e; border-radius: 8px; padding: 8px; }
-.score { font-size: 26px; font-weight: bold; }
-
+/* CAMPO 3D */
+.miniField { margin-top: 8px; }
 .field {
-  height: 70px;
-  background: repeating-linear-gradient(90deg, #176324, #176324 24px, #1d7a2d 24px, #1d7a2d 48px);
-  border: 2px solid #fff;
-  border-radius: 8px;
+  height: 78px;
+  background: linear-gradient(180deg, #0f6b2e 0%, #0a5a25 50%, #0f6b2e 100%);
+  border: 3px solid #ffffff66;
+  border-radius: 12px;
   position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 10px 20px rgba(0,0,0,0.6), inset 0 -10px 20px rgba(255,255,255,0.1);
 }
+
+.field::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0px, transparent 26px, rgba(255,255,255,0.25) 26px, rgba(255,255,255,0.25) 28px);
+}
+
+.centerCircle {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 36px; height: 36px;
+  border: 2.5px solid rgba(255,255,255,0.85);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.midLine {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 3px;
+  background: rgba(255,255,255,0.9);
+}
+
+.goalLeft, .goalRight {
+  position: absolute;
+  top: 22%; width: 26px; height: 56%;
+  border: 4px solid rgba(255,255,255,0.95);
+  border-radius: 4px;
+}
+.goalLeft { left: 0; border-right: none; }
+.goalRight { right: 0; border-left: none; }
 
 .ball {
   position: absolute;
-  top: 42%;
-  width: 12px;
-  height: 12px;
+  top: 41%;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.7), 0 0 12px currentColor;
 }
 
-.home { background: #facc15; left: 35%; }
+.home { background: #facc15; left: 34%; }
 .away { background: #00d9ff; left: 62%; }
 
+/* Outros elementos */
 .bttsBox, .bars, .bookies { margin-top: 10px; }
+.bars .bar { height: 7px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+.fill { height: 100%; border-radius: 999px; }
+.green { background: #00ff70; }
+.gold { background: #facc15; }
 `;
 
 export default App;
