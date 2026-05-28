@@ -516,7 +516,7 @@ const btnStyle = {
   borderRadius: 7,
   cursor: "pointer",
   fontWeight: 900,
-  fontSize: 10,
+  fontSize: 11,
   whiteSpace: "nowrap",
   textAlign: "center",
   minWidth: 0,
