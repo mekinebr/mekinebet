@@ -413,28 +413,29 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   box-shadow:inset 0 0 18px rgba(0,255,112,.06);
 }
 
-.matchHero:after{
-  content:"✦";
-  position:absolute;
-  right:8px;
-  bottom:2px;
-  color:rgba(255,255,255,.35);
-  font-size:18px;
+.matchHero{
+  grid-template-columns:46px minmax(0,1fr) 46px;
+  min-height:72px;
+  padding:8px;
 }
 
 .heroLogo{
-  width:52px;
-  height:52px;
-  border-radius:50%;
-  object-fit:contain;
-  background:#fff;
-  padding:5px;
-  box-shadow:0 0 8px rgba(255,255,255,.25);
+  width:46px;
+  height:46px;
+  padding:4px;
 }
 
-.heroCenter{
-  min-width:0;
-  text-align:center;
+.heroCenter h2{
+  font-size:clamp(13px,1.15vw,18px);
+  white-space:normal;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+}
+
+.heroCenter p{
+  margin:5px 0 0;
+  font-size:10px;
 }
 
 .heroCenter h2{
