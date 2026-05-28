@@ -3,8 +3,8 @@ const filters = {
   gridTemplateColumns: "repeat(13, 1fr)",
   gap: 4,
   marginBottom: 6,
-  overflow: "hidden",
-  width: "100%"
+  width: "100%",
+  overflow: "hidden"
 };
 
 const btnStyle = {
@@ -15,16 +15,19 @@ const btnStyle = {
   borderRadius: 7,
   cursor: "pointer",
   fontWeight: 900,
-  fontSize: 11,
+  fontSize: 10,
   whiteSpace: "nowrap",
   textAlign: "center",
-  minWidth: 0
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis"
 };
 
 const activeBtn = {
   ...btnStyle,
   background: "#00ff87",
-  color: "#001b0b"
+  color: "#001b0b",
+  boxShadow: "0 0 10px rgba(0,255,135,.30)"
 };
 
 const grid = {
