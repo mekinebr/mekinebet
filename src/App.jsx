@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const API_URL = "https://mekinebet.onrender.com/api/signals";
 
+const fallbackLogo = (name = "Time") =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
+
 export default function App() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +116,39 @@ export default function App() {
 
   function minuto(item) {
     return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
+  }
+
+  function timesDoJogo(item) {
+    const texto = item.match || "";
+    const partes = texto.split(/\s+vs\s+|\s+x\s+/i);
+    return {
+      casa: item.homeTeam || item.home || partes[0] || "Casa",
+      fora: item.awayTeam || item.away || partes[1] || "Fora"
+    };
+  }
+
+  function logoCasa(item) {
+    const times = timesDoJogo(item);
+    return (
+      item.logoHome ||
+      item.homeLogo ||
+      item.teamHomeLogo ||
+      item.home?.logo ||
+      item.teams?.home?.logo ||
+      fallbackLogo(times.casa)
+    );
+  }
+
+  function logoFora(item) {
+    const times = timesDoJogo(item);
+    return (
+      item.logoAway ||
+      item.awayLogo ||
+      item.teamAwayLogo ||
+      item.away?.logo ||
+      item.teams?.away?.logo ||
+      fallbackLogo(times.fora)
+    );
   }
 
   function statsDoJogo(item) {
@@ -310,32 +346,31 @@ export default function App() {
         </div>
       )}
 
-      {/* MENU FILTROS */}
-<div style={filters}>
-  {[
-    { value: "TODOS", label: "🎛 TODOS" },
-    { value: "LIVE", label: "📡 LIVE" },
-    { value: "ALERTA", label: "🚨 ALERTA" },
-    { value: "OVER05", label: "⚽ 0,5+" },
-    { value: "OVER15", label: "🔥 1,5+" },
-    { value: "OVER25", label: "🚀 2,5+" },
-    { value: "OVER35", label: "💣 3,5+" },
-    { value: "CARTÕES", label: "🟨 CART" },
-    { value: "CANTOS", label: "🚩 CANT" },
-    { value: "BTTS", label: "🤝 BTTS" },
-    { value: "TOP IA", label: "🧠 TOP" },
-    { value: "VIP", label: "👑 VIP" },
-    { value: "HISTORICO", label: "🕘 HIST" }
-  ].map((btn) => (
-    <button
-      key={btn.value}
-      onClick={() => setFiltro(btn.value)}
-      style={filtro === btn.value ? activeBtn : btnStyle}
-    >
-      {btn.label}
-    </button>
-  ))}
-</div>
+      <div style={filters}>
+        {[
+          { value: "TODOS", label: "🎛 TODOS" },
+          { value: "LIVE", label: "📡 LIVE" },
+          { value: "ALERTA", label: "🚨 ALERTA" },
+          { value: "OVER05", label: "⚽ 0,5+" },
+          { value: "OVER15", label: "🔥 1,5+" },
+          { value: "OVER25", label: "🚀 2,5+" },
+          { value: "OVER35", label: "💣 3,5+" },
+          { value: "CARTÕES", label: "🟨 CART" },
+          { value: "CANTOS", label: "🚩 CANT" },
+          { value: "BTTS", label: "🤝 BTTS" },
+          { value: "TOP IA", label: "🧠 TOP" },
+          { value: "VIP", label: "👑 VIP" },
+          { value: "HISTORICO", label: "🕘 HIST" }
+        ].map((btn) => (
+          <button
+            key={btn.value}
+            onClick={() => setFiltro(btn.value)}
+            style={filtro === btn.value ? activeBtn : btnStyle}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
 
       <input
         placeholder="🔍  Buscar jogo, liga ou mercado..."
@@ -356,15 +391,34 @@ export default function App() {
             const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
+            const times = timesDoJogo(item);
 
             return (
               <section key={item.id || index} style={card}>
                 <div style={cardHeader}>
                   <div style={teams}>
+                    <img
+                      src={logoCasa(item)}
+                      alt={times.casa}
+                      style={teamLogo}
+                      onError={(e) => {
+                        e.currentTarget.src = fallbackLogo(times.casa);
+                      }}
+                    />
+
                     <div>
                       <h2 style={match}>{item.match}</h2>
                       <p style={league}>🦁 {item.league}</p>
                     </div>
+
+                    <img
+                      src={logoFora(item)}
+                      alt={times.fora}
+                      style={teamLogo}
+                      onError={(e) => {
+                        e.currentTarget.src = fallbackLogo(times.fora);
+                      }}
+                    />
                   </div>
 
                   <div style={rightBadges}>
@@ -561,9 +615,10 @@ const card = {
   transition: ".25s"
 };
 
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 10 };
-const teams = { display: "flex", gap: 8, alignItems: "center" };
-const match = { color: "#00ff87", fontSize: "clamp(18px,1.6vw,23px)", margin: 0, lineHeight: 1, fontWeight: 900 };
+const cardHeader = { display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", marginBottom: 10 };
+const teams = { display: "flex", gap: 6, alignItems: "center", minWidth: 0, flex: 1 };
+const teamLogo = { width: 28, height: 28, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
+const match = { color: "#00ff87", fontSize: "clamp(15px,1.3vw,20px)", margin: 0, lineHeight: 1, fontWeight: 900 };
 const league = { color: "#cbd5e1", margin: "5px 0 0", fontSize: 13 };
 const rightBadges = { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" };
 const baseBadge = { background: "#334155", padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 };
