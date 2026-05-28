@@ -171,26 +171,45 @@ export default function App() {
       <style>
         {`
           @keyframes pulse { 0%{opacity:1} 50%{opacity:.45} 100%{opacity:1} }
+
           @media(max-width:900px){
-            .cardsGrid{grid-template-columns:1fr!important}
+            .cardsGrid{grid-template-columns:1fr!important; gap:12px!important}
             .filterGrid{grid-template-columns:repeat(4,1fr)!important}
+            .matchBody{grid-template-columns:1fr!important}
+            .teamsRow{flex-wrap:nowrap!important; width:100%!important}
+            .badgesRow{justify-content:flex-start!important; margin-top:8px!important}
+            .cardHeaderMobile{flex-direction:column!important}
+            .miniMapBox{width:100%!important}
+            .barsMobile{grid-template-columns:1fr!important}
+            .bottomBarMobile{font-size:13px!important; gap:10px!important}
+          }
+
+          @media(max-width:520px){
+            .filterGrid{grid-template-columns:repeat(3,1fr)!important}
+            .matchTitle{font-size:20px!important}
+            .teamLogoMobile{width:26px!important;height:26px!important}
+            .titleMobile{font-size:34px!important}
+            .topBarMobile{padding:12px!important}
+            .pillMobile{font-size:13px!important;padding:8px 10px!important}
+            .searchMobile{font-size:15px!important;padding:13px!important}
+            .cardMobile{padding:10px!important}
           }
         `}
       </style>
 
       {popupAlerta && <div style={popup}>{popupAlerta.match}</div>}
 
-      <header style={topBar}>
+      <header className="topBarMobile" style={topBar}>
         <div>
-          <h1 style={title}>MekineBet AO VIVO</h1>
+          <h1 className="titleMobile" style={title}>MekineBet AO VIVO</h1>
           <div style={subTitle}>🟢 Scanner live • odds • pressão • mercados</div>
         </div>
 
         <div style={statusWrap}>
-          <span style={pill}>🔴 Live: {liveCount}</span>
-          <span style={pill}>🚨 Alertas: {alertCount}</span>
-          <span style={pill}>👑 VIP</span>
-          <span style={pill}>🕘 {lastUpdate || "carregando..."}</span>
+          <span className="pillMobile" style={pill}>🔴 Live: {liveCount}</span>
+          <span className="pillMobile" style={pill}>🚨 Alertas: {alertCount}</span>
+          <span className="pillMobile" style={pill}>👑 VIP</span>
+          <span className="pillMobile" style={pill}>🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
@@ -223,6 +242,7 @@ export default function App() {
       </div>
 
       <input
+        className="searchMobile"
         placeholder="🔍  Buscar jogo, liga ou mercado..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
@@ -242,25 +262,25 @@ export default function App() {
             const times = timesDoJogo(item);
 
             return (
-              <section key={item.id || index} style={card}>
-                <div style={cardHeader}>
-                  <div style={teams}>
-                    <img src={logoCasa(item)} alt={times.casa} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
-                    <div style={{ minWidth: 0 }}>
-                      <h2 style={match}>{item.match}</h2>
+              <section className="cardMobile" key={item.id || index} style={card}>
+                <div className="cardHeaderMobile" style={cardHeader}>
+                  <div className="teamsRow" style={teams}>
+                    <img className="teamLogoMobile" src={logoCasa(item)} alt={times.casa} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h2 className="matchTitle" style={match}>{item.match}</h2>
                       <p style={league}>🦁 {item.league}</p>
                     </div>
-                    <img src={logoFora(item)} alt={times.fora} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                    <img className="teamLogoMobile" src={logoFora(item)} alt={times.fora} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
                   </div>
 
-                  <div style={rightBadges}>
+                  <div className="badgesRow" style={rightBadges}>
                     <span style={baseBadge}>{liveReal ? "AO VIVO" : "BASE"}</span>
                     {vip && <span style={vipBadge}>VIP</span>}
                     <span style={marketBadge}>{cat}</span>
                   </div>
                 </div>
 
-                <div style={bodyGrid}>
+                <div className="matchBody" style={bodyGrid}>
                   <div style={mainInfo}>
                     <div style={scoreBox}>
                       <span>Placar</span>
@@ -275,7 +295,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div style={miniMap}>
+                  <div className="miniMapBox" style={miniMap}>
                     <div style={field}>
                       <div style={fieldOverlay}></div>
                       <div style={midLine}></div>
@@ -296,7 +316,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={bars}>
+                <div className="barsMobile" style={bars}>
                   <div>
                     <b>IA {item.confidence || 70}%</b>
                     <div style={barBg}><div style={{ ...bar, width: `${item.confidence || 70}%` }} /></div>
@@ -325,19 +345,19 @@ export default function App() {
         </main>
       )}
 
-      <footer style={bottomBar}>
-        <span>📊 Sinais carregados: <b style={green}>{signals.length}</b></span>
+      <footer className="bottomBarMobile" style={bottomBar}>
+        <span>📊 Sinais: <b style={green}>{signals.length}</b></span>
         <span>🟢 IA Ativa 24h</span>
         <span>⚡ Atualização: <b style={green}>20s</b></span>
-        <span>🗓️ Última atualização: <b style={green}>{lastUpdate}</b></span>
-        <span>🔒 Fonte: <b style={green}>API-Sports (Live Real)</b></span>
+        <span>🗓️ Última: <b style={green}>{lastUpdate}</b></span>
+        <span>🔒 Fonte: <b style={green}>API-Sports</b></span>
       </footer>
     </div>
   );
 }
 
 const page = { minHeight: "100vh", background: "#020b08", color: "#fff", padding: 10, fontFamily: "Arial, sans-serif", overflowX: "hidden" };
-const topBar = { background: "linear-gradient(180deg,#07160f,#081018)", border: "1px solid #00ff44", borderRadius: 12, padding: "18px 24px", display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12, boxShadow: "0 0 30px rgba(0,255,80,.12)" };
+const topBar = { background: "linear-gradient(180deg,#07160f,#081018)", border: "1px solid #00ff44", borderRadius: 12, padding: "18px 24px", display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12, boxShadow: "0 0 30px rgba(0,255,80,.12)", boxSizing: "border-box" };
 const title = { color: "#00ff70", fontSize: "clamp(38px,4.8vw,72px)", margin: 0, fontWeight: 900, lineHeight: 1 };
 const subTitle = { color: "#e5e7eb", marginTop: 10, fontSize: 18 };
 const statusWrap = { display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" };
@@ -348,7 +368,7 @@ const btnStyle = { background: "#07120d", color: "#fff", border: "1px solid #00f
 const activeBtn = { ...btnStyle, background: "#00ff70", color: "#001b0b", boxShadow: "0 0 16px rgba(0,255,90,.45)" };
 const search = { width: "100%", boxSizing: "border-box", background: "#07131a", border: "1px solid #00ff87", color: "#fff", padding: 18, borderRadius: 10, marginBottom: 14, fontSize: 20 };
 const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 20, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#07140d,#081018)", border: "1px solid rgba(0,255,80,.55)", borderRadius: 12, padding: 14, boxShadow: "0 0 18px rgba(0,255,80,.15)", overflow: "hidden" };
+const card = { background: "linear-gradient(180deg,#07140d,#081018)", border: "1px solid rgba(0,255,80,.55)", borderRadius: 12, padding: 14, boxShadow: "0 0 18px rgba(0,255,80,.15)", overflow: "hidden", boxSizing: "border-box" };
 const cardHeader = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 14 };
 const teams = { display: "flex", gap: 8, alignItems: "center", minWidth: 0, flex: 1 };
 const teamLogo = { width: 34, height: 34, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
@@ -358,7 +378,7 @@ const rightBadges = { display: "flex", gap: 8, flexWrap: "wrap", justifyContent:
 const baseBadge = { background: "#334155", padding: "7px 12px", borderRadius: 999, fontSize: 14, fontWeight: 900 };
 const vipBadge = { background: "#facc15", color: "#000", padding: "7px 12px", borderRadius: 999, fontSize: 14, fontWeight: 900 };
 const marketBadge = { background: "#0ea5e9", padding: "7px 12px", borderRadius: 999, fontSize: 14, fontWeight: 900 };
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.12fr", gap: 18, alignItems: "start" };
+const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.12fr", gap: 12, alignItems: "start" };
 const mainInfo = { display: "grid", gap: 10 };
 const scoreBox = { background: "#061b10", border: "1px solid #0f7a3e", borderRadius: 10, padding: 14, display: "grid", gap: 3, fontSize: 19 };
 const signalBox = { background: "#061b10", border: "1px solid #0f7a3e", borderRadius: 10, padding: 14, display: "grid", gap: 5, fontSize: 18 };
