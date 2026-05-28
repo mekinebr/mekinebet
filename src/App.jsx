@@ -2,6 +2,37 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const API_URL = "https://mekinebet.onrender.com/api/signals";
 
+const TEAM_LOGOS = {
+  "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
+  "west ham united fc": "https://media.api-sports.io/football/teams/48.png",
+  "liverpool fc": "https://media.api-sports.io/football/teams/40.png",
+  "crystal palace fc": "https://media.api-sports.io/football/teams/52.png",
+  "southampton fc": "https://media.api-sports.io/football/teams/41.png",
+  "arsenal fc": "https://media.api-sports.io/football/teams/42.png",
+  "brentford fc": "https://media.api-sports.io/football/teams/55.png",
+  "wolverhampton wanderers fc": "https://media.api-sports.io/football/teams/39.png",
+  "chelsea fc": "https://media.api-sports.io/football/teams/49.png",
+  "manchester city fc": "https://media.api-sports.io/football/teams/50.png",
+  "manchester united fc": "https://media.api-sports.io/football/teams/33.png",
+  "tottenham hotspur fc": "https://media.api-sports.io/football/teams/47.png",
+  "newcastle united fc": "https://media.api-sports.io/football/teams/34.png",
+  "aston villa fc": "https://media.api-sports.io/football/teams/66.png",
+  "everton fc": "https://media.api-sports.io/football/teams/45.png",
+  "fulham fc": "https://media.api-sports.io/football/teams/36.png",
+  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png",
+  "nottingham forest fc": "https://media.api-sports.io/football/teams/65.png",
+  "afc bournemouth": "https://media.api-sports.io/football/teams/35.png",
+  "leicester city fc": "https://media.api-sports.io/football/teams/46.png"
+};
+
+const normalizar = (v = "") =>
+  String(v)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const fallbackLogo = (name = "Time") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
 
@@ -11,7 +42,6 @@ export default function App() {
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
-  const [popupAlerta, setPopupAlerta] = useState(null);
 
   async function carregar() {
     try {
@@ -48,19 +78,37 @@ export default function App() {
   function timesDoJogo(item) {
     const partes = String(item.match || "").split(/\s+vs\s+|\s+x\s+/i);
     return {
-      casa: item.homeTeam || item.home || partes[0] || "Casa",
-      fora: item.awayTeam || item.away || partes[1] || "Fora"
+      casa: item.homeTeam || item.home?.name || item.home || partes[0] || "Casa",
+      fora: item.awayTeam || item.away?.name || item.away || partes[1] || "Fora"
     };
   }
 
   function logoCasa(item) {
     const t = timesDoJogo(item);
-    return item.logoHome || item.homeLogo || item.teams?.home?.logo || fallbackLogo(t.casa);
+    const key = normalizar(t.casa);
+    return (
+      item.logoHome ||
+      item.homeLogo ||
+      item.teamHomeLogo ||
+      item.home?.logo ||
+      item.teams?.home?.logo ||
+      TEAM_LOGOS[key] ||
+      fallbackLogo(t.casa)
+    );
   }
 
   function logoFora(item) {
     const t = timesDoJogo(item);
-    return item.logoAway || item.awayLogo || item.teams?.away?.logo || fallbackLogo(t.fora);
+    const key = normalizar(t.fora);
+    return (
+      item.logoAway ||
+      item.awayLogo ||
+      item.teamAwayLogo ||
+      item.away?.logo ||
+      item.teams?.away?.logo ||
+      TEAM_LOGOS[key] ||
+      fallbackLogo(t.fora)
+    );
   }
 
   function statsDoJogo(item) {
@@ -167,117 +215,30 @@ export default function App() {
   const alertCount = signals.filter((s) => mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨")).length;
 
   return (
-    <div style={page}>
-      <style>
-        {`
-          @keyframes pulse { 0%{opacity:1} 50%{opacity:.45} 100%{opacity:1} }
+    <div className="page">
+      <style>{css}</style>
 
-          @media(max-width:900px){
-            .cardsGrid{grid-template-columns:1fr!important;gap:12px!important}
-            .filterGrid{grid-template-columns:repeat(4,1fr)!important}
-            .matchBody{grid-template-columns:1fr!important}
-            .cardHeaderMobile{flex-direction:column!important}
-            .teamsRow{width:100%!important}
-            .badgesRow{justify-content:flex-start!important}
-            .barsMobile{grid-template-columns:1fr!important}
-            .bottomBarMobile{font-size:12px!important;gap:8px!important}
-          }
-
-          const page = { minHeight: "100vh", background: "#1f1f1f", color: "#fff", padding: 6, fontFamily: "Arial, Helvetica, sans-serif", overflowX: "hidden" };
-
-const topBar = { background: "linear-gradient(180deg,#10281d,#0b1511)", border: "1px solid #00d66f", borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 7, boxSizing: "border-box" };
-const title = { color: "#00ff70", fontSize: "clamp(26px,3.2vw,44px)", margin: 0, fontWeight: 900, lineHeight: 1 };
-const subTitle = { color: "#d8d8d8", marginTop: 5, fontSize: 13 };
-const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
-const pill = { border: "1px solid #00d66f", background: "#0b1511", padding: "7px 12px", borderRadius: 7, fontWeight: 900, fontSize: 13 };
-
-const notice = { background: "#4a1c08", border: "1px solid #ff7b00", padding: 8, borderRadius: 7, marginBottom: 7, fontWeight: 900, fontSize: 13 };
-
-const filters = { display: "grid", gridTemplateColumns: "repeat(13,minmax(0,1fr))", gap: 5, marginBottom: 7, width: "100%" };
-const btnStyle = { background: "#252525", color: "#fff", border: "1px solid #00d66f", padding: "8px 3px", borderRadius: 7, cursor: "pointer", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
-const activeBtn = { ...btnStyle, background: "#00d66f", color: "#001b0b" };
-
-const search = { width: "100%", boxSizing: "border-box", background: "#202b2b", border: "1px solid #00d66f", color: "#fff", padding: 10, borderRadius: 8, marginBottom: 9, fontSize: 14 };
-
-const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#102016,#0a1411)", border: "1px solid rgba(0,214,111,.65)", borderRadius: 8, padding: 8, boxShadow: "0 0 8px rgba(0,255,80,.08)", overflow: "hidden", boxSizing: "border-box" };
-
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "flex-start", marginBottom: 7 };
-const teams = { display: "flex", gap: 5, alignItems: "center", minWidth: 0, flex: 1 };
-const teamLogo = { width: 22, height: 22, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
-
-const match = { color: "#00ff70", fontSize: "clamp(13px,1.05vw,17px)", margin: 0, lineHeight: 1.02, fontWeight: 900, whiteSpace: "normal", wordBreak: "normal" };
-const league = { color: "#dddddd", margin: "4px 0 0", fontSize: 10 };
-
-const rightBadges = { display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" };
-const baseBadge = { background: "#3a4655", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-const vipBadge = { background: "#facc15", color: "#000", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 8, alignItems: "start" };
-const mainInfo = { display: "grid", gap: 6 };
-const scoreBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 1, fontSize: 12 };
-const signalBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 2, fontSize: 12 };
-
-const miniMap = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 5 };
-const field = { height: 68, background: "repeating-linear-gradient(90deg,#176324 0px,#176324 26px,#1d7a2d 26px,#1d7a2d 52px)", border: "1px solid rgba(255,255,255,.65)", borderRadius: 7, position: "relative", overflow: "hidden" };
-const fieldOverlay = { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,0,.06),rgba(0,255,130,.10))" };
-const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
-const goalLeft = { position: "absolute", left: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderLeft: 0 };
-const goalRight = { position: "absolute", right: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderRight: 0 };
-const ballHome = { position: "absolute", top: "42%", width: 12, height: 12, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 10px #facc15" };
-const ballAway = { position: "absolute", top: "45%", width: 12, height: 12, borderRadius: "50%", background: "#00d9ff", boxShadow: "0 0 10px #00d9ff" };
-
-const statsGrid = { marginTop: 5, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, fontSize: 10, color: "#f1f5f9" };
-
-const bars = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, fontSize: 11, fontWeight: 900, marginTop: 8 };
-const barBg = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 3 };
-const bar = { height: "100%", background: "#00ff70" };
-const barGold = { height: "100%", background: "#facc15" };
-
-const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 6 };
-const momentumTitle = { color: "#00ff70", fontSize: 12 };
-const momentumBar = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 4 };
-const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999 };
-const momentumInfo = { marginTop: 4, fontSize: 11, color: "#fff" };
-
-const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
-const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 6, padding: "7px 13px", fontWeight: 900, fontSize: 12 };
-const novibet = { ...betano, background: "#2563eb" };
-const bet365 = { ...betano, background: "#f97316" };
-const vipBtn = { ...betano, background: "#facc15", color: "#000" };
-
-const oddBlink = { color: "#facc15", fontWeight: 900 };
-const bottomBar = { marginTop: 8, background: "#101820", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 8, display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "space-around", fontSize: 12 };
-const green = { color: "#00ff70" };
-const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10 };
-const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
-        `}
-      </style>
-
-      {popupAlerta && <div style={popup}>{popupAlerta.match}</div>}
-
-      <header className="topBarMobile" style={topBar}>
+      <header className="topBar">
         <div>
-          <h1 className="titleMobile" style={title}>MekineBet AO VIVO</h1>
-          <div style={subTitle}>🟢 Scanner live • odds • pressão • mercados</div>
+          <h1>MekineBet AO VIVO</h1>
+          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
 
-        <div style={statusWrap}>
-          <span className="pillMobile" style={pill}>🔴 Live: {liveCount}</span>
-          <span className="pillMobile" style={pill}>🚨 Alertas: {alertCount}</span>
-          <span className="pillMobile" style={pill}>👑 VIP</span>
-          <span className="pillMobile" style={pill}>🕘 {lastUpdate || "carregando..."}</span>
+        <div className="statusWrap">
+          <span className="pill">🔴 Live: {liveCount}</span>
+          <span className="pill">🚨 Alertas: {alertCount}</span>
+          <span className="pill">👑 VIP</span>
+          <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
       {liveCount === 0 && (
-        <div style={notice}>
+        <div className="notice">
           📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
         </div>
       )}
 
-      <div className="filterGrid" style={filters}>
+      <div className="filters">
         {[
           ["TODOS", "▦ TODOS"],
           ["LIVE", "📡 LIVE"],
@@ -293,24 +254,27 @@ const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius
           ["VIP", "👑 VIP"],
           ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
-          <button key={value} onClick={() => setFiltro(value)} style={filtro === value ? activeBtn : btnStyle}>
+          <button
+            key={value}
+            onClick={() => setFiltro(value)}
+            className={filtro === value ? "activeBtn" : ""}
+          >
             {label}
           </button>
         ))}
       </div>
 
       <input
-        className="searchMobile"
         placeholder="🔍  Buscar jogo, liga ou mercado..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        style={search}
+        className="search"
       />
 
       {loading ? (
-        <div style={empty}>Carregando sinais...</div>
+        <div className="empty">Carregando sinais...</div>
       ) : (
-        <main className="cardsGrid" style={grid}>
+        <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
@@ -320,50 +284,50 @@ const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius
             const times = timesDoJogo(item);
 
             return (
-              <section className="cardMobile" key={item.id || index} style={card}>
-                <div className="cardHeaderMobile" style={cardHeader}>
-                  <div className="teamsRow" style={teams}>
-                    <img className="teamLogoMobile" src={logoCasa(item)} alt={times.casa} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <h2 className="matchTitle" style={match}>{item.match}</h2>
-                      <p style={league}>🦁 {item.league}</p>
+              <section key={item.id || index} className="card">
+                <div className="cardHeader">
+                  <div className="teams">
+                    <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+                    <div className="teamText">
+                      <h2>{item.match}</h2>
+                      <p>🦁 {item.league}</p>
                     </div>
-                    <img className="teamLogoMobile" src={logoFora(item)} alt={times.fora} style={teamLogo} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                    <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
                   </div>
 
-                  <div className="badgesRow" style={rightBadges}>
-                    <span style={baseBadge}>{liveReal ? "AO VIVO" : "BASE"}</span>
-                    {vip && <span style={vipBadge}>VIP</span>}
-                    <span style={marketBadge}>{cat}</span>
+                  <div className="badges">
+                    <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
+                    {vip && <span className="vip">VIP</span>}
+                    <span className="market">{cat}</span>
                   </div>
                 </div>
 
-                <div className="matchBody" style={bodyGrid}>
-                  <div style={mainInfo}>
-                    <div style={scoreBox}>
+                <div className="bodyGrid">
+                  <div className="mainInfo">
+                    <div className="box">
                       <span>Placar</span>
                       <b>{item.score || "0-0"}</b>
                       <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
                     </div>
 
-                    <div style={signalBox}>
+                    <div className="box">
                       <b>{item.market}</b>
                       <span>Status: {status}</span>
-                      <span style={oddBlink}>Odd: {item.odd || "1.72"}</span>
+                      <strong>Odd: {item.odd || "1.72"}</strong>
                     </div>
                   </div>
 
-                  <div style={miniMap}>
-                    <div style={field}>
-                      <div style={fieldOverlay}></div>
-                      <div style={midLine}></div>
-                      <div style={goalLeft}></div>
-                      <div style={goalRight}></div>
-                      <div style={{ ...ballHome, left: `${Math.min(80, stats.ataques)}%` }}></div>
-                      <div style={{ ...ballAway, left: `${100 - Math.min(80, stats.ataques)}%` }}></div>
+                  <div className="miniMap">
+                    <div className="field">
+                      <div className="fieldOverlay"></div>
+                      <div className="midLine"></div>
+                      <div className="goalLeft"></div>
+                      <div className="goalRight"></div>
+                      <div className="ballHome" style={{ left: `${Math.min(80, stats.ataques)}%` }}></div>
+                      <div className="ballAway" style={{ left: `${100 - Math.min(80, stats.ataques)}%` }}></div>
                     </div>
 
-                    <div style={statsGrid}>
+                    <div className="stats">
                       <span>Posse {stats.posse}%</span>
                       <span>Final. {stats.finalizacoes}</span>
                       <span>Ataques {stats.ataques}</span>
@@ -374,28 +338,28 @@ const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius
                   </div>
                 </div>
 
-                <div className="barsMobile" style={bars}>
+                <div className="bars">
                   <div>
                     <b>IA {item.confidence || 70}%</b>
-                    <div style={barBg}><div style={{ ...bar, width: `${item.confidence || 70}%` }} /></div>
+                    <div className="barBg"><div className="barGreen" style={{ width: `${item.confidence || 70}%` }} /></div>
                   </div>
                   <div>
                     <b>Pressão {item.pressure || 70}%</b>
-                    <div style={barBg}><div style={{ ...barGold, width: `${item.pressure || 70}%` }} /></div>
+                    <div className="barBg"><div className="barGold" style={{ width: `${item.pressure || 70}%` }} /></div>
                   </div>
                 </div>
 
-                <div style={momentumBox}>
-                  <b style={momentumTitle}>Momentum IA</b>
-                  <div style={momentumBar}><div style={{ ...momentumFill, width: `${item.pressure || 70}%` }} /></div>
-                  <div style={momentumInfo}>⚡ Ataque perigoso detectado</div>
+                <div className="momentum">
+                  <b>Momentum IA</b>
+                  <div className="barBg"><div className="momentumFill" style={{ width: `${item.pressure || 70}%` }} /></div>
+                  <small>⚡ Ataque perigoso detectado</small>
                 </div>
 
-                <div style={footer}>
-                  <button style={betano}>Betano</button>
-                  <button style={novibet}>Novibet</button>
-                  <button style={bet365}>Bet365</button>
-                  <button style={vipBtn}>VIP</button>
+                <div className="bookies">
+                  <button>Betano</button>
+                  <button>Novibet</button>
+                  <button>Bet365</button>
+                  <button>VIP</button>
                 </div>
               </section>
             );
@@ -403,83 +367,93 @@ const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius
         </main>
       )}
 
-      <footer className="bottomBarMobile" style={bottomBar}>
-        <span>📊 Sinais: <b style={green}>{signals.length}</b></span>
+      <footer className="bottomBar">
+        <span>📊 Sinais: <b>{signals.length}</b></span>
         <span>🟢 IA Ativa 24h</span>
-        <span>⚡ Atualização: <b style={green}>20s</b></span>
-        <span>🗓️ Última: <b style={green}>{lastUpdate}</b></span>
-        <span>🔒 Fonte: <b style={green}>API-Sports</b></span>
+        <span>⚡ Atualização: <b>20s</b></span>
+        <span>🗓️ Última: <b>{lastUpdate}</b></span>
+        <span>🔒 Fonte: <b>API-Sports</b></span>
       </footer>
     </div>
   );
 }
 
-const page = { minHeight: "100vh", background: "#1f1f1f", color: "#fff", padding: 6, fontFamily: "Arial, Helvetica, sans-serif", overflowX: "hidden" };
+const css = `
+*{box-sizing:border-box}
+body{margin:0;background:#1f1f1f}
+.page{min-height:100vh;background:#1f1f1f;color:#fff;padding:6px;font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}
+.topBar{background:linear-gradient(180deg,#10281d,#0b1511);border:1px solid #00d66f;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+h1{color:#00ff70;font-size:clamp(26px,3.2vw,44px);margin:0;font-weight:900;line-height:1}
+.subTitle{color:#d8d8d8;margin-top:5px;font-size:13px}
+.statusWrap{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{border:1px solid #00d66f;background:#0b1511;padding:7px 12px;border-radius:7px;font-weight:900;font-size:13px}
+.notice{background:#4a1c08;border:1px solid #ff7b00;padding:8px;border-radius:7px;margin-bottom:7px;font-weight:900;font-size:13px}
+.filters{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:5px;margin-bottom:7px}
+.filters button{background:#252525;color:#fff;border:1px solid #00d66f;padding:8px 3px;border-radius:7px;cursor:pointer;font-weight:900;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.filters .activeBtn{background:#00d66f;color:#001b0b}
+.search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:10px;border-radius:8px;margin-bottom:9px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.65);border-radius:8px;padding:8px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden}
+.cardHeader{display:flex;justify-content:space-between;gap:6px;align-items:flex-start;margin-bottom:7px}
+.teams{display:flex;gap:5px;align-items:center;min-width:0;flex:1}
+.teams img{width:22px;height:22px;border-radius:50%;object-fit:contain;background:#fff;padding:2px;flex-shrink:0}
+.teamText{min-width:0;flex:1}
+.teamText h2{color:#00ff70;font-size:clamp(13px,1.05vw,17px);margin:0;line-height:1.02;font-weight:900}
+.teamText p{color:#ddd;margin:4px 0 0;font-size:10px}
+.badges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.badges span{padding:4px 7px;border-radius:999px;font-size:10px;font-weight:900}
+.base{background:#3a4655}
+.vip{background:#facc15;color:#000}
+.market{background:#0ea5e9}
+.bodyGrid{display:grid;grid-template-columns:1fr 1.05fr;gap:8px;align-items:start}
+.mainInfo{display:grid;gap:6px}
+.box{background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:7px;display:grid;gap:1px;font-size:12px}
+.box strong{color:#facc15}
+.miniMap{background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:5px}
+.field{height:68px;background:repeating-linear-gradient(90deg,#176324 0px,#176324 26px,#1d7a2d 26px,#1d7a2d 52px);border:1px solid rgba(255,255,255,.65);border-radius:7px;position:relative;overflow:hidden}
+.fieldOverlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,0,.06),rgba(0,255,130,.10))}
+.midLine{position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(255,255,255,.75)}
+.goalLeft{position:absolute;left:0;top:29%;width:22px;height:30px;border:1px solid rgba(255,255,255,.75);border-left:0}
+.goalRight{position:absolute;right:0;top:29%;width:22px;height:30px;border:1px solid rgba(255,255,255,.75);border-right:0}
+.ballHome,.ballAway{position:absolute;top:42%;width:12px;height:12px;border-radius:50%}
+.ballHome{background:#facc15;box-shadow:0 0 10px #facc15}
+.ballAway{background:#00d9ff;box-shadow:0 0 10px #00d9ff}
+.stats{margin-top:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:2px;font-size:10px;color:#f1f5f9}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:9px;font-size:11px;font-weight:900;margin-top:8px}
+.barBg{height:8px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:3px}
+.barGreen{height:100%;background:#00ff70}
+.barGold{height:100%;background:#facc15}
+.momentum{margin-top:8px;background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:6px}
+.momentum b{color:#00ff70;font-size:12px}
+.momentum small{display:block;margin-top:4px;font-size:11px}
+.momentumFill{height:100%;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);border-radius:999px}
+.bookies{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;justify-content:space-between}
+.bookies button{border:0;border-radius:6px;padding:7px 13px;font-weight:900;font-size:12px;color:#fff}
+.bookies button:nth-child(1){background:#22c55e}
+.bookies button:nth-child(2){background:#2563eb}
+.bookies button:nth-child(3){background:#f97316}
+.bookies button:nth-child(4){background:#facc15;color:#000}
+.bottomBar{margin-top:8px;background:#101820;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-around;font-size:12px}
+.bottomBar b{color:#00ff70}
+.empty{background:#101820;border:1px solid #00ff87;border-radius:10px;padding:18px;font-weight:800}
 
-const topBar = { background: "linear-gradient(180deg,#10281d,#0b1511)", border: "1px solid #00d66f", borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 7, boxSizing: "border-box" };
-const title = { color: "#00ff70", fontSize: "clamp(26px,3.2vw,44px)", margin: 0, fontWeight: 900, lineHeight: 1 };
-const subTitle = { color: "#d8d8d8", marginTop: 5, fontSize: 13 };
-const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
-const pill = { border: "1px solid #00d66f", background: "#0b1511", padding: "7px 12px", borderRadius: 7, fontWeight: 900, fontSize: 13 };
+@media(max-width:900px){
+  .grid{grid-template-columns:1fr!important}
+  .filters{grid-template-columns:repeat(4,1fr)}
+  .bodyGrid{grid-template-columns:1fr}
+  .cardHeader{flex-direction:column}
+  .badges{justify-content:flex-start}
+  .bars{grid-template-columns:1fr}
+}
 
-const notice = { background: "#4a1c08", border: "1px solid #ff7b00", padding: 8, borderRadius: 7, marginBottom: 7, fontWeight: 900, fontSize: 13 };
-
-const filters = { display: "grid", gridTemplateColumns: "repeat(13,minmax(0,1fr))", gap: 5, marginBottom: 7, width: "100%" };
-const btnStyle = { background: "#252525", color: "#fff", border: "1px solid #00d66f", padding: "8px 3px", borderRadius: 7, cursor: "pointer", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
-const activeBtn = { ...btnStyle, background: "#00d66f", color: "#001b0b" };
-
-const search = { width: "100%", boxSizing: "border-box", background: "#202b2b", border: "1px solid #00d66f", color: "#fff", padding: 10, borderRadius: 8, marginBottom: 9, fontSize: 14 };
-
-const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#102016,#0a1411)", border: "1px solid rgba(0,214,111,.65)", borderRadius: 8, padding: 8, boxShadow: "0 0 8px rgba(0,255,80,.08)", overflow: "hidden", boxSizing: "border-box" };
-
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "flex-start", marginBottom: 7 };
-const teams = { display: "flex", gap: 5, alignItems: "center", minWidth: 0, flex: 1 };
-const teamLogo = { width: 22, height: 22, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
-
-const match = { color: "#00ff70", fontSize: "clamp(13px,1.05vw,17px)", margin: 0, lineHeight: 1.02, fontWeight: 900, whiteSpace: "normal", wordBreak: "normal" };
-const league = { color: "#dddddd", margin: "4px 0 0", fontSize: 10 };
-
-const rightBadges = { display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" };
-const baseBadge = { background: "#3a4655", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-const vipBadge = { background: "#facc15", color: "#000", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
-
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 8, alignItems: "start" };
-const mainInfo = { display: "grid", gap: 6 };
-const scoreBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 1, fontSize: 12 };
-const signalBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 2, fontSize: 12 };
-
-const miniMap = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 5 };
-const field = { height: 68, background: "repeating-linear-gradient(90deg,#176324 0px,#176324 26px,#1d7a2d 26px,#1d7a2d 52px)", border: "1px solid rgba(255,255,255,.65)", borderRadius: 7, position: "relative", overflow: "hidden" };
-const fieldOverlay = { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,0,.06),rgba(0,255,130,.10))" };
-const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
-const goalLeft = { position: "absolute", left: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderLeft: 0 };
-const goalRight = { position: "absolute", right: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderRight: 0 };
-const ballHome = { position: "absolute", top: "42%", width: 12, height: 12, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 10px #facc15" };
-const ballAway = { position: "absolute", top: "45%", width: 12, height: 12, borderRadius: "50%", background: "#00d9ff", boxShadow: "0 0 10px #00d9ff" };
-
-const statsGrid = { marginTop: 5, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, fontSize: 10, color: "#f1f5f9" };
-
-const bars = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, fontSize: 11, fontWeight: 900, marginTop: 8 };
-const barBg = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 3 };
-const bar = { height: "100%", background: "#00ff70" };
-const barGold = { height: "100%", background: "#facc15" };
-
-const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 6 };
-const momentumTitle = { color: "#00ff70", fontSize: 12 };
-const momentumBar = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 4 };
-const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999 };
-const momentumInfo = { marginTop: 4, fontSize: 11, color: "#fff" };
-
-const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
-const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 6, padding: "7px 13px", fontWeight: 900, fontSize: 12 };
-const novibet = { ...betano, background: "#2563eb" };
-const bet365 = { ...betano, background: "#f97316" };
-const vipBtn = { ...betano, background: "#facc15", color: "#000" };
-
-const oddBlink = { color: "#facc15", fontWeight: 900 };
-const bottomBar = { marginTop: 8, background: "#101820", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 8, display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "space-around", fontSize: 12 };
-const green = { color: "#00ff70" };
-const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10 };
-const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
+@media(max-width:520px){
+  .filters{grid-template-columns:repeat(3,1fr)}
+  .teamText h2{font-size:16px}
+  .teams img{width:22px;height:22px}
+  h1{font-size:28px}
+  .topBar{padding:9px}
+  .pill{font-size:11px;padding:6px 8px}
+  .search{font-size:13px;padding:10px}
+  .card{padding:8px}
+}
+`;
