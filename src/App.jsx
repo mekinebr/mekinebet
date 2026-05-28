@@ -342,40 +342,125 @@ export default function App() {
 
 const css = `
 *{box-sizing:border-box}
-body{margin:0;background:#1f1f1f}
-.page{min-height:100vh;background:#1f1f1f;color:#fff;padding:6px;font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}
+body{margin:0;background:#1f1f1f;font-family:Arial,Helvetica,sans-serif}
+.page{min-height:100vh;background:#1f1f1f;color:#fff;padding:6px;overflow-x:hidden}
+
 .topBar{background:linear-gradient(180deg,#10281d,#0b1511);border:1px solid #00d66f;border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-h1{color:#00ff70;font-size:clamp(22px,2.6vw,36px);margin:0;font-weight:900;line-height:1}
+h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-height:1}
 .subTitle{color:#d8d8d8;margin-top:3px;font-size:11px}
 .statusWrap{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .pill{border:1px solid #00d66f;background:#0b1511;padding:6px 10px;border-radius:7px;font-weight:900;font-size:12px}
+
 .notice{background:#4a1c08;border:1px solid #ff7b00;padding:7px;border-radius:7px;margin-bottom:6px;font-weight:900;font-size:12px}
+
 .filters{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;margin-bottom:6px}
 .filters button{background:#252525;color:#fff;border:1px solid #00d66f;padding:7px 2px;border-radius:6px;cursor:pointer;font-weight:900;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .filters .activeBtn{background:#00d66f;color:#001b0b}
+
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
-.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:8px;padding:7px;box-shadow:0 0 6px rgba(0,255,80,.06);overflow:hidden}
-.cardHeader{display:flex;justify-content:space-between;gap:4px;align-items:flex-start;margin-bottom:5px}
-.teams{display:flex;gap:4px;align-items:center;min-width:0;flex:1}
-.teams img{width:20px;height:20px;border-radius:50%;object-fit:contain;background:#fff;padding:1px;flex-shrink:0}
-.teamText{min-width:0;flex:1}
-.teamText h2{color:#00ff70;font-size:clamp(11px,.95vw,15px);margin:0;line-height:1;font-weight:900}
-.teamText p{color:#ddd;margin:2px 0 0;font-size:9px}
-.badges{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end}
-.badges span{padding:3px 6px;border-radius:999px;font-size:9px;font-weight:900}
+
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
+
+.card{
+  background:linear-gradient(180deg,#102016,#0a1411);
+  border:1px solid rgba(0,214,111,.58);
+  border-radius:8px;
+  padding:7px;
+  box-shadow:0 0 6px rgba(0,255,80,.06);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  min-height:355px;
+}
+
+.cardHeader{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:6px;
+  align-items:start;
+  margin-bottom:6px;
+}
+
+.teams{
+  display:grid;
+  grid-template-columns:22px minmax(0,1fr) 22px;
+  gap:5px;
+  align-items:center;
+  min-width:0;
+}
+
+.teams img{
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  object-fit:contain;
+  background:#fff;
+  padding:2px;
+  flex-shrink:0;
+}
+
+.teamText{min-width:0;text-align:left}
+
+.teamText h2{
+  color:#00ff70;
+  font-size:clamp(11px,.9vw,14px);
+  margin:0;
+  line-height:1.08;
+  font-weight:900;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  min-height:24px;
+  max-height:30px;
+}
+
+.teamText p{
+  color:#ddd;
+  margin:2px 0 0;
+  font-size:8.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.badges{
+  display:flex;
+  gap:3px;
+  flex-wrap:nowrap;
+  justify-content:flex-end;
+  align-items:flex-start;
+}
+
+.badges span{padding:3px 6px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
 .base{background:#3a4655}
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
-.bodyGrid{display:grid;grid-template-columns:.95fr 1.25fr;gap:6px;align-items:start}
+
+.bodyGrid{
+  display:grid;
+  grid-template-columns:.82fr 1.18fr;
+  gap:6px;
+  align-items:start;
+}
+
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:11px}
-.scoreBox b{font-size:18px}
+.scoreBox{height:68px;align-content:center}
+.scoreBox b{font-size:18px;line-height:1}
 .marketBox{margin-top:6px;text-align:center}
 .marketBox strong{color:#facc15}
-.miniMap{background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:4px}
+
+.miniMap{
+  background:#071a10;
+  border:1px solid #0f7a3e;
+  border-radius:7px;
+  padding:4px;
+  width:100%;
+}
+
 .field3d{
   width:100%;
-  max-width:235px;
+  max-width:210px;
   aspect-ratio:16/9;
   margin:0 auto;
   border:1px solid rgba(255,255,255,.70);
@@ -384,61 +469,57 @@ h1{color:#00ff70;font-size:clamp(22px,2.6vw,36px);margin:0;font-weight:900;line-
   overflow:hidden;
   background:linear-gradient(180deg,#1a8b3d 0%,#0d6d2b 45%,#06491d 100%);
   box-shadow:inset 0 10px 18px rgba(255,255,255,.10),inset 0 -18px 28px rgba(0,0,0,.55),0 5px 14px rgba(0,0,0,.35);
-  transform:perspective(420px) rotateX(9deg);
+  transform:perspective(420px) rotateX(7deg);
   transform-origin:center bottom;
 }
-.grass{
-  position:absolute;
-  inset:0;
-  background:
-    repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 18px),
-    repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 24px,rgba(255,255,255,.05) 24px 48px);
-}
-.shade{
-  position:absolute;
-  inset:0;
-  background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.12),transparent 45%),linear-gradient(90deg,rgba(0,0,0,.28),transparent 30%,transparent 70%,rgba(0,0,0,.28));
-}
+
+.grass{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 24px,rgba(255,255,255,.05) 24px 48px)}
+.shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.12),transparent 45%),linear-gradient(90deg,rgba(0,0,0,.28),transparent 30%,transparent 70%,rgba(0,0,0,.28))}
 .midLine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.85)}
-.centerCircle{position:absolute;left:50%;top:50%;width:30px;height:30px;border:1px solid rgba(255,255,255,.85);border-radius:50%;transform:translate(-50%,-50%)}
-.boxLeft,.boxRight{position:absolute;top:26%;width:30px;height:48%;border:1px solid rgba(255,255,255,.85)}
+.centerCircle{position:absolute;left:50%;top:50%;width:28px;height:28px;border:1px solid rgba(255,255,255,.85);border-radius:50%;transform:translate(-50%,-50%)}
+.boxLeft,.boxRight{position:absolute;top:26%;width:28px;height:48%;border:1px solid rgba(255,255,255,.85)}
 .boxLeft{left:0;border-left:0}
 .boxRight{right:0;border-right:0}
-.smallBoxLeft,.smallBoxRight{position:absolute;top:37%;width:14px;height:26%;border:1px solid rgba(255,255,255,.85)}
+.smallBoxLeft,.smallBoxRight{position:absolute;top:37%;width:13px;height:26%;border:1px solid rgba(255,255,255,.85)}
 .smallBoxLeft{left:0;border-left:0}
 .smallBoxRight{right:0;border-right:0}
 .goalLeft,.goalRight{position:absolute;top:42%;width:4px;height:16%;background:rgba(255,255,255,.85)}
 .goalLeft{left:0}
 .goalRight{right:0}
 .attackZone{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,rgba(250,204,21,.06),rgba(239,68,68,.16));transition:.5s}
-.player{position:absolute;width:8px;height:8px;border-radius:50%;box-shadow:0 0 8px currentColor}
+.player{position:absolute;width:7px;height:7px;border-radius:50%;box-shadow:0 0 8px currentColor}
 .p1{left:27%;top:44%;background:#facc15;color:#facc15}
 .p2{left:58%;top:46%;background:#00d9ff;color:#00d9ff}
 .p3{left:73%;top:35%;background:#00ff70;color:#00ff70;opacity:.85}
-.ballLive{position:absolute;width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 14px #00ff70;transform:translate(-50%,-50%);transition:all .8s ease;animation:ballPulse 1.4s infinite}
+.ballLive{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 14px #00ff70;transform:translate(-50%,-50%);transition:all .8s ease;animation:ballPulse 1.4s infinite}
 @keyframes ballPulse{0%,100%{scale:1}50%{scale:1.35}}
-.stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8.5px;color:#f1f5f9;text-align:center}
+
+.stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8px;color:#f1f5f9;text-align:center}
+
 .bars{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;font-weight:900;margin-top:6px}
 .barBg{height:6px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:2px}
 .barGreen{height:100%;background:#00ff70}
 .barGold{height:100%;background:#facc15}
+
 .momentum{margin-top:6px;background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:5px}
 .momentum b{color:#00ff70;font-size:11px}
 .momentum small{display:block;margin-top:3px;font-size:10px}
 .momentumFill{height:100%;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);border-radius:999px}
-.bookies{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;justify-content:space-between}
+
+.bookies{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:6px;justify-content:space-between}
 .bookies button{border:0;border-radius:5px;padding:6px 10px;font-weight:900;font-size:11px;color:#fff}
 .bookies button:nth-child(1){background:#22c55e}
 .bookies button:nth-child(2){background:#2563eb}
 .bookies button:nth-child(3){background:#f97316}
 .bookies button:nth-child(4){background:#facc15;color:#000}
+
 .empty{background:#101820;border:1px solid #00ff87;border-radius:10px;padding:18px;font-weight:800}
 
 @media(max-width:900px){
   .grid{grid-template-columns:1fr!important;gap:10px!important}
   .filters{grid-template-columns:repeat(3,1fr)!important}
   .bodyGrid{grid-template-columns:1fr!important}
-  .cardHeader{flex-direction:column!important}
+  .cardHeader{grid-template-columns:1fr!important}
   .badges{justify-content:flex-start!important}
   .bars{grid-template-columns:1fr!important}
   .field3d{max-width:100%;aspect-ratio:16/9}
