@@ -1,105 +1,118 @@
-const title = {
-  color: "#00ff87",
-  fontSize: "clamp(26px,3vw,48px)",
-  margin: 0,
-  fontWeight: 900,
-  lineHeight: 1
-};
-
-const topBar = {
-  background: "linear-gradient(180deg,#07160f,#081018)",
-  border: "1px solid #00ff87",
-  borderRadius: 10,
-  padding: 8,
+const filters = {
   display: "flex",
-  justifyContent: "space-between",
-  gap: 8,
+  gap: 6,
   flexWrap: "wrap",
   marginBottom: 6,
-  boxShadow: "0 0 18px rgba(0,255,135,.08)"
+  overflow: "hidden"
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
+  gridTemplateColumns: "repeat(3,minmax(0,1fr))",
   gap: 8,
   alignItems: "start"
 };
 
 const card = {
   background: "linear-gradient(180deg,#07140d,#081018)",
-  border: "1px solid rgba(0,255,135,.35)",
+  border: "1px solid rgba(0,255,135,.30)",
   borderRadius: 10,
-  padding: 8,
-  minHeight: 220,
-  boxShadow: "0 0 14px rgba(0,255,135,.07)",
+  padding: 7,
+  minHeight: 185,
+  boxShadow: "0 0 10px rgba(0,255,135,.06)",
   overflow: "hidden",
   transition: ".25s"
 };
 
+const topBar = {
+  background: "linear-gradient(180deg,#07160f,#081018)",
+  border: "1px solid #00ff87",
+  borderRadius: 10,
+  padding: 6,
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 8,
+  flexWrap: "wrap",
+  marginBottom: 5,
+  boxShadow: "0 0 15px rgba(0,255,135,.06)"
+};
+
+const title = {
+  color: "#00ff87",
+  fontSize: "clamp(22px,2.5vw,42px)",
+  margin: 0,
+  fontWeight: 900,
+  lineHeight: 1
+};
+
 const bodyGrid = {
   display: "grid",
-  gridTemplateColumns: "1fr 170px",
-  gap: 7,
+  gridTemplateColumns: "1fr 155px",
+  gap: 6,
   alignItems: "start"
 };
 
 const field = {
-  height: 74,
+  height: 64,
   background:
-    "repeating-linear-gradient(90deg,#1f5c2e 0px,#1f5c2e 34px,#216c34 34px,#216c34 68px)",
-  border: "2px solid rgba(255,255,255,.18)",
-  borderRadius: 8,
+    "repeating-linear-gradient(90deg,#1f5c2e 0px,#1f5c2e 30px,#216c34 30px,#216c34 60px)",
+  border: "1px solid rgba(255,255,255,.18)",
+  borderRadius: 7,
   position: "relative",
   overflow: "hidden",
-  boxShadow: "inset 0 0 20px rgba(255,255,255,.08)"
+  boxShadow: "inset 0 0 14px rgba(255,255,255,.06)"
 };
 
 const scoreBox = {
   background: "#071a10",
   border: "1px solid #174f32",
-  borderRadius: 8,
-  padding: 7,
+  borderRadius: 7,
+  padding: 6,
   display: "grid",
   gap: 1,
-  fontSize: 13
+  fontSize: 12
 };
 
 const signalBox = {
   background: "#071a10",
   border: "1px solid #174f32",
-  borderRadius: 8,
-  padding: 7,
+  borderRadius: 7,
+  padding: 6,
   display: "grid",
+  gap: 1,
+  fontSize: 12
+};
+
+const statsGrid = {
+  marginTop: 4,
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
   gap: 2,
-  fontSize: 13
+  fontSize: 10,
+  color: "#f1f5f9"
 };
 
 const bars = {
   display: "grid",
-  gap: 2,
-  fontSize: 11,
+  gap: 1,
+  fontSize: 10,
   fontWeight: 900,
-  marginTop: 5
+  marginTop: 4
 };
 
 const momentumBox = {
-  marginTop: 5,
+  marginTop: 4,
   background: "#071a10",
   border: "1px solid #174f32",
-  borderRadius: 8,
-  padding: 6
-};
-
-const dangerBox = {
-  display: "none"
+  borderRadius: 7,
+  padding: 5
 };
 
 const footer = {
   display: "flex",
-  gap: 5,
+  gap: 4,
   flexWrap: "wrap",
-  marginTop: 6,
+  marginTop: 5,
   justifyContent: "space-between"
 };
 
@@ -107,24 +120,8 @@ const betano = {
   background: "#22c55e",
   color: "#fff",
   border: 0,
-  borderRadius: 7,
-  padding: "7px 12px",
+  borderRadius: 6,
+  padding: "6px 10px",
   fontWeight: 900,
-  fontSize: 12
-};
-
-const novibet = {
-  ...betano,
-  background: "#2563eb"
-};
-
-const bet365 = {
-  ...betano,
-  background: "#f59e0b"
-};
-
-const vipBtn = {
-  ...betano,
-  background: "#facc15",
-  color: "#000"
+  fontSize: 11
 };
