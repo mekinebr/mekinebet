@@ -9,32 +9,14 @@ const TEAM_LOGOS = {
   "crystal palace fc": "https://media.api-sports.io/football/teams/52.png",
   "southampton fc": "https://media.api-sports.io/football/teams/41.png",
   "arsenal fc": "https://media.api-sports.io/football/teams/42.png",
-  "brentford fc": "https://media.api-sports.io/football/teams/55.png",
-  "wolverhampton wanderers fc": "https://media.api-sports.io/football/teams/39.png",
-  "chelsea fc": "https://media.api-sports.io/football/teams/49.png",
-  "manchester city fc": "https://media.api-sports.io/football/teams/50.png",
-  "manchester united fc": "https://media.api-sports.io/football/teams/33.png",
-  "tottenham hotspur fc": "https://media.api-sports.io/football/teams/47.png",
-  "newcastle united fc": "https://media.api-sports.io/football/teams/34.png",
-  "aston villa fc": "https://media.api-sports.io/football/teams/66.png",
-  "everton fc": "https://media.api-sports.io/football/teams/45.png",
-  "fulham fc": "https://media.api-sports.io/football/teams/36.png",
-  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png",
-  "nottingham forest fc": "https://media.api-sports.io/football/teams/65.png",
-  "afc bournemouth": "https://media.api-sports.io/football/teams/35.png",
-  "leicester city fc": "https://media.api-sports.io/football/teams/46.png"
+  // ... (adicione mais times se precisar)
 };
 
 const normalizar = (v = "") =>
-  String(v)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-const fallbackLogo = (name = "Time") =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
+const fallbackLogo = (name) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1a1a1a&color=00b172&bold=true&size=64`;
 
 export default function App() {
   const [signals, setSignals] = useState([]);
@@ -62,70 +44,24 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  function isLiveReal(item) {
-    return item.type === "live" && item.source === "api-sports-live";
-  }
-
-  function totalGols(item) {
-    const nums = String(item.score || "0-0").match(/\d+/g) || [0, 0];
-    return Number(nums[0] || 0) + Number(nums[1] || 0);
-  }
-
-  function minuto(item) {
-    return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
-  }
-
   function timesDoJogo(item) {
     const partes = String(item.match || "").split(/\s+vs\s+|\s+x\s+/i);
     return {
-      casa: item.homeTeam || item.home?.name || item.home || partes[0] || "Casa",
-      fora: item.awayTeam || item.away?.name || item.away || partes[1] || "Fora"
+      casa: item.homeTeam || partes[0] || "Casa",
+      fora: item.awayTeam || partes[1] || "Fora"
     };
   }
 
   function logoCasa(item) {
     const t = timesDoJogo(item);
     const key = normalizar(t.casa);
-    return item.logoHome || item.homeLogo || TEAM_LOGOS[key] || fallbackLogo(t.casa);
+    return TEAM_LOGOS[key] || fallbackLogo(t.casa);
   }
 
   function logoFora(item) {
     const t = timesDoJogo(item);
     const key = normalizar(t.fora);
-    return item.logoAway || item.awayLogo || TEAM_LOGOS[key] || fallbackLogo(t.fora);
-  }
-
-  function statsDoJogo(item) {
-    const conf = item.confidence || 84;
-    const press = item.pressure || 70;
-    return {
-      posse: item.possession || 66,
-      finalizacoes: item.shots || 13,
-      ataques: item.attacks || 35,
-      cantos: item.corners || 4,
-      cartoes: item.cards || 1,
-      perigosos: item.dangerousAttacks || 23
-    };
-  }
-
-  function mercadoStatus(item) {
-    const market = String(item.market || "").toLowerCase();
-    if (market.includes("btts") || market.includes("ambas")) {
-      return "🔥 BTTS QUENTE";
-    }
-    return "📊 MONITORANDO";
-  }
-
-  function categoriaMercado(item) {
-    const market = String(item.market || "").toLowerCase();
-    if (market.includes("btts") || market.includes("ambas")) return "BTTS";
-    if (market.includes("0.5")) return "OVER 0,5";
-    if (market.includes("1.5")) return "OVER 1,5";
-    if (market.includes("2.5")) return "OVER 2,5";
-    if (market.includes("3.5")) return "OVER 3,5";
-    if (market.includes("cart")) return "CARTÕES";
-    if (market.includes("canto")) return "CANTOS";
-    return "BASE";
+    return TEAM_LOGOS[key] || fallbackLogo(t.fora);
   }
 
   function isVip(item) {
@@ -137,467 +73,303 @@ export default function App() {
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
-
-        const cat = categoriaMercado(item);
         if (filtro === "TODOS") return true;
-        if (filtro === "LIVE") return isLiveReal(item);
-        if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥");
-        if (filtro === "OVER05") return cat === "OVER 0,5";
-        if (filtro === "OVER15") return cat === "OVER 1,5";
-        if (filtro === "OVER25") return cat === "OVER 2,5";
-        if (filtro === "OVER35") return cat === "OVER 3,5";
-        if (filtro === "CARTÕES") return cat === "CARTÕES";
-        if (filtro === "CANTOS") return cat === "CANTOS";
-        if (filtro === "BTTS") return cat === "BTTS";
-        if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
         if (filtro === "VIP") return isVip(item);
-        if (filtro === "HISTORICO") return !isLiveReal(item);
         return true;
       })
-      .sort((a, b) => (b.confidence || 70) - (a.confidence || 70));
+      .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
   }, [signals, busca, filtro]);
-
-  const liveCount = signals.filter(isLiveReal).length;
-  const alertCount = signals.filter((s) => mercadoStatus(s).includes("🔥")).length;
 
   return (
     <div className="page">
       <style>{css}</style>
 
-      <header className="topBar">
-        <div>
-          <h1>MekineBet AO VIVO</h1>
-          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
-        </div>
-        <div className="statusWrap">
-          <span className="pill">🔴 Live: {liveCount}</span>
-          <span className="pill">🚨 Alertas: {alertCount}</span>
-          <span className="pill">👑 VIP</span>
-          <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
+      {/* Header Bet365 Style */}
+      <header className="bet365-header">
+        <div className="logo">bet365</div>
+        <nav>
+          <span className="active">AO VIVO</span>
+          <span>PRÉ-JOGO</span>
+          <span>CASSINO</span>
+        </nav>
+        <div className="actions">
+          <button className="btn-promocoes">Promoções</button>
+          <button className="btn-registro">Registre-se</button>
+          <button className="btn-login">Login</button>
         </div>
       </header>
 
-      {liveCount === 0 && (
-        <div className="notice">
-          📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
+      <div className="main-container">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <h3>Em Alta</h3>
+          <ul>
+            <li>Premier League</li>
+            <li>Copa Libertadores</li>
+            <li>Champions League</li>
+          </ul>
         </div>
-      )}
 
-      <div className="filters">
-        {[
-          ["TODOS", "▦ TODOS"],
-          ["LIVE", "📡 LIVE"],
-          ["ALERTA", "🔔 ALERTA"],
-          ["OVER05", "↗ OVER 0,5"],
-          ["OVER15", "↗ OVER 1,5"],
-          ["OVER25", "↗ OVER 2,5"],
-          ["OVER35", "↗ OVER 3,5"],
-          ["CARTÕES", "🟨 CARTÕES"],
-          ["CANTOS", "🚩 CANTOS"],
-          ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"],
-          ["VIP", "👑 VIP"],
-          ["HISTORICO", "🕘 HISTÓRICO"]
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setFiltro(value)}
-            className={filtro === value ? "activeBtn" : ""}
-          >
-            {label}
-          </button>
-        ))}
+        {/* Main Content */}
+        <div className="content">
+          <div className="top-filters">
+            <input
+              placeholder="Buscar jogo ou liga..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="search-input"
+            />
+            <div className="filter-buttons">
+              {["TODOS", "VIP", "BTTS", "OVER 2.5"].map((f) => (
+                <button
+                  key={f}
+                  className={filtro === f ? "active" : ""}
+                  onClick={() => setFiltro(f)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <h2 className="section-title">Sinais AO VIVO - MekineBet Scanner</h2>
+
+          {loading ? (
+            <div className="loading">Carregando mercados ao vivo...</div>
+          ) : (
+            <div className="matches-list">
+              {sinaisFiltrados.map((item, index) => {
+                const times = timesDoJogo(item);
+                return (
+                  <div key={index} className="match-row">
+                    <div className="match-info">
+                      <div className="teams">
+                        <img src={logoCasa(item)} alt="" />
+                        <span>{times.casa}</span>
+                        <strong>VS</strong>
+                        <span>{times.fora}</span>
+                        <img src={logoFora(item)} alt="" />
+                      </div>
+                      <div className="league">{item.league}</div>
+                    </div>
+
+                    <div className="odds">
+                      <div className="odd-box">
+                        <small>BTTS</small>
+                        <strong>{item.odd || "1.72"}</strong>
+                      </div>
+                      <div className="odd-box">
+                        <small>IA</small>
+                        <strong className="confidence">{item.confidence || 84}%</strong>
+                      </div>
+                      <div className="odd-box vip">
+                        <small>VIP</small>
+                        <strong>🔥</strong>
+                      </div>
+                    </div>
+
+                    <div className="status">
+                      <span className="live-dot">● AO VIVO</span>
+                      <small>{item.score || "1-1"} • {item.minute || "45'"}</small>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      <input
-        placeholder="🔍 Buscar jogo, liga ou mercado..."
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        className="search"
-      />
-
-      {loading ? (
-        <div className="empty">Carregando sinais...</div>
-      ) : (
-        <main className="grid">
-          {sinaisFiltrados.map((item, index) => {
-            const stats = statsDoJogo(item);
-            const status = mercadoStatus(item);
-            const cat = categoriaMercado(item);
-            const liveReal = isLiveReal(item);
-            const vip = isVip(item);
-            const times = timesDoJogo(item);
-
-            return (
-              <section key={item.id || index} className="card">
-                <div className="cardHeader">
-                  <div className="teams">
-                    <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
-                    <div className="teamText">
-                      <h2>{item.match}</h2>
-                      <p>{item.league}</p>
-                    </div>
-                    <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
-                  </div>
-                  <div className="badges">
-                    <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
-                    {vip && <span className="vip">VIP</span>}
-                    <span className="market">{cat}</span>
-                  </div>
-                </div>
-
-                <div className="bodyGrid">
-                  <div className="placarBox">
-                    <span>Placar</span>
-                    <b>{item.score || "1 - 1"}</b>
-                    <small>{liveReal ? `${minuto(item)}'` : "Pré/Base"}</small>
-                  </div>
-
-                  <div className="miniMap">
-                    <div className="field">
-                      <div className="fieldOverlay"></div>
-                      <div className="midLine"></div>
-                      <div className="goalLeft"></div>
-                      <div className="goalRight"></div>
-                      <div className="ballHome" style={{ left: "38%" }}></div>
-                      <div className="ballAway" style={{ left: "62%" }}></div>
-                    </div>
-                    <div className="stats">
-                      <span>Posse {stats.posse}%</span>
-                      <span>Final. {stats.finalizacoes}</span>
-                      <span>Ataques {stats.ataques}</span>
-                      <span>Cantos {stats.cantos}</span>
-                      <span>Cartões {stats.cartoes}</span>
-                      <span>Perig. {stats.perigosos}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bttsSection">
-                  <strong>BTTS / Ambas Marcam</strong>
-                  <div>Status: <span className="hot">🔥 {status}</span></div>
-                  <strong>Odd: {item.odd || "1.72"}</strong>
-                </div>
-
-                <div className="bars">
-                  <div>
-                    <b>IA {item.confidence || 84}%</b>
-                    <div className="barBg"><div className="barGreen" style={{ width: `${item.confidence || 84}%` }} /></div>
-                  </div>
-                  <div>
-                    <b>Pressão {item.pressure || 70}%</b>
-                    <div className="barBg"><div className="barGold" style={{ width: `${item.pressure || 70}%` }} /></div>
-                  </div>
-                </div>
-
-                <div className="momentum">
-                  <b>Momentum IA</b>
-                  <div className="barBg"><div className="momentumFill" style={{ width: "85%" }} /></div>
-                  <small>⚡ Ataque perigoso detectado</small>
-                </div>
-
-                <div className="bookies">
-                  <button>Betano</button>
-                  <button>Novibet</button>
-                  <button>Bet365</button>
-                  <button>VIP</button>
-                </div>
-              </section>
-            );
-          })}
-        </main>
-      )}
-
-      <footer className="bottomBar">
-        <span>📊 Sinais carregados: <b>{signals.length}</b></span>
-        <span>🟢 IA Ativa 24h</span>
-        <span>⚡ Atualização: <b>20s</b></span>
-        <span>🗓️ Última atualização: <b>{lastUpdate}</b></span>
-        <span>🔒 Fonte: <b>API-Sports (Live Real)</b></span>
+      <footer className="bet365-footer">
+        Última atualização: {lastUpdate} • IA Ativa 24h
       </footer>
     </div>
   );
 }
 
 const css = `
-* { box-sizing: border-box; }
-body { margin: 0; background: #0a0f0c; font-family: Arial, sans-serif; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0e0e0e; color: #ddd; font-family: Arial, sans-serif; }
 
-.page { padding: 8px; min-height: 100vh; background: #0a0f0c; color: #fff; }
+.page { min-height: 100vh; background: #0e0e0e; }
 
-.topBar {
-  background: linear-gradient(180deg, #10281d, #0b1511);
-  border: 1px solid #00d66f;
-  border-radius: 8px;
-  padding: 10px 14px;
+.bet365-header {
+  background: #1a1a1a;
+  padding: 12px 20px;
   display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  border-bottom: 3px solid #00b172;
 }
 
-h1 { color: #00ff70; font-size: 32px; margin: 0; font-weight: 900; }
+.logo {
+  color: #00b172;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
 
-.subTitle { color: #a0e0c0; font-size: 13px; }
+nav span {
+  margin: 0 18px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 8px 0;
+}
 
-.pill {
-  background: #0b1511;
-  border: 1px solid #00d66f;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 13px;
+nav .active {
+  color: #00b172;
+  border-bottom: 3px solid #00b172;
+}
+
+.actions button {
+  margin-left: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
   font-weight: bold;
 }
 
-.notice {
-  background: #4a1c08;
-  border: 1px solid #ff7b00;
-  padding: 10px;
-  border-radius: 7px;
-  margin-bottom: 10px;
-  font-weight: bold;
+.btn-promocoes { background: #ffcc00; color: #000; }
+.btn-registro { background: #00b172; color: white; }
+.btn-login { background: #333; color: white; }
+
+.main-container {
+  display: flex;
+  min-height: calc(100vh - 60px);
 }
 
-.filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  gap: 5px;
-  margin-bottom: 10px;
+.sidebar {
+  width: 220px;
+  background: #141414;
+  padding: 20px;
+  border-right: 1px solid #222;
 }
 
-.filters button {
-  padding: 8px 4px;
-  background: #252525;
-  border: 1px solid #00d66f;
-  color: white;
+.content {
+  flex: 1;
+  padding: 20px;
+}
+
+.top-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: #1f1f1f;
+  border: 1px solid #333;
   border-radius: 6px;
-  font-size: 11px;
-  font-weight: bold;
+  color: white;
+  font-size: 15px;
+}
+
+.filter-buttons button {
+  padding: 10px 18px;
+  background: #1f1f1f;
+  border: 1px solid #333;
+  color: #ddd;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-.filters .activeBtn {
-  background: #00d66f;
-  color: #001b0b;
-}
-
-.search {
-  width: 100%;
-  padding: 12px;
-  background: #202b2b;
-  border: 1px solid #00d66f;
-  border-radius: 7px;
+.filter-buttons .active {
+  background: #00b172;
   color: white;
-  margin-bottom: 12px;
+  border-color: #00b172;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 12px;
+.section-title {
+  color: #00b172;
+  margin-bottom: 16px;
+  font-size: 20px;
+  font-weight: bold;
 }
 
-.card {
-  background: linear-gradient(180deg, #102016, #0a1411);
-  border: 1px solid rgba(0,214,111,.6);
-  border-radius: 10px;
-  padding: 12px;
-}
-
-.cardHeader {
+.matches-list {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.match-row {
+  background: #1a1a1a;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
+  transition: all 0.2s;
+}
+
+.match-row:hover {
+  background: #222;
+  border-color: #00b172;
 }
 
 .teams {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  gap: 12px;
+  font-weight: bold;
 }
 
 .teams img {
   width: 32px;
   height: 32px;
   object-fit: contain;
-  background: #fff;
-  padding: 2px;
-  border-radius: 50%;
 }
 
-.teamText h2 {
-  margin: 0;
-  font-size: 15px;
-  color: #00ff70;
+.odds {
+  display: flex;
+  gap: 12px;
 }
 
-.teamText p {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #aaa;
-}
-
-.badges span {
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.base { background: #334455; }
-.vip { background: #facc15; color: #000; }
-.market { background: #0ea5e9; }
-
-.bodyGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.placarBox {
-  background: #071a10;
-  border: 1px solid #0f7a3e;
-  border-radius: 6px;
-  padding: 8px;
+.odd-box {
   text-align: center;
+  background: #111;
+  padding: 8px 14px;
+  border-radius: 6px;
+  min-width: 70px;
 }
 
-.placarBox b {
-  font-size: 26px;
+.odd-box strong {
   display: block;
+  font-size: 18px;
+  color: #00ff9d;
 }
 
-.miniMap .field {
-  height: 68px;
-  background: repeating-linear-gradient(90deg, #176324 0px, #176324 24px, #1d7a2d 24px, #1d7a2d 48px);
-  border: 1px solid rgba(255,255,255,.6);
-  border-radius: 6px;
-  position: relative;
-  overflow: hidden;
+.confidence { color: #00b172; }
+
+.vip strong { color: #ffd700; }
+
+.status {
+  text-align: right;
+  min-width: 110px;
 }
 
-.fieldOverlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(255,255,0,.08), rgba(0,255,130,.12));
-}
-
-.midLine {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(255,255,255,.8);
-}
-
-.goalLeft, .goalRight {
-  position: absolute;
-  top: 28%;
-  width: 18px;
-  height: 28px;
-  border: 1px solid rgba(255,255,255,.8);
-}
-
-.goalLeft { left: 0; border-right: 0; }
-.goalRight { right: 0; border-left: 0; }
-
-.ballHome, .ballAway {
-  position: absolute;
-  top: 42%;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-}
-
-.ballHome { background: #facc15; box-shadow: 0 0 8px #facc15; }
-.ballAway { background: #00d9ff; box-shadow: 0 0 8px #00d9ff; }
-
-.stats {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  font-size: 10px;
-  gap: 2px;
-}
-
-.bttsSection {
-  background: #071a10;
-  border: 1px solid #0f7a3e;
-  border-radius: 6px;
-  padding: 10px;
-  text-align: center;
-  margin: 10px 0;
-}
-
-.hot { color: #ff4444; font-weight: bold; }
-
-.bars {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 11px;
-}
-
-.barBg {
-  height: 7px;
-  background: #1e293b;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 3px;
-}
-
-.barGreen { height: 100%; background: #00ff70; }
-.barGold { height: 100%; background: #facc15; }
-
-.momentum {
-  background: #071a10;
-  border: 1px solid #0f7a3e;
-  border-radius: 6px;
-  padding: 8px;
-  margin-top: 8px;
-}
-
-.momentumFill {
-  height: 6px;
-  background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);
-  border-radius: 999px;
-}
-
-.bookies {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.bookies button {
-  flex: 1;
-  padding: 8px;
-  border: none;
-  border-radius: 6px;
+.live-dot {
+  color: #00ff00;
   font-weight: bold;
-  font-size: 12px;
 }
 
-.bookies button:nth-child(1) { background: #22c55e; }
-.bookies button:nth-child(2) { background: #2563eb; }
-.bookies button:nth-child(3) { background: #f97316; }
-.bookies button:nth-child(4) { background: #facc15; color: #000; }
+.bet365-footer {
+  background: #111;
+  text-align: center;
+  padding: 12px;
+  color: #666;
+  font-size: 13px;
+}
 
-.bottomBar {
-  margin-top: 15px;
-  background: #101820;
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 15px;
-  font-size: 12px;
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #00b172;
+  font-size: 18px;
 }
 `;
