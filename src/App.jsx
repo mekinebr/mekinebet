@@ -112,8 +112,14 @@ export default function App() {
 
   function categoriaMercado(item) {
     const market = String(item.market || "").toLowerCase();
+    if (market.includes("0.5") || market.includes("0,5")) return "OVER 0,5";
+    if (market.includes("1.5") || market.includes("1,5")) return "OVER 1,5";
+    if (market.includes("2.5") || market.includes("2,5")) return "OVER 2,5";
+    if (market.includes("3.5") || market.includes("3,5")) return "OVER 3,5";
+    if (market.includes("cart") || market.includes("card")) return "CARTÕES";
+    if (market.includes("canto") || market.includes("corner")) return "CANTOS";
     if (market.includes("btts") || market.includes("ambas")) return "BTTS";
-    return "BASE";
+    return item.category?.toUpperCase() || "BASE";
   }
 
   function isVip(item) {
@@ -130,7 +136,14 @@ export default function App() {
         if (filtro === "TODOS") return true;
         if (filtro === "LIVE") return isLiveReal(item);
         if (filtro === "ALERTA") return true;
+        if (filtro === "OVER05") return cat === "OVER 0,5";
+        if (filtro === "OVER15") return cat === "OVER 1,5";
+        if (filtro === "OVER25") return cat === "OVER 2,5";
+        if (filtro === "OVER35") return cat === "OVER 3,5";
+        if (filtro === "CARTÕES") return cat === "CARTÕES";
+        if (filtro === "CANTOS") return cat === "CANTOS";
         if (filtro === "BTTS") return cat === "BTTS";
+        if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
         if (filtro === "VIP") return isVip(item);
         if (filtro === "HISTORICO") return !isLiveReal(item);
         return true;
@@ -148,19 +161,19 @@ export default function App() {
       <header className="topBar">
         <div>
           <h1>MekineBet AO VIVO</h1>
-          <div className="subTitle">Scanner live • odds • pressão • mercados</div>
+          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
         <div className="statusWrap">
           <span className="pill">🔴 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
           <span className="pill">👑 VIP</span>
-          <span className="pill">🕘 {lastUpdate}</span>
+          <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
       {liveCount === 0 && (
         <div className="notice">
-          Nenhum LIVE real disponível agora. Mostrando base IA/histórico.
+          📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
         </div>
       )}
 
@@ -169,11 +182,22 @@ export default function App() {
           ["TODOS", "▦ TODOS"],
           ["LIVE", "📡 LIVE"],
           ["ALERTA", "🔔 ALERTA"],
+          ["OVER05", "↗ OVER 0,5"],
+          ["OVER15", "↗ OVER 1,5"],
+          ["OVER25", "↗ OVER 2,5"],
+          ["OVER35", "↗ OVER 3,5"],
+          ["CARTÕES", "🟨 CARTÕES"],
+          ["CANTOS", "🚩 CANTOS"],
           ["BTTS", "👥 BTTS"],
+          ["TOP IA", "🧠 TOP IA"],
           ["VIP", "👑 VIP"],
           ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
-          <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>
+          <button
+            key={value}
+            onClick={() => setFiltro(value)}
+            className={filtro === value ? "activeBtn" : ""}
+          >
             {label}
           </button>
         ))}
@@ -195,22 +219,23 @@ export default function App() {
             const times = timesDoJogo(item);
             const liveReal = isLiveReal(item);
             const vip = isVip(item);
+            const cat = categoriaMercado(item);
 
             return (
               <section key={index} className="card">
                 <div className="cardHeader">
                   <div className="teams">
-                    <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
+                    <img src={logoCasa(item)} alt="" onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
                     <div className="teamText">
                       <h2>{item.match}</h2>
                       <p>{item.league}</p>
                     </div>
-                    <img src={logoFora(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.fora)} />
+                    <img src={logoFora(item)} alt="" onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
                   </div>
                   <div className="badges">
                     <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
                     {vip && <span className="vip">VIP</span>}
-                    <span className="market">BTTS</span>
+                    <span className="market">{cat}</span>
                   </div>
                 </div>
 
@@ -277,11 +302,11 @@ export default function App() {
       )}
 
       <footer className="bottomBar">
-        <span>Sinais: <b>{signals.length}</b></span>
+        <span>📊 Sinais: <b>{signals.length}</b></span>
         <span>🟢 IA Ativa 24h</span>
-        <span>⚡ 20s</span>
-        <span>Última: <b>{lastUpdate}</b></span>
-        <span>Fonte: API-Sports</span>
+        <span>⚡ Atualização: <b>20s</b></span>
+        <span>🗓️ Última: <b>{lastUpdate}</b></span>
+        <span>🔒 Fonte: API-Sports</span>
       </footer>
     </div>
   );
@@ -322,7 +347,7 @@ h1 { color: #00ff70; font-size: 26px; margin: 0; font-weight: 900; }
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 5px;
   margin-bottom: 8px;
 }
@@ -336,6 +361,9 @@ h1 { color: #00ff70; font-size: 26px; margin: 0; font-weight: 900; }
   font-size: 10.5px;
   font-weight: bold;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .filters .activeBtn { background: #00d66f; color: #001b0b; }
@@ -437,13 +465,11 @@ h1 { color: #00ff70; font-size: 26px; margin: 0; font-weight: 900; }
   overflow: hidden;
 }
 
-.fieldOverlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(255,255,0,.06), rgba(0,255,130,.1));
-}
-
-.midLine, .goalLeft, .goalRight { /* mantido igual */ }
+.fieldOverlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,0,.06), rgba(0,255,130,.1)); }
+.midLine { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,.8); }
+.goalLeft, .goalRight { position: absolute; top: 28%; width: 18px; height: 28px; border: 1px solid rgba(255,255,255,.8); }
+.goalLeft { left: 0; border-right: 0; }
+.goalRight { right: 0; border-left: 0; }
 
 .ballHome, .ballAway {
   position: absolute;
