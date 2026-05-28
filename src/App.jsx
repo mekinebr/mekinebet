@@ -9,12 +9,13 @@ const TEAM_LOGOS = {
   "crystal palace fc": "https://media.api-sports.io/football/teams/52.png",
   "southampton fc": "https://media.api-sports.io/football/teams/41.png",
   "arsenal fc": "https://media.api-sports.io/football/teams/42.png",
-  // Adicione mais times aqui se quiser
 };
 
-const normalizar = (v = "") => String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+const normalizar = (v = "") =>
+  String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-const fallbackLogo = (name = "Time") => `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0a1f17&color=00ff9d&bold=true&size=80`;
+const fallbackLogo = (name = "Time") =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0a1f17&color=00ff9d&bold=true&size=80`;
 
 export default function App() {
   const [signals, setSignals] = useState([]);
@@ -63,17 +64,6 @@ export default function App() {
     return TEAM_LOGOS[key] || fallbackLogo(t.fora);
   }
 
-  function statsDoJogo(item) {
-    return {
-      posse: item.possession || 66,
-      finalizacoes: item.shots || 13,
-      ataques: item.attacks || 35,
-      cantos: item.corners || 4,
-      cartoes: item.cards || 1,
-      perigosos: item.dangerousAttacks || 23
-    };
-  }
-
   function isVip(item) {
     return (item.confidence || 70) >= 82;
   }
@@ -83,14 +73,11 @@ export default function App() {
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
-        if (filtro === "TODOS") return true;
         if (filtro === "VIP") return isVip(item);
         return true;
       })
       .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
   }, [signals, busca, filtro]);
-
-  const liveCount = signals.length;
 
   return (
     <div className="page">
@@ -102,7 +89,7 @@ export default function App() {
           <span className="liveTag">AO VIVO</span>
         </div>
         <div className="statusWrap">
-          <span className="pill">🔴 LIVE: {liveCount}</span>
+          <span className="pill">🔴 LIVE: {signals.length}</span>
           <span className="pill">👑 VIP</span>
           <span className="pill">🕘 {lastUpdate}</span>
         </div>
@@ -110,15 +97,9 @@ export default function App() {
 
       <div className="filters">
         {[
-          ["TODOS", "▦ TODOS"],
-          ["LIVE", "📡 LIVE"],
-          ["ALERTA", "🔔 ALERTA"],
-          ["OVER05", "↗ 0,5"],
-          ["OVER15", "↗ 1,5"],
-          ["OVER25", "↗ 2,5"],
-          ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"],
-          ["VIP", "👑 VIP"],
+          ["TODOS", "▦ TODOS"], ["LIVE", "📡 LIVE"], ["ALERTA", "🔔 ALERTA"],
+          ["OVER05", "↗ 0,5"], ["OVER15", "↗ 1,5"], ["OVER25", "↗ 2,5"],
+          ["BTTS", "👥 BTTS"], ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"],
           ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "active" : ""}>
@@ -134,164 +115,193 @@ export default function App() {
         className="search"
       />
 
-      {loading ? (
-        <div className="loading">Carregando sinais ao vivo...</div>
-      ) : (
-        <main className="grid">
-          {sinaisFiltrados.map((item, index) => {
-            const stats = statsDoJogo(item);
-            const times = timesDoJogo(item);
-            const vip = isVip(item);
+      <main className="grid">
+        {sinaisFiltrados.map((item, index) => {
+          const times = timesDoJogo(item);
+          const vip = isVip(item);
 
-            return (
-              <section 
-                key={index} 
-                className={`card ${vip ? 'vip-card' : ''}`}
-                onClick={() => setSelectedCard(item)}
-              >
-                <div className="cardHeader">
-                  <div className="teams">
-                    <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
-                    <div className="teamText">
-                      <h2>{item.match}</h2>
-                      <p>{item.league}</p>
-                    </div>
-                    <img src={logoFora(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.fora)} />
+          return (
+            <section 
+              key={index} 
+              className={`card ${vip ? 'vip-card' : ''}`}
+              onClick={() => setSelectedCard(item)}
+            >
+              <div className="cardHeader">
+                <div className="teams">
+                  <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
+                  <div className="teamText">
+                    <h2>{item.match}</h2>
+                    <p>{item.league}</p>
                   </div>
-                  <div className="badges">
-                    <span className="badge base">BASE</span>
-                    {vip && <span className="badge vip">VIP</span>}
-                    <span className="badge market">BTTS</span>
-                  </div>
+                  <img src={logoFora(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.fora)} />
+                </div>
+                <div className="badges">
+                  <span className="badge base">BASE</span>
+                  {vip && <span className="badge vip">VIP</span>}
+                  <span className="badge market">BTTS</span>
+                </div>
+              </div>
+
+              <div className="bodyGrid">
+                <div className="placar">
+                  <div className="score">{item.score || "2 - 1"}</div>
+                  <small>45'</small>
                 </div>
 
-                <div className="bodyGrid">
-                  <div className="placar">
-                    <div className="score">{item.score || "1 - 3"}</div>
-                    <small>45'</small>
-                  </div>
-                  <div className="fieldContainer">
-                    <div className="field">
-                      <div className="ballHome" style={{ left: "38%" }}></div>
-                      <div className="ballAway" style={{ left: "62%" }}></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="btts">
-                  <strong>BTTS / Ambas Marcam</strong>
-                  <div className="status hot">🔥 BTTS QUENTE</div>
-                  <div className="odd">Odd: <strong>{item.odd || "1.72"}</strong></div>
-                </div>
-
-                <div className="statsContainer">
-                  <div className="statBar">
-                    <span>IA {item.confidence || 84}%</span>
-                    <div className="bar"><div className="fill green" style={{ width: `${item.confidence || 84}%` }}></div></div>
-                  </div>
-                  <div className="statBar">
-                    <span>Pressão {item.pressure || 70}%</span>
-                    <div className="bar"><div className="fill gold" style={{ width: `${item.pressure || 70}%` }}></div></div>
+                <div className="fieldContainer">
+                  <div className="field">
+                    <div className="centerCircle"></div>
+                    <div className="midLine"></div>
+                    <div className="goalLeft"></div>
+                    <div className="goalRight"></div>
+                    
+                    <div className="ballHome"></div>
+                    <div className="ballAway"></div>
                   </div>
                 </div>
+              </div>
 
-                <div className="bookies">
-                  <button>Betano</button>
-                  <button>Novibet</button>
-                  <button>Bet365</button>
-                  <button className="vipBtn">VIP</button>
+              <div className="btts">
+                <strong>BTTS / Ambas Marcam</strong>
+                <div className="status hot">🔥 BTTS QUENTE</div>
+                <div className="odd">Odd: <strong>{item.odd || "1.72"}</strong></div>
+              </div>
+
+              <div className="statsContainer">
+                <div className="statBar">
+                  <span>IA {item.confidence || 84}%</span>
+                  <div className="bar"><div className="fill green" style={{ width: `${item.confidence || 84}%` }}></div></div>
                 </div>
-              </section>
-            );
-          })}
-        </main>
-      )}
+                <div className="statBar">
+                  <span>Pressão {item.pressure || 70}%</span>
+                  <div className="bar"><div className="fill gold" style={{ width: `${item.pressure || 70}%` }}></div></div>
+                </div>
+              </div>
 
-      {/* MODAL */}
-      {selectedCard && (
-        <div className="modalOverlay" onClick={() => setSelectedCard(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>{selectedCard.match}</h2>
-            <p>Detalhes completos do sinal</p>
-            <button onClick={() => setSelectedCard(null)}>Fechar</button>
-          </div>
-        </div>
-      )}
+              <div className="bookies">
+                <button>Betano</button>
+                <button>Novibet</button>
+                <button>Bet365</button>
+                <button className="vipBtn">VIP</button>
+              </div>
+            </section>
+          );
+        })}
+      </main>
     </div>
   );
 }
 
 const css = `
 * { box-sizing: border-box; }
-body { margin: 0; background: #050a07; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: #e0f2e9; }
+body { margin: 0; background: #050a07; font-family: system-ui, sans-serif; color: #e0f2e9; }
 
 .page { padding: 10px; min-height: 100vh; }
 
-.topBar {
-  background: linear-gradient(135deg, #0c1f18, #081510);
-  border: 1px solid #00ff9d;
-  border-radius: 14px;
-  padding: 14px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  box-shadow: 0 8px 32px rgba(0, 255, 157, 0.15);
+/* === MINI CAMPO REALISTA + ANIMAÇÕES AVANÇADAS === */
+.field {
+  height: 82px;
+  background: linear-gradient(#0f6b2e, #0d5f28);
+  border: 2px solid #ffffff44;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
 }
 
-h1 { color: #00ff9d; font-size: 29px; font-weight: 900; letter-spacing: -1px; }
-
-.liveTag { background: #ff0033; color: white; padding: 4px 12px; border-radius: 30px; font-size: 12px; font-weight: bold; }
-
-.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin-bottom: 12px; }
-.filters button {
-  padding: 10px 8px; background: #0f1c17; border: 1px solid #1e3a2f; color: #a3d4c0;
-  border-radius: 8px; font-weight: 600; font-size: 11.5px; cursor: pointer; transition: all 0.2s;
-}
-.filters button.active { background: #00ff9d; color: #001f14; border-color: #00ff9d; }
-
-.search {
-  width: 100%; padding: 14px 16px; background: #0a1612; border: 1px solid #1e3a2f;
-  border-radius: 10px; color: white; font-size: 15px; margin-bottom: 14px;
+.field::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0px, transparent 26px, rgba(255,255,255,0.12) 26px, rgba(255,255,255,0.12) 28px);
 }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(365px, 1fr)); gap: 14px; }
-
-.card {
-  background: linear-gradient(145deg, #0f241e, #0a1814);
-  border: 1px solid #1e3a2f;
-  border-radius: 14px;
-  padding: 14px;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+.centerCircle {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 36px; height: 36px;
+  border: 2px solid rgba(255,255,255,0.65);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
-.card:hover {
-  transform: translateY(-8px) scale(1.02);
-  border-color: #00ff9d;
-  box-shadow: 0 25px 50px rgba(0, 255, 157, 0.25);
+.midLine {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 2px;
+  background: rgba(255,255,255,0.75);
 }
 
-.vip-card { border-color: #ffd700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); }
+.goalLeft, .goalRight {
+  position: absolute;
+  top: 22%; width: 24px; height: 56%;
+  border: 3px solid rgba(255,255,255,0.9);
+  border-radius: 4px;
+}
+.goalLeft { left: 0; border-right: none; }
+.goalRight { right: 0; border-left: none; }
 
-.cardHeader { display: flex; justify-content: space-between; margin-bottom: 12px; }
-.teams { display: flex; align-items: center; gap: 10px; flex: 1; }
-.teams img { width: 34px; height: 34px; border-radius: 50%; background: #fff; padding: 3px; border: 2px solid #1e3a2f; }
-
-.btts, .statsContainer, .bookies { margin-top: 10px; }
-
-.modalOverlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000;
+/* Bolas com movimento realista + brilho */
+.ballHome, .ballAway {
+  position: absolute;
+  top: 41%;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  box-shadow: 
+    0 4px 12px rgba(0,0,0,0.7),
+    0 0 15px currentColor;
+  animation: ballMovement 5s infinite alternate ease-in-out;
 }
 
-.modal {
-  background: #0a1f17; padding: 30px; border-radius: 16px; border: 1px solid #00ff9d; max-width: 500px;
-  animation: modalPop 0.3s ease;
+.ballHome {
+  background: #ffdd00;
+  left: 32%;
+  animation-delay: 0.3s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 18px #ffdd00;
 }
 
-@keyframes modalPop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ballAway {
+  background: #00ddff;
+  left: 58%;
+  animation-delay: 1.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 18px #00ddff;
+}
+
+@keyframes ballMovement {
+  0%   { left: 32%; transform: scale(1); }
+  100% { left: 65%; transform: scale(1.1); }
+}
+
+/* Animação das Barras */
+.bar {
+  height: 8px;
+  background: #1e3a2f;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.green { 
+  background: linear-gradient(90deg, #00ff9d, #22ffb3); 
+  box-shadow: 0 0 12px #00ff9d;
+}
+
+.gold { 
+  background: linear-gradient(90deg, #ffd700, #ffea80); 
+  box-shadow: 0 0 12px #ffd700;
+}
+
+/* Estilos Gerais Premium */
+.card:hover .field { box-shadow: inset 0 0 40px rgba(0, 255, 157, 0.35); }
+.vip-card .ballHome, .vip-card .ballAway { animation-duration: 3.2s; }
 `;
 
 export default App;
