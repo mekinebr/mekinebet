@@ -66,7 +66,6 @@ export default function App() {
       .replace(/\bCrystal Palace\b/gi, "Crystal")
       .replace(/\bSouthampton\b/gi, "Saints")
       .replace(/\bManchester\b/gi, "Man.")
-      .replace(/\bNewcastle\b/gi, "Newcastle")
       .replace(/\bBrighton & Hove Albion\b/gi, "Brighton")
       .replace(/\bNottingham Forest\b/gi, "Nottm Forest")
       .replace(/\s+/g, " ")
@@ -271,21 +270,21 @@ export default function App() {
 
             return (
               <section key={item.id || index} className="card">
-                <div className="cardHeader">
-                  <div className="teams">
-                    <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
-                    <div className="teamText">
-                      <h2>{tituloJogo(item)}</h2>
-                      <p>🦁 {item.league}</p>
-                    </div>
-                    <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                <div className="matchHero">
+                  <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+
+                  <div className="heroCenter">
+                    <h2>{tituloJogo(item)}</h2>
+                    <p>{item.league || "Liga"}</p>
                   </div>
 
-                  <div className="badges">
-                    <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
-                    {vip && <span className="vip">VIP</span>}
-                    <span className="market">{cat}</span>
-                  </div>
+                  <img className="heroLogo" src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                </div>
+
+                <div className="badges">
+                  <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
+                  {vip && <span className="vip">VIP</span>}
+                  <span className="market">{cat}</span>
                 </div>
 
                 <div className="bodyGrid">
@@ -387,58 +386,72 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .card{
   background:linear-gradient(180deg,#102016,#0a1411);
   border:1px solid rgba(0,214,111,.58);
-  border-radius:8px;
+  border-radius:9px;
   padding:7px;
-  box-shadow:0 0 6px rgba(0,255,80,.06);
+  box-shadow:0 0 8px rgba(0,255,80,.08);
   overflow:hidden;
   display:flex;
   flex-direction:column;
-  min-height:355px;
+  min-height:370px;
 }
 
-.cardHeader{
+.matchHero{
+  position:relative;
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  gap:6px;
-  align-items:start;
-  margin-bottom:6px;
-}
-
-.teams{
-  display:grid;
-  grid-template-columns:30px minmax(0,1fr) 30px;
-  gap:7px;
+  grid-template-columns:52px minmax(0,1fr) 52px;
   align-items:center;
-  min-width:0;
+  gap:10px;
+  min-height:82px;
+  padding:10px;
+  margin-bottom:6px;
+  border:1px solid rgba(0,214,111,.45);
+  border-radius:12px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),
+    linear-gradient(180deg,#101f18,#07100c);
+  box-shadow:inset 0 0 18px rgba(0,255,112,.06);
 }
 
-.teams img{
-  width:30px;
-  height:30px;
+.matchHero:after{
+  content:"✦";
+  position:absolute;
+  right:8px;
+  bottom:2px;
+  color:rgba(255,255,255,.35);
+  font-size:18px;
+}
+
+.heroLogo{
+  width:52px;
+  height:52px;
   border-radius:50%;
   object-fit:contain;
   background:#fff;
-  padding:2px;
-  flex-shrink:0;
+  padding:5px;
+  box-shadow:0 0 8px rgba(255,255,255,.25);
 }
 
-.teamText{min-width:0;text-align:left}
+.heroCenter{
+  min-width:0;
+  text-align:center;
+}
 
-.teamText h2{
+.heroCenter h2{
   color:#00ff70;
-  font-size:clamp(12px,1vw,15px);
+  font-size:clamp(15px,1.45vw,22px);
   margin:0;
-  line-height:1;
+  line-height:1.05;
   font-weight:900;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 
-.teamText p{
-  color:#ddd;
-  margin:2px 0 0;
-  font-size:8.5px;
+.heroCenter p{
+  margin:8px 0 0;
+  color:#c8d6cc;
+  font-size:clamp(10px,.85vw,13px);
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -446,13 +459,14 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 
 .badges{
   display:flex;
-  gap:3px;
+  gap:4px;
   flex-wrap:nowrap;
   justify-content:flex-end;
   align-items:flex-start;
+  margin-bottom:6px;
 }
 
-.badges span{padding:3px 6px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
+.badges span{padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
 .base{background:#3a4655}
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
@@ -539,11 +553,10 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .grid{grid-template-columns:1fr!important;gap:10px!important}
   .filters{grid-template-columns:repeat(3,1fr)!important}
   .bodyGrid{grid-template-columns:1fr!important}
-  .cardHeader{grid-template-columns:1fr!important}
   .badges{justify-content:flex-start!important}
   .bars{grid-template-columns:1fr!important}
   .field3d{max-width:100%;aspect-ratio:16/9}
-  .teams{grid-template-columns:30px minmax(0,1fr) 30px}
-  .teams img{width:30px;height:30px}
+  .matchHero{grid-template-columns:48px minmax(0,1fr) 48px}
+  .heroLogo{width:48px;height:48px}
 }
 `;
