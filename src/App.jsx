@@ -15,7 +15,7 @@ const normalizar = (v = "") =>
   String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
 const fallbackLogo = (name = "Time") =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0a1f17&color=00ff9d&bold=true&size=80`;
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
 
 export default function App() {
   const [signals, setSignals] = useState([]);
@@ -23,7 +23,6 @@ export default function App() {
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
-  const [selectedCard, setSelectedCard] = useState(null);
 
   async function carregar() {
     try {
@@ -84,22 +83,32 @@ export default function App() {
       <style>{css}</style>
 
       <header className="topBar">
-        <div className="headerLeft">
-          <h1>MekineBet</h1>
-          <span className="liveTag">AO VIVO</span>
+        <div>
+          <h1>MekineBet AO VIVO</h1>
+          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
         <div className="statusWrap">
-          <span className="pill">🔴 LIVE: {signals.length}</span>
+          <span className="pill">🔴 Live: {signals.length}</span>
+          <span className="pill">🚨 Alertas: 13</span>
           <span className="pill">👑 VIP</span>
           <span className="pill">🕘 {lastUpdate}</span>
         </div>
       </header>
 
+      <div className="notice">
+        📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
+      </div>
+
       <div className="filters">
         {[
-          ["TODOS", "▦ TODOS"], ["LIVE", "📡 LIVE"], ["ALERTA", "🔔 ALERTA"],
-          ["OVER05", "↗ 0,5"], ["OVER15", "↗ 1,5"], ["OVER25", "↗ 2,5"],
-          ["BTTS", "👥 BTTS"], ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"],
+          ["TODOS", "▦ TODOS"],
+          ["LIVE", "📡 LIVE"],
+          ["ALERTA", "🔔 ALERTA"],
+          ["OVER05", "↗ OVER 0,5"],
+          ["OVER15", "↗ OVER 1,5"],
+          ["OVER25", "↗ OVER 2,5"],
+          ["BTTS", "👥 BTTS"],
+          ["VIP", "👑 VIP"],
           ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "active" : ""}>
@@ -121,64 +130,52 @@ export default function App() {
           const vip = isVip(item);
 
           return (
-            <section 
-              key={index} 
-              className={`card ${vip ? 'vip-card' : ''}`}
-              onClick={() => setSelectedCard(item)}
-            >
+            <section key={index} className="card">
               <div className="cardHeader">
                 <div className="teams">
                   <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
-                  
-                  <div className="teamContainer">
-                    <div className="teamName home">{times.casa}</div>
-                    <div className="vs">VS</div>
-                    <div className="teamName away">{times.fora}</div>
-                  </div>
-
+                  <div className="teamName home">{times.casa}</div>
+                  <div className="vs">VS</div>
+                  <div className="teamName away">{times.fora}</div>
                   <img src={logoFora(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.fora)} />
                 </div>
 
                 <div className="badges">
                   <span className="badge base">BASE</span>
                   {vip && <span className="badge vip">VIP</span>}
-                  <span className="badge market">BTTS</span>
+                  <span className="badge btts">BTTS</span>
                 </div>
               </div>
 
-              {/* Restante do card (campo, placar, stats...) permanece igual */}
               <div className="bodyGrid">
-                <div className="placar">
-                  <div className="score">{item.score || "2 - 1"}</div>
-                  <small>45'</small>
+                <div className="placarBox">
+                  <span>Placar</span>
+                  <b>{item.score || "1 - 3"}</b>
+                  <small>Pré/Base</small>
                 </div>
 
-                <div className="fieldContainer">
+                <div className="miniField">
                   <div className="field">
-                    <div className="centerCircle"></div>
-                    <div className="midLine"></div>
-                    <div className="goalLeft"></div>
-                    <div className="goalRight"></div>
-                    <div className="ballHome"></div>
-                    <div className="ballAway"></div>
+                    <div className="ball home"></div>
+                    <div className="ball away"></div>
                   </div>
                 </div>
               </div>
 
-              <div className="btts">
+              <div className="bttsBox">
                 <strong>BTTS / Ambas Marcam</strong>
-                <div className="status hot">🔥 BTTS QUENTE</div>
-                <div className="odd">Odd: <strong>{item.odd || "1.72"}</strong></div>
+                <div>Status: <span className="hot">🔥 BTTS QUENTE</span></div>
+                <strong>Odd: 1.72</strong>
               </div>
 
-              <div className="statsContainer">
-                <div className="statBar">
-                  <span>IA {item.confidence || 84}%</span>
-                  <div className="bar"><div className="fill green" style={{ width: `${item.confidence || 84}%` }}></div></div>
+              <div className="bars">
+                <div className="barContainer">
+                  <b>IA 84%</b>
+                  <div className="bar"><div className="fill green" style={{ width: "84%" }}></div></div>
                 </div>
-                <div className="statBar">
-                  <span>Pressão {item.pressure || 70}%</span>
-                  <div className="bar"><div className="fill gold" style={{ width: `${item.pressure || 70}%` }}></div></div>
+                <div className="barContainer">
+                  <b>Pressão 70%</b>
+                  <div className="bar"><div className="fill gold" style={{ width: "70%" }}></div></div>
                 </div>
               </div>
 
@@ -198,38 +195,93 @@ export default function App() {
 
 const css = `
 * { box-sizing: border-box; }
-body { margin: 0; background: #050a07; font-family: system-ui, sans-serif; color: #e0f2e9; }
+body { margin: 0; background: #0a0f0c; font-family: Arial, sans-serif; color: #fff; }
 
-.page { padding: 10px; min-height: 100vh; }
+.topBar {
+  background: linear-gradient(180deg, #10281d, #0b1511);
+  border: 1px solid #00d66f;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
 
-/* === ALINHAMENTO PERFEITO DOS TIMES === */
+h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
+
+.notice {
+  background: #4a1c08;
+  border: 1px solid #ff8800;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.filters button {
+  padding: 9px 6px;
+  background: #1f2a25;
+  border: 1px solid #00d66f;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.filters button.active {
+  background: #00d66f;
+  color: #001b0b;
+}
+
+.search {
+  width: 100%;
+  padding: 12px;
+  background: #1a2520;
+  border: 1px solid #00d66f;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  background: linear-gradient(180deg, #102016, #0a1411);
+  border: 1px solid #00d66f;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+/* ALINHAMENTO PERFEITO - LOGOS MAIORES */
 .teams {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
+  gap: 10px;
 }
 
 .teams img {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #fff;
-  padding: 3px;
+  padding: 4px;
   border: 2px solid #1e3a2f;
   flex-shrink: 0;
 }
 
-.teamContainer {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-}
-
 .teamName {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: #ffffff;
   flex: 1;
@@ -237,25 +289,43 @@ body { margin: 0; background: #050a07; font-family: system-ui, sans-serif; color
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
-.teamName.home { text-align: right; }
-.teamName.away { text-align: left; }
+.home { text-align: right; }
+.away { text-align: left; }
 
 .vs {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   color: #00ff9d;
   padding: 0 8px;
-  flex-shrink: 0;
 }
 
-/* Outros estilos (mantidos) */
-.card { background: linear-gradient(145deg, #0f241e, #0a1814); border: 1px solid #1e3a2f; border-radius: 16px; padding: 16px; }
-.card:hover { transform: translateY(-6px); border-color: #00ff9d; }
+/* RESTO DO CARD */
+.placarBox { text-align: center; background: #071a10; border: 1px solid #0f7a3e; border-radius: 8px; padding: 8px; }
+.score { font-size: 26px; font-weight: bold; }
 
-.field { height: 82px; background: linear-gradient(#0f6b2e, #0a5a25); border: 2px solid #ffffff55; border-radius: 12px; position: relative; overflow: hidden; }
+.field {
+  height: 70px;
+  background: repeating-linear-gradient(90deg, #176324, #176324 24px, #1d7a2d 24px, #1d7a2d 48px);
+  border: 2px solid #fff;
+  border-radius: 8px;
+  position: relative;
+}
+
+.ball {
+  position: absolute;
+  top: 42%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.home { background: #facc15; left: 35%; }
+.away { background: #00d9ff; left: 62%; }
+
+.bttsBox, .bars, .bookies { margin-top: 10px; }
 `;
 
 export default App;
