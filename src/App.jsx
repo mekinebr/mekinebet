@@ -12,7 +12,9 @@ const TEAM_LOGOS = {
   "tottenham hotspur fc": "https://media.api-sports.io/football/teams/47.png",
   "wolverhampton wanderers fc": "https://media.api-sports.io/football/teams/39.png",
   "newcastle united fc": "https://media.api-sports.io/football/teams/34.png",
-  "everton fc": "https://media.api-sports.io/football/teams/45.png"
+  "everton fc": "https://media.api-sports.io/football/teams/45.png",
+  "brentford fc": "https://media.api-sports.io/football/teams/55.png",
+  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png"
 };
 
 const normalizar = (v = "") =>
@@ -81,13 +83,13 @@ export default function App() {
   function logoCasa(item) {
     const t = timesDoJogo(item);
     const key = normalizar(t.casa);
-    return item.logoHome || item.homeLogo || item.teams?.home?.logo || TEAM_LOGOS[key] || fallbackLogo(t.casa);
+    return item.logoHome || item.homeLogo || item.teamHomeLogo || item.home?.logo || item.teams?.home?.logo || TEAM_LOGOS[key] || fallbackLogo(t.casa);
   }
 
   function logoFora(item) {
     const t = timesDoJogo(item);
     const key = normalizar(t.fora);
-    return item.logoAway || item.awayLogo || item.teams?.away?.logo || TEAM_LOGOS[key] || fallbackLogo(t.fora);
+    return item.logoAway || item.awayLogo || item.teamAwayLogo || item.away?.logo || item.teams?.away?.logo || TEAM_LOGOS[key] || fallbackLogo(t.fora);
   }
 
   function totalGols(item) {
@@ -103,7 +105,6 @@ export default function App() {
     const conf = item.confidence || 70;
     const press = item.pressure || 70;
     const gols = totalGols(item);
-
     return {
       posse: item.possession || Math.min(68, Math.max(42, conf - 18)),
       finalizacoes: item.shots || Math.max(6, Math.round(press / 8 + gols * 2)),
@@ -126,34 +127,28 @@ export default function App() {
       if (min >= 12 && pressure >= 70) return "🔥 GOL IMINENTE";
       return "📊 MONITORANDO";
     }
-
     if (market.includes("1.5") || market.includes("1,5")) {
       if (gols >= 2) return "✅ GREEN";
       if (gols === 1 && pressure >= 72) return "🔥 2º GOL FORTE";
       return "📊 MONITORANDO";
     }
-
     if (market.includes("2.5") || market.includes("2,5")) {
       if (gols >= 3) return "✅ GREEN";
       if (gols >= 2 && pressure >= 74) return "🔥 OVER FORTE";
       return "📊 MONITORANDO";
     }
-
     if (market.includes("3.5") || market.includes("3,5")) {
       if (gols >= 4) return "✅ GREEN";
       if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
       return "📉 RISCO MÉDIO";
     }
-
     if (market.includes("btts") || market.includes("ambas")) {
       if (gols >= 2) return "🔥 BTTS QUENTE";
       if (pressure >= 75 && stats.ataques >= 30) return "⚡ AMBAS PRESSIONANDO";
       return "👀 OBSERVAÇÃO";
     }
-
     if (market.includes("cart") || market.includes("card")) return "🟨 CARTÕES AO VIVO";
     if (market.includes("canto") || market.includes("corner")) return "🚩 CANTOS AO VIVO";
-
     return "📊 MONITORAMENTO IA";
   }
 
@@ -178,7 +173,6 @@ export default function App() {
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
-
         const cat = categoriaMercado(item);
 
         if (filtro === "TODOS") return true;
@@ -211,7 +205,6 @@ export default function App() {
           <h1>MekineBet AO VIVO</h1>
           <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
-
         <div className="statusWrap">
           <span className="pill">🔴 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
@@ -272,14 +265,18 @@ export default function App() {
             return (
               <section key={item.id || index} className="card">
                 <div className="matchHero">
-                  <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+                  <div className="logoSlot">
+                    <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+                  </div>
 
                   <div className="heroCenter">
                     <h2>{tituloJogo(item)}</h2>
                     <p>{item.league || "Liga"}</p>
                   </div>
 
-                  <img className="heroLogo" src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                  <div className="logoSlot">
+                    <img className="heroLogo" src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                  </div>
                 </div>
 
                 <div className="badges">
@@ -296,22 +293,30 @@ export default function App() {
                   </div>
 
                   <div className="miniMap">
-                    <div className="field3d">
-                      <div className="grass"></div>
-                      <div className="shade"></div>
-                      <div className="midLine"></div>
-                      <div className="centerCircle"></div>
-                      <div className="boxLeft"></div>
-                      <div className="boxRight"></div>
-                      <div className="smallBoxLeft"></div>
-                      <div className="smallBoxRight"></div>
-                      <div className="goalLeft"></div>
-                      <div className="goalRight"></div>
-                      <div className="attackZone" style={{ width: `${item.pressure || 70}%` }}></div>
-                      <div className="player p1"></div>
-                      <div className="player p2"></div>
-                      <div className="player p3"></div>
-                      <div className="ballLive" style={{ left: `${ballX}%`, top: `${ballY}%` }}></div>
+                    <div className="stadium">
+                      <div className="lights"></div>
+                      <div className="eventBubble">
+                        <span>⚽</span>
+                        <div>
+                          <b>{status.replace("🔥", "").replace("✅", "").replace("📊", "")}</b>
+                          <small>{stats.perigosos}% pressão</small>
+                        </div>
+                      </div>
+
+                      <div className="field3d">
+                        <div className="grass"></div>
+                        <div className="shade"></div>
+                        <div className="midLine"></div>
+                        <div className="centerCircle"></div>
+                        <div className="boxLeft"></div>
+                        <div className="boxRight"></div>
+                        <div className="goalLeft"></div>
+                        <div className="goalRight"></div>
+                        <div className="player p1"></div>
+                        <div className="player p2"></div>
+                        <div className="player p3"></div>
+                        <div className="ballLive" style={{ left: `${ballX}%`, top: `${ballY}%` }}></div>
+                      </div>
                     </div>
 
                     <div className="stats">
@@ -388,41 +393,15 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
 
-.card{
-  background:linear-gradient(180deg,#102016,#0a1411);
-  border:1px solid rgba(0,214,111,.58);
-  border-radius:9px;
-  padding:7px;
-  box-shadow:0 0 8px rgba(0,255,80,.08);
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  height:330px;
-  min-height:330px;
-  max-height:330px;
-}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;height:350px;min-height:350px;max-height:350px}
 
-.matchHero{
-  position:relative;
-  display:grid;
-  grid-template-columns:56px minmax(0,1fr) 56px;
-  align-items:center;
-  gap:9px;
-  min-height:58px;
-  padding:6px 10px;
-  margin-bottom:5px;
-  border:1px solid rgba(0,214,111,.45);
-  border-radius:12px;
-  overflow:hidden;
-  background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);
-  box-shadow:inset 0 0 18px rgba(0,255,112,.06);
-}
-
+.matchHero{position:relative;display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:8px;min-height:58px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
 .matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:16px}
-.heroLogo{width:56px;height:56px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 12px rgba(255,255,255,.15),0 0 20px rgba(0,255,120,.15)}
+.logoSlot{width:58px;height:58px;display:flex;align-items:center;justify-content:center}
+.heroLogo{width:54px;height:54px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.22);box-shadow:0 0 12px rgba(255,255,255,.15),0 0 20px rgba(0,255,120,.15)}
 .heroCenter{min-width:0;text-align:center}
-.heroCenter h2{color:#00ff70;font-size:15px;margin:0;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
-.heroCenter p{margin:4px 0 0;color:#c8d6cc;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heroCenter h2{color:#00ff70;font-size:14px;margin:0;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.heroCenter p{margin:4px 0 0;color:#c8d6cc;font-size:8.5px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .badges{display:flex;gap:4px;flex-wrap:nowrap;justify-content:flex-end;align-items:flex-start;margin-bottom:5px}
 .badges span{padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
@@ -430,34 +409,39 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
 
-.bodyGrid{display:grid;grid-template-columns:.82fr 1.18fr;gap:6px;align-items:start}
-.box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:11px}
-.scoreBox{height:68px;align-content:center}
+.bodyGrid{display:grid;grid-template-columns:.74fr 1.26fr;gap:6px;align-items:start}
+.box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
+.scoreBox{height:70px;align-content:center}
 .scoreBox b{font-size:18px;line-height:1}
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
-.miniMap{background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:4px;width:100%}
-.field3d{width:100%;max-width:250px;aspect-ratio:18/8;margin:0 auto;border:1px solid rgba(255,255,255,.70);border-radius:7px;position:relative;overflow:hidden;background:linear-gradient(180deg,#2b9a3c 0%,#17732c 50%,#0c4f1f 100%);box-shadow:inset 0 15px 25px rgba(255,255,255,.08),inset 0 -20px 30px rgba(0,0,0,.35),0 8px 20px rgba(0,0,0,.35);transform:perspective(800px) rotateX(10deg);transform-origin:center bottom}
-.grass{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 24px,rgba(255,255,255,.05) 24px 48px)}
-.shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.12),transparent 45%),linear-gradient(90deg,rgba(0,0,0,.28),transparent 30%,transparent 70%,rgba(0,0,0,.28))}
+
+.miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
+.stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
+.lights{position:absolute;left:0;right:0;top:0;height:34px;background:radial-gradient(circle at 10% 30%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 22% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 35% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 50% 12%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 65% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 78% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 90% 30%,rgba(255,255,255,.95),transparent 7%);filter:blur(.2px);opacity:.9}
+.eventBubble{position:absolute;z-index:6;top:15px;left:50%;transform:translateX(-50%);min-width:118px;height:32px;background:#050505;border-radius:999px;display:flex;align-items:center;gap:7px;padding:4px 10px;box-shadow:0 4px 12px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15)}
+.eventBubble span{width:24px;height:24px;background:#fff;color:#111;border-radius:50%;display:grid;place-items:center;font-size:12px}
+.eventBubble b{display:block;color:#fff;font-size:9.5px;line-height:1;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eventBubble small{display:block;color:#9ca3af;font-size:8px}
+
+.field3d{position:absolute;left:8px;right:8px;bottom:8px;height:68px;border:1px solid rgba(255,255,255,.65);border-radius:5px;overflow:hidden;background:repeating-linear-gradient(90deg,#3d991f 0 22px,#2d841b 22px 44px);transform:perspective(220px) rotateX(38deg);transform-origin:center bottom;box-shadow:inset 0 10px 14px rgba(255,255,255,.15),inset 0 -10px 18px rgba(0,0,0,.35),0 10px 20px rgba(0,0,0,.55)}
+.grass{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 30%),repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 16px)}
+.shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.12),transparent 45%)}
 .midLine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.85)}
 .centerCircle{position:absolute;left:50%;top:50%;width:28px;height:28px;border:1px solid rgba(255,255,255,.85);border-radius:50%;transform:translate(-50%,-50%)}
-.boxLeft,.boxRight{position:absolute;top:26%;width:28px;height:48%;border:1px solid rgba(255,255,255,.85)}
+.boxLeft,.boxRight{position:absolute;top:22%;width:28px;height:56%;border:1px solid rgba(255,255,255,.85)}
 .boxLeft{left:0;border-left:0}
 .boxRight{right:0;border-right:0}
-.smallBoxLeft,.smallBoxRight{position:absolute;top:37%;width:13px;height:26%;border:1px solid rgba(255,255,255,.85)}
-.smallBoxLeft{left:0;border-left:0}
-.smallBoxRight{right:0;border-right:0}
-.goalLeft,.goalRight{position:absolute;top:42%;width:4px;height:16%;background:rgba(255,255,255,.85)}
+.goalLeft,.goalRight{position:absolute;top:40%;width:4px;height:20%;background:rgba(255,255,255,.9)}
 .goalLeft{left:0}
 .goalRight{right:0}
-.attackZone{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,rgba(250,204,21,.06),rgba(239,68,68,.16));transition:.5s}
 .player{position:absolute;width:7px;height:7px;border-radius:50%;box-shadow:0 0 8px currentColor}
-.p1{left:27%;top:44%;background:#facc15;color:#facc15}
-.p2{left:58%;top:46%;background:#00d9ff;color:#00d9ff}
-.p3{left:73%;top:35%;background:#00ff70;color:#00ff70;opacity:.85}
-.ballLive{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 14px #00ff70;transform:translate(-50%,-50%);transition:all .8s ease;animation:ballPulse 1.4s infinite}
+.p1{left:28%;top:50%;background:#facc15;color:#facc15}
+.p2{left:60%;top:48%;background:#00d9ff;color:#00d9ff}
+.p3{left:73%;top:34%;background:#00ff70;color:#00ff70}
+.ballLive{position:absolute;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff,0 0 14px #00ff70;transform:translate(-50%,-50%);transition:all .8s ease;animation:ballPulse 1.4s infinite}
 @keyframes ballPulse{0%,100%{scale:1}50%{scale:1.35}}
+
 .stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8px;color:#f1f5f9;text-align:center}
 .bars,.metricsRow{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;font-weight:900;margin-top:5px;align-items:center}
 .barBg{height:6px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:2px}
@@ -474,22 +458,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .bookies button:nth-child(3){background:#f97316}
 .bookies button:nth-child(4){background:#facc15;color:#000}
 .empty{background:#101820;border:1px solid #00ff87;border-radius:10px;padding:18px;font-weight:800}
-
-.footerBar{
-  margin-top:8px;
-  min-height:42px;
-  border:1px solid rgba(0,255,100,.22);
-  background:#101820;
-  border-radius:8px;
-  display:flex;
-  justify-content:space-around;
-  align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
-  font-size:13px;
-  font-weight:700;
-  padding:8px;
-}
+.footerBar{margin-top:8px;min-height:42px;border:1px solid rgba(0,255,100,.22);background:#101820;border-radius:8px;display:flex;justify-content:space-around;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:700;padding:8px}
 .footerBar b{color:#00ff70}
 
 @media(max-width:900px){
@@ -498,9 +467,11 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .bodyGrid{grid-template-columns:1fr!important}
   .badges{justify-content:flex-start!important}
   .bars,.metricsRow{grid-template-columns:1fr!important}
-  .field3d{max-width:100%;aspect-ratio:18/8}
-  .matchHero{grid-template-columns:50px minmax(0,1fr) 50px}
+  .matchHero{grid-template-columns:52px minmax(0,1fr) 52px}
+  .logoSlot{width:52px;height:52px}
   .heroLogo{width:50px;height:50px}
-  .card{height:auto;max-height:none;min-height:330px}
+  .card{height:auto;max-height:none;min-height:350px}
+  .stadium{max-width:100%;height:145px}
+  .field3d{height:86px}
 }
 `;
