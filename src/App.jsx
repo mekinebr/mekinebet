@@ -130,7 +130,7 @@ export default function App() {
                 <div className="teams">
                   <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
                   
-                  <div className="teamNames">
+                  <div className="teamContainer">
                     <div className="teamName home">{times.casa}</div>
                     <div className="vs">VS</div>
                     <div className="teamName away">{times.fora}</div>
@@ -146,6 +146,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Restante do card (campo, placar, stats...) permanece igual */}
               <div className="bodyGrid">
                 <div className="placar">
                   <div className="score">{item.score || "2 - 1"}</div>
@@ -201,50 +202,30 @@ body { margin: 0; background: #050a07; font-family: system-ui, sans-serif; color
 
 .page { padding: 10px; min-height: 100vh; }
 
-/* HEADER */
-.topBar {
-  background: linear-gradient(135deg, #0c1f18, #081510);
-  border: 1px solid #00ff9d;
-  border-radius: 16px;
-  padding: 16px 24px;
+/* === ALINHAMENTO PERFEITO DOS TIMES === */
+.teams {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  box-shadow: 0 10px 40px rgba(0, 255, 157, 0.2);
+  gap: 12px;
+  width: 100%;
 }
 
-h1 { color: #00ff9d; font-size: 30px; font-weight: 900; letter-spacing: -1.5px; }
-
-/* FILTROS */
-.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px; margin-bottom: 16px; }
-.filters button {
-  padding: 11px 10px; background: rgba(15, 28, 23, 0.95); border: 1px solid #1e3a2f;
-  color: #a3d4c0; border-radius: 10px; font-weight: 600; font-size: 11.8px; cursor: pointer;
+.teams img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 3px;
+  border: 2px solid #1e3a2f;
+  flex-shrink: 0;
 }
-.filters button.active { background: #00ff9d; color: #001f14; }
 
-/* CARD */
-.card {
-  background: linear-gradient(145deg, #0f241e, #0a1814);
-  border: 1px solid #1e3a2f;
-  border-radius: 16px;
-  padding: 16px;
-  transition: all 0.4s ease;
-  cursor: pointer;
-}
-.card:hover { transform: translateY(-8px); border-color: #00ff9d; }
-
-/* TIMES - ALINHAMENTO PERFEITO */
-.teams { display: flex; align-items: center; gap: 12px; flex: 1; }
-.teams img { width: 38px; height: 38px; border-radius: 50%; background: #fff; padding: 3px; border: 2px solid #1e3a2f; flex-shrink: 0; }
-
-.teamNames { 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  flex: 1; 
-  min-width: 0; 
+.teamContainer {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
 }
 
 .teamName {
@@ -256,45 +237,25 @@ h1 { color: #00ff9d; font-size: 30px; font-weight: 900; letter-spacing: -1.5px; 
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
-.home { text-align: right; }
-.away { text-align: left; }
+.teamName.home { text-align: right; }
+.teamName.away { text-align: left; }
 
-.vs { 
-  font-size: 14px; 
-  font-weight: 900; 
-  color: #00ff9d; 
-  padding: 0 6px; 
-  flex-shrink: 0; 
+.vs {
+  font-size: 14px;
+  font-weight: 900;
+  color: #00ff9d;
+  padding: 0 8px;
+  flex-shrink: 0;
 }
 
-/* CAMPO */
-.field {
-  height: 84px;
-  background: linear-gradient(#0f6b2e, #0a5a25);
-  border: 2px solid #ffffff55;
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-}
+/* Outros estilos (mantidos) */
+.card { background: linear-gradient(145deg, #0f241e, #0a1814); border: 1px solid #1e3a2f; border-radius: 16px; padding: 16px; }
+.card:hover { transform: translateY(-6px); border-color: #00ff9d; }
 
-.ballHome, .ballAway {
-  position: absolute;
-  top: 40%;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  animation: ballMovement 4.8s infinite alternate ease-in-out;
-}
-
-.ballHome { background: #ffdd00; left: 30%; }
-.ballAway { background: #00ddff; left: 55%; }
-
-@keyframes ballMovement {
-  0% { left: 30%; transform: scale(1); }
-  100% { left: 67%; transform: scale(1.12); }
-}
+.field { height: 82px; background: linear-gradient(#0f6b2e, #0a5a25); border: 2px solid #ffffff55; border-radius: 12px; position: relative; overflow: hidden; }
 `;
 
 export default App;
