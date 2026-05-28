@@ -183,16 +183,75 @@ export default function App() {
             .bottomBarMobile{font-size:12px!important;gap:8px!important}
           }
 
-          @media(max-width:520px){
-            .filterGrid{grid-template-columns:repeat(3,1fr)!important}
-            .matchTitle{font-size:18px!important}
-            .teamLogoMobile{width:24px!important;height:24px!important}
-            .titleMobile{font-size:30px!important}
-            .topBarMobile{padding:10px!important}
-            .pillMobile{font-size:12px!important;padding:7px 9px!important}
-            .searchMobile{font-size:14px!important;padding:12px!important}
-            .cardMobile{padding:9px!important}
-          }
+          const page = { minHeight: "100vh", background: "#1f1f1f", color: "#fff", padding: 6, fontFamily: "Arial, Helvetica, sans-serif", overflowX: "hidden" };
+
+const topBar = { background: "linear-gradient(180deg,#10281d,#0b1511)", border: "1px solid #00d66f", borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 7, boxSizing: "border-box" };
+const title = { color: "#00ff70", fontSize: "clamp(26px,3.2vw,44px)", margin: 0, fontWeight: 900, lineHeight: 1 };
+const subTitle = { color: "#d8d8d8", marginTop: 5, fontSize: 13 };
+const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
+const pill = { border: "1px solid #00d66f", background: "#0b1511", padding: "7px 12px", borderRadius: 7, fontWeight: 900, fontSize: 13 };
+
+const notice = { background: "#4a1c08", border: "1px solid #ff7b00", padding: 8, borderRadius: 7, marginBottom: 7, fontWeight: 900, fontSize: 13 };
+
+const filters = { display: "grid", gridTemplateColumns: "repeat(13,minmax(0,1fr))", gap: 5, marginBottom: 7, width: "100%" };
+const btnStyle = { background: "#252525", color: "#fff", border: "1px solid #00d66f", padding: "8px 3px", borderRadius: 7, cursor: "pointer", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const activeBtn = { ...btnStyle, background: "#00d66f", color: "#001b0b" };
+
+const search = { width: "100%", boxSizing: "border-box", background: "#202b2b", border: "1px solid #00d66f", color: "#fff", padding: 10, borderRadius: 8, marginBottom: 9, fontSize: 14 };
+
+const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, alignItems: "start" };
+const card = { background: "linear-gradient(180deg,#102016,#0a1411)", border: "1px solid rgba(0,214,111,.65)", borderRadius: 8, padding: 8, boxShadow: "0 0 8px rgba(0,255,80,.08)", overflow: "hidden", boxSizing: "border-box" };
+
+const cardHeader = { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "flex-start", marginBottom: 7 };
+const teams = { display: "flex", gap: 5, alignItems: "center", minWidth: 0, flex: 1 };
+const teamLogo = { width: 22, height: 22, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
+
+const match = { color: "#00ff70", fontSize: "clamp(13px,1.05vw,17px)", margin: 0, lineHeight: 1.02, fontWeight: 900, whiteSpace: "normal", wordBreak: "normal" };
+const league = { color: "#dddddd", margin: "4px 0 0", fontSize: 10 };
+
+const rightBadges = { display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" };
+const baseBadge = { background: "#3a4655", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
+const vipBadge = { background: "#facc15", color: "#000", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
+const marketBadge = { background: "#0ea5e9", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
+
+const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 8, alignItems: "start" };
+const mainInfo = { display: "grid", gap: 6 };
+const scoreBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 1, fontSize: 12 };
+const signalBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 2, fontSize: 12 };
+
+const miniMap = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 5 };
+const field = { height: 68, background: "repeating-linear-gradient(90deg,#176324 0px,#176324 26px,#1d7a2d 26px,#1d7a2d 52px)", border: "1px solid rgba(255,255,255,.65)", borderRadius: 7, position: "relative", overflow: "hidden" };
+const fieldOverlay = { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,0,.06),rgba(0,255,130,.10))" };
+const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
+const goalLeft = { position: "absolute", left: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderLeft: 0 };
+const goalRight = { position: "absolute", right: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderRight: 0 };
+const ballHome = { position: "absolute", top: "42%", width: 12, height: 12, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 10px #facc15" };
+const ballAway = { position: "absolute", top: "45%", width: 12, height: 12, borderRadius: "50%", background: "#00d9ff", boxShadow: "0 0 10px #00d9ff" };
+
+const statsGrid = { marginTop: 5, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, fontSize: 10, color: "#f1f5f9" };
+
+const bars = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, fontSize: 11, fontWeight: 900, marginTop: 8 };
+const barBg = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 3 };
+const bar = { height: "100%", background: "#00ff70" };
+const barGold = { height: "100%", background: "#facc15" };
+
+const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 6 };
+const momentumTitle = { color: "#00ff70", fontSize: 12 };
+const momentumBar = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 4 };
+const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999 };
+const momentumInfo = { marginTop: 4, fontSize: 11, color: "#fff" };
+
+const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
+const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 6, padding: "7px 13px", fontWeight: 900, fontSize: 12 };
+const novibet = { ...betano, background: "#2563eb" };
+const bet365 = { ...betano, background: "#f97316" };
+const vipBtn = { ...betano, background: "#facc15", color: "#000" };
+
+const oddBlink = { color: "#facc15", fontWeight: 900 };
+const bottomBar = { marginTop: 8, background: "#101820", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 8, display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "space-around", fontSize: 12 };
+const green = { color: "#00ff70" };
+const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10 };
+const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
         `}
       </style>
 
@@ -355,70 +414,72 @@ export default function App() {
   );
 }
 
-const page = { minHeight: "100vh", background: "#1f1f1f", color: "#fff", padding: 8, fontFamily: "Arial, Helvetica, sans-serif", overflowX: "hidden" };
-const topBar = { background: "linear-gradient(180deg,#10281d,#0b1511)", border: "1px solid #00d66f", borderRadius: 8, padding: "10px 16px", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 8, boxSizing: "border-box" };
-const title = { color: "#00ff70", fontSize: "clamp(28px,3.6vw,48px)", margin: 0, fontWeight: 900, lineHeight: 1 };
-const subTitle = { color: "#d8d8d8", marginTop: 6, fontSize: 14 };
-const statusWrap = { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" };
-const pill = { border: "1px solid #00d66f", background: "#0b1511", padding: "8px 14px", borderRadius: 8, fontWeight: 900, fontSize: 14 };
+const page = { minHeight: "100vh", background: "#1f1f1f", color: "#fff", padding: 6, fontFamily: "Arial, Helvetica, sans-serif", overflowX: "hidden" };
 
-const notice = { background: "#4a1c08", border: "1px solid #ff7b00", padding: 10, borderRadius: 7, marginBottom: 8, fontWeight: 900, fontSize: 14 };
+const topBar = { background: "linear-gradient(180deg,#10281d,#0b1511)", border: "1px solid #00d66f", borderRadius: 8, padding: "8px 14px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 7, boxSizing: "border-box" };
+const title = { color: "#00ff70", fontSize: "clamp(26px,3.2vw,44px)", margin: 0, fontWeight: 900, lineHeight: 1 };
+const subTitle = { color: "#d8d8d8", marginTop: 5, fontSize: 13 };
+const statusWrap = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
+const pill = { border: "1px solid #00d66f", background: "#0b1511", padding: "7px 12px", borderRadius: 7, fontWeight: 900, fontSize: 13 };
 
-const filters = { display: "grid", gridTemplateColumns: "repeat(13,minmax(0,1fr))", gap: 6, marginBottom: 8, width: "100%" };
-const btnStyle = { background: "#252525", color: "#fff", border: "1px solid #00d66f", padding: "9px 4px", borderRadius: 7, cursor: "pointer", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const notice = { background: "#4a1c08", border: "1px solid #ff7b00", padding: 8, borderRadius: 7, marginBottom: 7, fontWeight: 900, fontSize: 13 };
+
+const filters = { display: "grid", gridTemplateColumns: "repeat(13,minmax(0,1fr))", gap: 5, marginBottom: 7, width: "100%" };
+const btnStyle = { background: "#252525", color: "#fff", border: "1px solid #00d66f", padding: "8px 3px", borderRadius: 7, cursor: "pointer", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 const activeBtn = { ...btnStyle, background: "#00d66f", color: "#001b0b" };
 
-const search = { width: "100%", boxSizing: "border-box", background: "#202b2b", border: "1px solid #00d66f", color: "#fff", padding: 12, borderRadius: 8, marginBottom: 10, fontSize: 15 };
+const search = { width: "100%", boxSizing: "border-box", background: "#202b2b", border: "1px solid #00d66f", color: "#fff", padding: 10, borderRadius: 8, marginBottom: 9, fontSize: 14 };
 
-const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, alignItems: "start" };
-const card = { background: "linear-gradient(180deg,#102016,#0a1411)", border: "1px solid rgba(0,214,111,.65)", borderRadius: 9, padding: 10, boxShadow: "0 0 10px rgba(0,255,80,.08)", overflow: "hidden", boxSizing: "border-box" };
+const grid = { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10, alignItems: "start" };
+const card = { background: "linear-gradient(180deg,#102016,#0a1411)", border: "1px solid rgba(0,214,111,.65)", borderRadius: 8, padding: 8, boxShadow: "0 0 8px rgba(0,255,80,.08)", overflow: "hidden", boxSizing: "border-box" };
 
-const cardHeader = { display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", marginBottom: 9 };
-const teams = { display: "flex", gap: 6, alignItems: "center", minWidth: 0, flex: 1 };
-const teamLogo = { width: 26, height: 26, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
-const match = { color: "#00ff70", fontSize: "clamp(16px,1.35vw,22px)", margin: 0, lineHeight: 1.05, fontWeight: 900 };
-const league = { color: "#dddddd", margin: "5px 0 0", fontSize: 12 };
+const cardHeader = { display: "flex", justifyContent: "space-between", gap: 6, alignItems: "flex-start", marginBottom: 7 };
+const teams = { display: "flex", gap: 5, alignItems: "center", minWidth: 0, flex: 1 };
+const teamLogo = { width: 22, height: 22, borderRadius: "50%", objectFit: "contain", background: "#fff", padding: 2, flexShrink: 0 };
 
-const rightBadges = { display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" };
-const baseBadge = { background: "#3a4655", padding: "5px 9px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
-const vipBadge = { background: "#facc15", color: "#000", padding: "5px 9px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
-const marketBadge = { background: "#0ea5e9", padding: "5px 9px", borderRadius: 999, fontSize: 11, fontWeight: 900 };
+const match = { color: "#00ff70", fontSize: "clamp(13px,1.05vw,17px)", margin: 0, lineHeight: 1.02, fontWeight: 900, whiteSpace: "normal", wordBreak: "normal" };
+const league = { color: "#dddddd", margin: "4px 0 0", fontSize: 10 };
 
-const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 10, alignItems: "start" };
-const mainInfo = { display: "grid", gap: 7 };
-const scoreBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 8, padding: 9, display: "grid", gap: 2, fontSize: 14 };
-const signalBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 8, padding: 9, display: "grid", gap: 3, fontSize: 14 };
+const rightBadges = { display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" };
+const baseBadge = { background: "#3a4655", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
+const vipBadge = { background: "#facc15", color: "#000", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
+const marketBadge = { background: "#0ea5e9", padding: "4px 7px", borderRadius: 999, fontSize: 10, fontWeight: 900 };
 
-const miniMap = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 8, padding: 6 };
-const field = { height: 82, background: "repeating-linear-gradient(90deg,#176324 0px,#176324 30px,#1d7a2d 30px,#1d7a2d 60px)", border: "2px solid rgba(255,255,255,.65)", borderRadius: 8, position: "relative", overflow: "hidden" };
+const bodyGrid = { display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 8, alignItems: "start" };
+const mainInfo = { display: "grid", gap: 6 };
+const scoreBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 1, fontSize: 12 };
+const signalBox = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 7, display: "grid", gap: 2, fontSize: 12 };
+
+const miniMap = { background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 5 };
+const field = { height: 68, background: "repeating-linear-gradient(90deg,#176324 0px,#176324 26px,#1d7a2d 26px,#1d7a2d 52px)", border: "1px solid rgba(255,255,255,.65)", borderRadius: 7, position: "relative", overflow: "hidden" };
 const fieldOverlay = { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,0,.06),rgba(0,255,130,.10))" };
 const midLine = { position: "absolute", left: "50%", top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,.75)" };
-const goalLeft = { position: "absolute", left: 0, top: "29%", width: 26, height: 38, border: "2px solid rgba(255,255,255,.75)", borderLeft: 0 };
-const goalRight = { position: "absolute", right: 0, top: "29%", width: 26, height: 38, border: "2px solid rgba(255,255,255,.75)", borderRight: 0 };
-const ballHome = { position: "absolute", top: "42%", width: 15, height: 15, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 12px #facc15" };
-const ballAway = { position: "absolute", top: "45%", width: 15, height: 15, borderRadius: "50%", background: "#00d9ff", boxShadow: "0 0 12px #00d9ff" };
+const goalLeft = { position: "absolute", left: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderLeft: 0 };
+const goalRight = { position: "absolute", right: 0, top: "29%", width: 22, height: 30, border: "1px solid rgba(255,255,255,.75)", borderRight: 0 };
+const ballHome = { position: "absolute", top: "42%", width: 12, height: 12, borderRadius: "50%", background: "#facc15", boxShadow: "0 0 10px #facc15" };
+const ballAway = { position: "absolute", top: "45%", width: 12, height: 12, borderRadius: "50%", background: "#00d9ff", boxShadow: "0 0 10px #00d9ff" };
 
-const statsGrid = { marginTop: 6, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 3, fontSize: 11, color: "#f1f5f9" };
+const statsGrid = { marginTop: 5, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, fontSize: 10, color: "#f1f5f9" };
 
-const bars = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13, fontWeight: 900, marginTop: 10 };
-const barBg = { height: 9, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 4 };
+const bars = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, fontSize: 11, fontWeight: 900, marginTop: 8 };
+const barBg = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 3 };
 const bar = { height: "100%", background: "#00ff70" };
 const barGold = { height: "100%", background: "#facc15" };
 
-const momentumBox = { marginTop: 10, background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 8, padding: 8 };
-const momentumTitle = { color: "#00ff70", fontSize: 13 };
-const momentumBar = { height: 10, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 5 };
+const momentumBox = { marginTop: 8, background: "#071a10", border: "1px solid #0f7a3e", borderRadius: 7, padding: 6 };
+const momentumTitle = { color: "#00ff70", fontSize: 12 };
+const momentumBar = { height: 8, background: "#1e293b", borderRadius: 999, overflow: "hidden", marginTop: 4 };
 const momentumFill = { height: "100%", background: "linear-gradient(90deg,#22c55e,#facc15,#ef4444)", borderRadius: 999 };
-const momentumInfo = { marginTop: 5, fontSize: 12, color: "#fff" };
+const momentumInfo = { marginTop: 4, fontSize: 11, color: "#fff" };
 
-const footer = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, justifyContent: "space-between" };
-const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 7, padding: "8px 18px", fontWeight: 900, fontSize: 14 };
+const footer = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, justifyContent: "space-between" };
+const betano = { background: "#22c55e", color: "#fff", border: 0, borderRadius: 6, padding: "7px 13px", fontWeight: 900, fontSize: 12 };
 const novibet = { ...betano, background: "#2563eb" };
 const bet365 = { ...betano, background: "#f97316" };
 const vipBtn = { ...betano, background: "#facc15", color: "#000" };
 
 const oddBlink = { color: "#facc15", fontWeight: 900 };
-const bottomBar = { marginTop: 10, background: "#101820", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 10, display: "flex", gap: 18, flexWrap: "wrap", justifyContent: "space-around", fontSize: 14 };
+const bottomBar = { marginTop: 8, background: "#101820", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 8, display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "space-around", fontSize: 12 };
 const green = { color: "#00ff70" };
 const popup = { position: "fixed", top: 18, right: 18, zIndex: 9999, background: "#7f1d1d", border: "2px solid #ef4444", padding: 16, borderRadius: 10 };
 const empty = { background: "#101820", border: "1px solid #00ff87", borderRadius: 10, padding: 18, fontWeight: 800 };
