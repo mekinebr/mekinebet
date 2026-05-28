@@ -438,12 +438,58 @@ h1{color:#00ff70;font-size:clamp(26px,3.2vw,44px);margin:0;font-weight:900;line-
 .empty{background:#101820;border:1px solid #00ff87;border-radius:10px;padding:18px;font-weight:800}
 
 @media(max-width:900px){
-  .grid{grid-template-columns:1fr!important}
-  .filters{grid-template-columns:repeat(4,1fr)}
-  .bodyGrid{grid-template-columns:1fr}
-  .cardHeader{flex-direction:column}
-  .badges{justify-content:flex-start}
-  .bars{grid-template-columns:1fr}
+  .cardsGrid{
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+
+  .filterGrid{
+    grid-template-columns:repeat(3,1fr)!important;
+  }
+
+  .matchBody{
+    grid-template-columns:1fr!important;
+  }
+
+  .cardHeaderMobile{
+    flex-direction:column!important;
+  }
+
+  .teamsRow{
+    width:100%!important;
+  }
+
+  .badgesRow{
+    justify-content:flex-start!important;
+  }
+
+  .barsMobile{
+    grid-template-columns:1fr!important;
+  }
+
+  .bottomBarMobile{
+    font-size:10px!important;
+    gap:6px!important;
+  }
+
+  .matchTitle{
+    font-size:15px!important;
+    line-height:1!important;
+  }
+
+  .teamLogoMobile{
+    width:20px!important;
+    height:20px!important;
+  }
+
+  .pillMobile{
+    font-size:10px!important;
+    padding:5px 8px!important;
+  }
+
+  .titleMobile{
+    font-size:28px!important;
+  }
 }
 
 @media(max-width:520px){
