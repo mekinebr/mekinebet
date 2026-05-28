@@ -129,9 +129,10 @@ export default function App() {
               <div className="cardHeader">
                 <div className="teams">
                   <img src={logoCasa(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.casa)} />
-                  <div className="teamText">
-                    <h2>{item.match}</h2>
-                    <p>{item.league}</p>
+                  <div className="teamNames">
+                    <div className="teamName">{times.casa}</div>
+                    <div className="vs">VS</div>
+                    <div className="teamName">{times.fora}</div>
                   </div>
                   <img src={logoFora(item)} alt="" onError={(e) => e.currentTarget.src = fallbackLogo(times.fora)} />
                 </div>
@@ -154,7 +155,6 @@ export default function App() {
                     <div className="midLine"></div>
                     <div className="goalLeft"></div>
                     <div className="goalRight"></div>
-                    
                     <div className="ballHome"></div>
                     <div className="ballAway"></div>
                   </div>
@@ -194,114 +194,155 @@ export default function App() {
 
 const css = `
 * { box-sizing: border-box; }
-body { margin: 0; background: #050a07; font-family: system-ui, sans-serif; color: #e0f2e9; }
+body { margin: 0; background: #050a07; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: #e0f2e9; }
 
 .page { padding: 10px; min-height: 100vh; }
 
-/* === MINI CAMPO REALISTA + ANIMAÇÕES AVANÇADAS === */
+/* HEADER AVANÇADO */
+.topBar {
+  background: linear-gradient(135deg, #0c1f18, #081510);
+  border: 1px solid rgba(0, 255, 157, 0.6);
+  border-radius: 16px;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 40px rgba(0, 255, 157, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+h1 { 
+  color: #00ff9d; 
+  font-size: 30px; 
+  font-weight: 900; 
+  letter-spacing: -1.5px;
+  text-shadow: 0 0 20px rgba(0, 255, 157, 0.5);
+}
+
+.liveTag { 
+  background: linear-gradient(90deg, #ff0033, #ff3366);
+  color: white; 
+  padding: 6px 14px; 
+  border-radius: 30px; 
+  font-size: 13px; 
+  font-weight: bold;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
+}
+
+/* FILTROS */
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filters button {
+  padding: 11px 10px;
+  background: rgba(15, 28, 23, 0.95);
+  border: 1px solid rgba(30, 58, 47, 0.8);
+  color: #a3d4c0;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 11.8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.filters button:hover { background: rgba(30, 58, 47, 0.9); transform: translateY(-2px); }
+.filters button.active {
+  background: linear-gradient(90deg, #00ff9d, #22ffb3);
+  color: #001f14;
+  border-color: #00ff9d;
+  box-shadow: 0 0 15px rgba(0, 255, 157, 0.5);
+}
+
+/* CARD AVANÇADO */
+.card {
+  background: linear-gradient(145deg, #0f241e, #0a1814);
+  border: 1px solid rgba(30, 58, 47, 0.8);
+  border-radius: 16px;
+  padding: 16px;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(0,255,157,0.06), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.card:hover::before { opacity: 1; }
+.card:hover {
+  transform: translateY(-10px) scale(1.03);
+  border-color: #00ff9d;
+  box-shadow: 0 25px 60px rgba(0, 255, 157, 0.3);
+}
+
+.vip-card {
+  border-color: #ffd700;
+  box-shadow: 0 0 35px rgba(255, 215, 0, 0.4);
+}
+
+/* TIMES */
+.teams { display: flex; align-items: center; gap: 12px; }
+.teams img { width: 38px; height: 38px; border-radius: 50%; padding: 3px; background: #fff; border: 2px solid #1e3a2f; }
+
+.teamNames { display: flex; align-items: center; gap: 10px; flex: 1; }
+.teamName {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+.vs { color: #00ff9d; font-weight: 900; font-size: 14px; }
+
+/* CAMPO REALISTA */
 .field {
-  height: 82px;
-  background: linear-gradient(#0f6b2e, #0d5f28);
-  border: 2px solid #ffffff44;
+  height: 86px;
+  background: linear-gradient(#0f6b2e, #0a5a25);
+  border: 2px solid #ffffff55;
   border-radius: 12px;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
 }
 
 .field::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(90deg, transparent 0px, transparent 26px, rgba(255,255,255,0.12) 26px, rgba(255,255,255,0.12) 28px);
+  background: repeating-linear-gradient(90deg, transparent 0px, transparent 26px, rgba(255,255,255,0.2) 26px, rgba(255,255,255,0.2) 28px);
 }
 
-.centerCircle {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 36px; height: 36px;
-  border: 2px solid rgba(255,255,255,0.65);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
+.centerCircle, .midLine, .goalLeft, .goalRight { /* ... */ }
 
-.midLine {
-  position: absolute;
-  left: 50%; top: 0; bottom: 0;
-  width: 2px;
-  background: rgba(255,255,255,0.75);
-}
-
-.goalLeft, .goalRight {
-  position: absolute;
-  top: 22%; width: 24px; height: 56%;
-  border: 3px solid rgba(255,255,255,0.9);
-  border-radius: 4px;
-}
-.goalLeft { left: 0; border-right: none; }
-.goalRight { right: 0; border-left: none; }
-
-/* Bolas com movimento realista + brilho */
 .ballHome, .ballAway {
   position: absolute;
-  top: 41%;
-  width: 15px;
-  height: 15px;
+  top: 40%;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  box-shadow: 
-    0 4px 12px rgba(0,0,0,0.7),
-    0 0 15px currentColor;
-  animation: ballMovement 5s infinite alternate ease-in-out;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.8), 0 0 20px currentColor;
+  animation: ballMovement 4.5s infinite alternate ease-in-out;
 }
 
-.ballHome {
-  background: #ffdd00;
-  left: 32%;
-  animation-delay: 0.3s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 18px #ffdd00;
-}
-
-.ballAway {
-  background: #00ddff;
-  left: 58%;
-  animation-delay: 1.2s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 18px #00ddff;
-}
+.ballHome { background: #ffdd00; left: 30%; }
+.ballAway { background: #00ddff; left: 55%; }
 
 @keyframes ballMovement {
-  0%   { left: 32%; transform: scale(1); }
-  100% { left: 65%; transform: scale(1.1); }
+  0% { left: 30%; transform: scale(1) rotate(0deg); }
+  100% { left: 68%; transform: scale(1.15) rotate(30deg); }
 }
-
-/* Animação das Barras */
-.bar {
-  height: 8px;
-  background: #1e3a2f;
-  border-radius: 999px;
-  overflow: hidden;
-  position: relative;
-}
-
-.fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 1.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-  position: relative;
-}
-
-.green { 
-  background: linear-gradient(90deg, #00ff9d, #22ffb3); 
-  box-shadow: 0 0 12px #00ff9d;
-}
-
-.gold { 
-  background: linear-gradient(90deg, #ffd700, #ffea80); 
-  box-shadow: 0 0 12px #ffd700;
-}
-
-/* Estilos Gerais Premium */
-.card:hover .field { box-shadow: inset 0 0 40px rgba(0, 255, 157, 0.35); }
-.vip-card .ballHome, .vip-card .ballAway { animation-duration: 3.2s; }
 `;
 
 export default App;
