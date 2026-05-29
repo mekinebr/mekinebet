@@ -333,68 +333,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="attackPanel">
-                      <div className="attackTitle">MOMENTO DE ATAQUE</div>
-
-                      <div className="attackBoard">
-                        <div className="attackSideLogos">
-                          <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
-                          <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
-                        </div>
-
-                        <div className="attackChartPro">
-                          <div className="attackCenterLine"></div>
-                          <div className="attackNowLine" style={{ left: `${Math.min(96, Math.max(8, min || 73))}%` }}></div>
-
-                          <span className="eventIcon topEvent" style={{ left: "18%" }}>⚽</span>
-                          <span className="eventIcon topEvent" style={{ left: "31%" }}>🎯</span>
-                          <span className="eventIcon topEvent" style={{ left: "77%" }}>⚽</span>
-                          <span className="eventIcon bottomEvent" style={{ left: "67%" }}>🚩</span>
-                          <span className="eventIcon bottomEvent" style={{ left: "75%" }}>⚽</span>
-
-                          {Array.from({ length: 42 }).map((_, i) => {
-                            const base = ((i * 9 + stats.ataques + stats.perigosos) % 30) + 5;
-                            const lateHomePressure = i > 34 ? 1.65 : 1;
-                            const homeStrong = i % 4 === 0 || i > 33 || (i > 10 && i < 16);
-                            const awayStrong = i % 5 === 0 || i < 9 || (i > 23 && i < 30);
-
-                            return (
-                              <div className="attackColumn" key={i}>
-                                <span
-                                  className="attackHome"
-                                  style={{ height: `${Math.min(39, (homeStrong ? base : base / 2) * lateHomePressure)}px` }}
-                                />
-                                <span
-                                  className="attackAway"
-                                  style={{ height: `${Math.min(35, awayStrong ? base : base / 2)}px` }}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="attackNames">
-                        <span className="homeName">▲ {nomeCurto(times.casa)}</span>
-                        <span className="awayName">▼ {nomeCurto(times.fora)}</span>
-                      </div>
-
-                      <div className="timeline">
-                        <div className="timelineHeader">
-                          <span>0'</span>
-                          <strong>45'</strong>
-                          <span>90'</span>
-                        </div>
-
-                        <div className="timeTrack">
-                          <span></span><span></span><span></span><span></span><span></span>
-                          <i style={{ left: `${Math.min(96, Math.max(6, min || 73))}%` }}></i>
-                        </div>
-
-                        <div className="halfLine">Agora · {liveReal ? `${min || 73}'` : "Base IA"} · {item.score || "0-0"}</div>
-                        <span className="extraTime">+5 min acréscimos</span>
-                      </div>
-                    </div>
                   </div>
 
                   <div className="miniMap">
@@ -498,7 +436,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
 
-.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:465px}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:365px}
 
 .matchHero{position:relative;display:grid;grid-template-columns:50px minmax(0,1fr) 50px;align-items:center;gap:7px;min-height:54px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
 .matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:16px}
@@ -533,46 +471,6 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
 
-.attackPanel{background:#06100d;border:1px solid #0f7a3e;border-radius:7px;padding:5px}
-.attackTitle{text-align:center;color:#e5e7eb;font-size:9px;font-weight:900;margin-bottom:4px;letter-spacing:.5px}
-.attackBoard{display:grid;grid-template-columns:20px 1fr;gap:4px;align-items:center}
-.attackSideLogos{height:72px;display:grid;grid-template-rows:1fr 1fr;align-items:center;justify-items:center}
-.attackSideLogos img{width:16px;height:16px;border-radius:50%;object-fit:contain;background:#fff;padding:1px}
-.attackChartPro{
-  position:relative;
-  height:72px;
-  background:
-    linear-gradient(180deg,rgba(34,197,94,.23) 0%,rgba(34,197,94,.13) 49%,rgba(255,255,255,.20) 50%,rgba(99,102,241,.13) 51%,rgba(99,102,241,.28) 100%),
-    linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 25%,rgba(255,255,255,.08) 25% calc(25% + 1px),transparent calc(25% + 1px) 50%,rgba(255,255,255,.08) 50% calc(50% + 1px),transparent calc(50% + 1px) 75%,rgba(255,255,255,.08) 75% calc(75% + 1px),transparent calc(75% + 1px)),
-    #111827;
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:5px;
-  display:flex;
-  align-items:center;
-  gap:2px;
-  padding:4px;
-  overflow:visible;
-}
-.attackColumn{flex:1;height:100%;display:flex;flex-direction:column;justify-content:center;gap:1px;z-index:2}
-.attackHome{align-self:center;width:100%;max-width:5px;background:#22c55e;border-radius:2px 2px 0 0;box-shadow:0 0 5px rgba(34,197,94,.45)}
-.attackAway{align-self:center;width:100%;max-width:5px;background:#6366f1;border-radius:0 0 2px 2px;box-shadow:0 0 5px rgba(99,102,241,.45)}
-.attackCenterLine{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.32);z-index:3}
-.attackNowLine{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:4;box-shadow:0 0 8px rgba(239,68,68,.75)}
-.eventIcon{position:absolute;z-index:6;font-size:13px;filter:drop-shadow(0 0 4px rgba(0,0,0,.8))}
-.topEvent{top:-18px;color:#22c55e}
-.bottomEvent{bottom:-18px;color:#818cf8}
-.attackNames{margin-top:3px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:7.5px;font-weight:900}
-.homeName{color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.awayName{color:#818cf8;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-.timeline{margin-top:5px;display:grid;gap:3px;font-size:8px}
-.timelineHeader{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;color:#9ca3af;font-size:7.5px;font-weight:900;text-align:center}
-.timelineHeader strong{color:#cbd5e1;font-size:7px}
-.timeTrack{position:relative;height:8px;background:#111827;border:1px solid rgba(255,255,255,.10);border-radius:999px;overflow:hidden;display:grid;grid-template-columns:repeat(5,1fr)}
-.timeTrack span{border-right:1px solid rgba(255,255,255,.10)}
-.timeTrack i{position:absolute;top:-2px;width:3px;height:12px;background:#ef4444;border-radius:999px;box-shadow:0 0 8px rgba(239,68,68,.8)}
-.halfLine{text-align:center;color:#ef4444;font-weight:900;border-top:1px solid rgba(239,68,68,.45);padding-top:3px}
-.extraTime{justify-self:center;background:#1f2937;color:#d1d5db;padding:2px 7px;border-radius:999px;font-size:7.8px;font-weight:800}
 .miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
 .stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
 .lights{position:absolute;left:0;right:0;top:0;height:34px;background:radial-gradient(circle at 10% 30%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 22% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 35% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 50% 12%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 65% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 78% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 90% 30%,rgba(255,255,255,.95),transparent 7%);filter:blur(.2px);opacity:.9}
@@ -627,7 +525,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .matchHero{grid-template-columns:48px minmax(0,1fr) 48px}
   .logoSlot{width:48px;height:48px}
   .heroLogo{width:44px;height:44px}
-  .card{height:auto;max-height:none;min-height:465px}
+  .card{height:auto;max-height:none;min-height:365px}
   .stadium{max-width:100%;height:145px}
   .field3d{height:86px}
 }
