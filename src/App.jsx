@@ -295,21 +295,42 @@ export default function App() {
                     </div>
 
                     <div className="attackPanel">
-                      <div className="attackTitle">Momento de ataque</div>
+                      <div className="attackTitle">MOMENTO DE ATAQUE</div>
 
-                      <div className="attackChart">
-                        {Array.from({ length: 34 }).map((_, i) => {
-                          const value = ((i * 7 + stats.ataques + stats.perigosos) % 28) + 7;
-                          const home = i % 3 !== 0;
+                      <div className="attackTeams">
+                        <span>{nomeCurto(times.casa)}</span>
+                        <span>{nomeCurto(times.fora)}</span>
+                      </div>
+
+                      <div className="attackChartPro">
+                        <div className="attackCenterLine"></div>
+                        <div className="attackNowLine"></div>
+
+                        {Array.from({ length: 36 }).map((_, i) => {
+                          const value = ((i * 9 + stats.ataques + stats.perigosos) % 32) + 6;
+                          const homeStrong = i % 4 === 0 || i > 25;
+                          const awayStrong = i % 5 === 0 || i < 10;
+
                           return (
-                            <span
-                              key={i}
-                              className={home ? "barUp" : "barDown"}
-                              style={{ height: `${value}px` }}
-                            />
+                            <div className="attackColumn" key={i}>
+                              <span
+                                className="attackHome"
+                                style={{ height: `${homeStrong ? value : value / 2}px` }}
+                              />
+                              <span
+                                className="attackAway"
+                                style={{ height: `${awayStrong ? value : value / 2}px` }}
+                              />
+                            </div>
                           );
                         })}
-                        <div className="chartMiddle"></div>
+                      </div>
+
+                      <div className="attackLegend">
+                        <span className="homeDot"></span>
+                        <small>{nomeCurto(times.casa)} em cima</small>
+                        <span className="awayDot"></span>
+                        <small>{nomeCurto(times.fora)} em baixo</small>
                       </div>
 
                       <div className="timeline">
@@ -318,7 +339,7 @@ export default function App() {
 
                         <div className="eventRow">
                           <b>{Math.max(62, min || 62)}'</b>
-                          <span>⚽ Ataque perigoso</span>
+                          <span>⚡ Ataque perigoso</span>
                         </div>
 
                         <div className="eventRow">
@@ -455,11 +476,22 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .marketBox strong{color:#facc15}
 
 .attackPanel{background:#06100d;border:1px solid #0f7a3e;border-radius:7px;padding:5px}
-.attackTitle{text-align:center;color:#cbd5e1;font-size:9px;font-weight:800;margin-bottom:3px}
-.attackChart{position:relative;height:44px;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:5px;display:flex;align-items:center;gap:2px;padding:3px;overflow:hidden}
-.barUp{width:4px;align-self:flex-start;background:#22c55e;border-radius:2px 2px 0 0;opacity:.85}
-.barDown{width:4px;align-self:flex-end;background:#6366f1;border-radius:0 0 2px 2px;opacity:.85}
-.chartMiddle{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.25)}
+.attackTitle{text-align:center;color:#e5e7eb;font-size:9px;font-weight:900;margin-bottom:3px;letter-spacing:.4px}
+.attackTeams{display:grid;grid-template-columns:1fr 1fr;font-size:7.5px;color:#cbd5e1;font-weight:800;margin-bottom:2px}
+.attackTeams span:first-child{text-align:left;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attackTeams span:last-child{text-align:right;color:#818cf8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.attackChartPro{position:relative;height:58px;background:linear-gradient(180deg,rgba(34,197,94,.18) 0%,rgba(34,197,94,.08) 49%,rgba(255,255,255,.18) 50%,rgba(99,102,241,.10) 51%,rgba(99,102,241,.20) 100%),#111827;border:1px solid rgba(255,255,255,.12);border-radius:5px;display:flex;align-items:center;gap:2px;padding:3px;overflow:hidden}
+.attackColumn{flex:1;height:100%;display:flex;flex-direction:column;justify-content:center;gap:1px}
+.attackHome{align-self:center;width:100%;max-width:5px;background:#22c55e;border-radius:2px 2px 0 0;box-shadow:0 0 5px rgba(34,197,94,.45)}
+.attackAway{align-self:center;width:100%;max-width:5px;background:#6366f1;border-radius:0 0 2px 2px;box-shadow:0 0 5px rgba(99,102,241,.45)}
+.attackCenterLine{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.28);z-index:2}
+.attackNowLine{position:absolute;left:73%;top:0;bottom:0;width:2px;background:#ef4444;z-index:3;box-shadow:0 0 8px rgba(239,68,68,.65)}
+.attackLegend{margin-top:3px;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px;align-items:center;font-size:7.5px;color:#d1d5db}
+.homeDot,.awayDot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.homeDot{background:#22c55e}
+.awayDot{background:#6366f1}
+
 .timeline{margin-top:5px;display:grid;gap:3px;font-size:8px}
 .halfLine{text-align:center;color:#ef4444;font-weight:900;border-top:1px solid rgba(239,68,68,.45);padding-top:3px}
 .extraTime{justify-self:center;background:#1f2937;color:#d1d5db;padding:2px 7px;border-radius:999px;font-size:7.8px;font-weight:800}
