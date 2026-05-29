@@ -209,6 +209,11 @@ export default function App() {
     return (item.confidence || 70) >= 82 || String(item.alert || "").includes("GOL");
   }
 
+  function pctValue(a = 0, b = 0) {
+    const total = Math.max(1, Number(a || 0) + Number(b || 0));
+    return Math.max(0, Math.min(100, (Number(a || 0) / total) * 100));
+  }
+
   function timelineEvents(item, index, homeColor, awayColor) {
     const stats = statsDoJogo(item);
     const current = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
@@ -325,6 +330,11 @@ export default function App() {
             const currentMinute = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
             const events = timelineEvents(item, index, homeColor, awayColor);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
+            const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
+            const dangerHomePct = pctValue(stats.home.perigosos, stats.away.perigosos);
+            const posseHomePct = pctValue(stats.home.posse, stats.away.posse);
+            const shotsHomePct = pctValue(stats.home.finalizacoes, stats.away.finalizacoes);
+            const onGoalHomePct = pctValue(stats.home.noGol, stats.away.noGol);
 
             return (
               <section key={item.id || index} className="card">
@@ -357,7 +367,7 @@ export default function App() {
                       <small>ATAQUES</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.ataques}</b>
-                        <span className="metricVs"></span>
+                        <span className="metricVs" style={{ background: `conic-gradient(${homeColor} 0 ${atkHomePct}%, ${awayColor} ${atkHomePct}% 100%)` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.ataques}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -370,7 +380,7 @@ export default function App() {
                       <small>ATAQUES PERIGOSOS</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
-                        <span className="metricVs danger"></span>
+                        <span className="metricVs danger" style={{ background: `conic-gradient(${homeColor} 0 ${dangerHomePct}%, ${awayColor} ${dangerHomePct}% 100%)` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -383,7 +393,7 @@ export default function App() {
                       <small>% POSSE</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.posse}%</b>
-                        <span className="metricVs ball"></span>
+                        <span className="metricVs ball" style={{ background: `conic-gradient(${homeColor} 0 ${posseHomePct}%, ${awayColor} ${posseHomePct}% 100%)` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.posse}%</b>
                       </div>
                       <div className="dualMiniBar">
@@ -404,9 +414,15 @@ export default function App() {
                     <div className="shotBox shotBoxPro">
                       <small>FINALIZAÇÕES / CHUTES AO GOL</small>
                       <strong style={{ color: homeColor }}>{stats.home.finalizacoes}/{stats.home.noGol}</strong>
-                      <div className="shotBars">
-                        <span style={{ width: `${Math.min(92, stats.home.finalizacoes * 4)}%`, background: homeColor }}></span>
-                        <em style={{ width: `${Math.min(92, stats.away.finalizacoes * 5)}%`, background: awayColor }}></em>
+                      <div className="shotBars shotSplitBars">
+                        <div className="splitBar" title="Finalizações">
+                          <i style={{ width: `${shotsHomePct}%`, background: homeColor }}></i>
+                          <em style={{ width: `${100 - shotsHomePct}%`, background: awayColor }}></em>
+                        </div>
+                        <div className="splitBar" title="Chutes ao gol">
+                          <i style={{ width: `${onGoalHomePct}%`, background: homeColor }}></i>
+                          <em style={{ width: `${100 - onGoalHomePct}%`, background: awayColor }}></em>
+                        </div>
                       </div>
                       <strong style={{ color: awayColor }}>{stats.away.finalizacoes}/{stats.away.noGol}</strong>
                     </div>
@@ -1029,6 +1045,119 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 
   .shotBoxPro strong{
     font-size:10px!important;
+  }
+}
+
+
+
+/* ===== CORREÇÃO PROPORCIONAL FINAL: MOBILE + PC ===== */
+.metricVs{
+  background:var(--ring-bg)!important;
+}
+.metricVs:before{background:#07141a!important}
+.metricNumbers b{
+  font-variant-numeric:tabular-nums!important;
+}
+.shotSplitBars{
+  display:grid!important;
+  gap:3px!important;
+}
+.splitBar{
+  width:100%!important;
+  height:4px!important;
+  display:flex!important;
+  overflow:hidden!important;
+  border-radius:999px!important;
+  background:#0b1117!important;
+}
+.splitBar i,
+.splitBar em{
+  display:block!important;
+  height:100%!important;
+  min-width:1px!important;
+  opacity:.98!important;
+}
+.splitBar i{border-radius:999px 0 0 999px!important}
+.splitBar em{border-radius:0 999px 999px 0!important}
+
+.sideCounters{
+  align-self:stretch!important;
+}
+.sideCounters span{
+  min-width:0!important;
+}
+.statsMiddleRow{
+  align-items:stretch!important;
+}
+.shotBoxPro{
+  align-self:stretch!important;
+}
+
+@media(max-width:700px){
+  .proStats{
+    overflow:hidden!important;
+  }
+  .statsTopGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .metricPair{
+    min-width:0!important;
+    overflow:hidden!important;
+  }
+  .metricNumbers{
+    grid-template-columns:minmax(18px,1fr) 16px minmax(18px,1fr)!important;
+  }
+  .statsMiddleRow{
+    grid-template-columns:38px minmax(0,1fr) 38px!important;
+  }
+  .sideCounters{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    overflow:hidden!important;
+  }
+  .sideCounters strong{
+    display:block!important;
+    grid-column:1/-1!important;
+  }
+  .shotBoxPro{
+    grid-template-columns:31px minmax(0,1fr) 31px!important;
+    overflow:hidden!important;
+  }
+  .shotBoxPro strong{
+    font-size:10.5px!important;
+    min-width:0!important;
+  }
+  .shotSplitBars{
+    gap:2px!important;
+  }
+  .splitBar{
+    height:3px!important;
+  }
+}
+
+@media(max-width:430px){
+  .statsTopGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:2px!important;
+  }
+  .metricPair small{
+    font-size:5.3px!important;
+    letter-spacing:-.35px!important;
+  }
+  .metricNumbers b{
+    font-size:10px!important;
+  }
+  .metricVs{
+    width:15px!important;
+    height:15px!important;
+  }
+  .statsMiddleRow{
+    grid-template-columns:34px minmax(0,1fr) 34px!important;
+  }
+  .sideCounters span{
+    font-size:7px!important;
+  }
+  .sideCounters b{
+    font-size:6.5px!important;
   }
 }
 
