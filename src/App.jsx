@@ -285,6 +285,15 @@ export default function App() {
               cartoes: Math.max(1, Math.round(stats.cartoes * 1.35)),
               perigosos: Math.max(6, Math.round(stats.perigosos * 0.55))
             };
+            const shotsOnHome = Math.max(1, Math.round(stats.finalizacoes * 0.45));
+            const shotsOnAway = Math.max(0, Math.round(awayStats.finalizacoes * 0.35));
+            const ataquesTotal = Math.max(1, stats.ataques + awayStats.ataques);
+            const perigososTotal = Math.max(1, stats.perigosos + awayStats.perigosos);
+            const ataquesHomePct = Math.round((stats.ataques / ataquesTotal) * 100);
+            const ataquesAwayPct = 100 - ataquesHomePct;
+            const perigososHomePct = Math.round((stats.perigosos / perigososTotal) * 100);
+            const perigososAwayPct = 100 - perigososHomePct;
+            const minuteNow = Math.min(90, Math.max(8, minuto(item) || 72));
 
             return (
               <section key={item.id || index} className="card">
@@ -311,40 +320,44 @@ export default function App() {
 
                 <div className="bodyGrid">
                   <div className="leftSide">
-                    <div className="box gameStatsBox">
-                      <div className="scoreHeader">
+                    <div className="box gameStatsBox proStatsBox">
+                      <div className="statsProHeader">ESTATÍSTICAS DA PARTIDA</div>
+
+                      <div className="scoreMiniRow">
                         <span>Placar</span>
                         <b>{item.score || "0-0"}</b>
                         <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
                       </div>
 
-                      <div className="statsBet365">
-                        <div className="statsTitle">📊 ESTATÍSTICAS AO VIVO</div>
+                      <div className="dialRow">
+                        <div className="dialStat">
+                          <div className="dialLabel">Ataques</div>
+                          <div className="dialNumbers"><b>{stats.ataques}</b><span>{awayStats.ataques}</span></div>
+                          <div className="dial" style={{ "--home": `${ataquesHomePct * 3.6}deg` }}><i>»</i></div>
+                        </div>
 
-                        {[
-                          ["Posse", `${stats.posse}%`, `${awayStats.posse}%`, stats.posse, awayStats.posse],
-                          ["Finalizações", stats.finalizacoes, awayStats.finalizacoes, stats.finalizacoes, awayStats.finalizacoes],
-                          ["Ataques", stats.ataques, awayStats.ataques, stats.ataques, awayStats.ataques],
-                          ["Perigosos", stats.perigosos, awayStats.perigosos, stats.perigosos, awayStats.perigosos],
-                          ["Cantos", stats.cantos, awayStats.cantos, stats.cantos, awayStats.cantos],
-                          ["Cartões", stats.cartoes, awayStats.cartoes, stats.cartoes, awayStats.cartoes]
-                        ].map(([label, homeValue, awayValue, homeRaw, awayRaw]) => {
-                          const total = Math.max(1, Number(homeRaw) + Number(awayRaw));
-                          const homePct = Math.round((Number(homeRaw) / total) * 100);
-                          const awayPct = 100 - homePct;
+                        <div className="dialStat">
+                          <div className="dialLabel">Ataques Perigosos</div>
+                          <div className="dialNumbers"><b>{stats.perigosos}</b><span>{awayStats.perigosos}</span></div>
+                          <div className="dial" style={{ "--home": `${perigososHomePct * 3.6}deg` }}><i>»</i></div>
+                        </div>
+                      </div>
 
-                          return (
-                            <div className="statCompare" key={label}>
-                              <strong>{homeValue}</strong>
-                              <span>{label}</span>
-                              <strong>{awayValue}</strong>
-                              <div className="compareBars">
-                                <i style={{ width: `${homePct}%` }}></i>
-                                <em style={{ width: `${awayPct}%` }}></em>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="shotsPanel">
+                        <div className="cardIcons">
+                          <span>🚩</span><span>🟥</span><span>🟨</span>
+                          <b>{stats.cantos}</b><b>{Math.max(0, stats.cartoes - 1)}</b><b>{stats.cartoes}</b>
+                        </div>
+
+                        <div className="shotsCenter">
+                          <span>Finalizações / Chutes ao Gol</span>
+                          <div><b>{stats.finalizacoes}/{shotsOnHome}</b><div className="shotBars"><i></i><em></em></div><b>{awayStats.finalizacoes}/{shotsOnAway}</b></div>
+                        </div>
+
+                        <div className="cardIcons rightIcons">
+                          <span>🟨</span><span>🟥</span><span>🚩</span>
+                          <b>{awayStats.cartoes}</b><b>0</b><b>{awayStats.cantos}</b>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -437,6 +450,32 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="attackTimelineBox">
+                  <div className="attackTimelineTitle">MOMENTO DE ATAQUE AO VIVO</div>
+                  <div className="teamsLine"><span>{nomeCurto(times.casa)}</span><span>{nomeCurto(times.fora)}</span></div>
+                  <div className="attackGraph">
+                    <div className="middleAxis"></div>
+                    <div className="nowAxis" style={{ left: `${minuteNow}%` }}></div>
+                    {Array.from({ length: 44 }).map((_, i) => {
+                      const base = ((i * 11 + stats.ataques + stats.perigosos) % 30) + 8;
+                      const homeStrong = i > 22 || i % 6 === 0 || stats.ataques >= awayStats.ataques;
+                      const awayStrong = i < 20 || i % 7 === 0 || awayStats.perigosos > stats.perigosos;
+                      const homeHeight = Math.min(36, homeStrong ? base : base * 0.45);
+                      const awayHeight = Math.min(36, awayStrong ? base : base * 0.45);
+                      return (
+                        <div className="attackTick" key={i}>
+                          <i style={{ height: `${homeHeight}px` }}></i>
+                          <em style={{ height: `${awayHeight}px` }}></em>
+                        </div>
+                      );
+                    })}
+                    <span className="eventIcon goalEvent">⚽</span>
+                    <span className="eventIcon cardEvent">🟨</span>
+                    <span className="eventIcon cornerEvent">🚩</span>
+                  </div>
+                  <div className="timeScale"><span>0'</span><span>45'</span><span>{minuteNow}' agora</span><span>90'</span></div>
+                </div>
+
                 <div className="box marketBox">
                   <b>{item.market}</b>
                   <span>Status: {status}</span>
@@ -520,18 +559,16 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .leftSide{display:grid;gap:5px}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
 .gameStatsBox{min-height:132px;gap:6px}
-.scoreHeader{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px}
-.scoreHeader span{font-size:9px;color:#cbd5e1;font-weight:800}
-.scoreHeader b{font-size:20px;line-height:1;color:#fff;grid-row:1 / span 2;grid-column:2;text-align:right}
-.scoreHeader small{font-size:8px;color:#cbd5e1}
-.statsBet365{display:grid;gap:3px}
-.statsTitle{text-align:center;color:#00ff70;font-size:8px;font-weight:900;letter-spacing:.3px;margin-bottom:1px}
-.statCompare{display:grid;grid-template-columns:30px 1fr 30px;align-items:center;gap:4px;font-size:7.8px}
-.statCompare strong{font-size:8.5px;color:#fff;font-weight:900;text-align:center}
-.statCompare span{color:#cbd5e1;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.compareBars{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:2px;height:4px;background:#1e293b;border-radius:999px;overflow:hidden}
-.compareBars i{justify-self:end;height:100%;background:#00ff70;border-radius:999px 0 0 999px}
-.compareBars em{justify-self:start;height:100%;background:#6366f1;border-radius:0 999px 999px 0}
+.proStatsBox{background:radial-gradient(circle at 50% 120%,rgba(148,163,184,.18),transparent 45%),linear-gradient(180deg,#111827,#07100d);border-color:rgba(148,163,184,.34);box-shadow:inset 0 0 20px rgba(255,255,255,.04)}
+.statsProHeader{text-align:center;color:#e5e7eb;font-size:8.5px;font-weight:900;letter-spacing:.5px;border-bottom:1px solid rgba(255,255,255,.10);padding-bottom:3px}
+.scoreMiniRow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4px;color:#cbd5e1;font-size:8px;font-weight:800}
+.scoreMiniRow b{color:#fff;font-size:18px;text-align:center;line-height:1}.scoreMiniRow small{text-align:right;color:#94a3b8}
+.dialRow{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-items:center;margin-top:1px}
+.dialStat{display:grid;justify-items:center;gap:2px}.dialLabel{font-size:8px;color:#e5e7eb;font-weight:900;white-space:nowrap}.dialNumbers{display:flex;align-items:center;gap:27px;font-size:14px;font-weight:900;color:#fff;line-height:1}.dialNumbers span{color:#e5e7eb}
+.dial{width:36px;height:36px;margin-top:-18px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#ef4444 0 var(--home),#cbd5e1 var(--home) 360deg);box-shadow:0 0 10px rgba(239,68,68,.30),inset 0 0 0 4px #0f172a;position:relative}
+.dial:after{content:"";position:absolute;inset:7px;border-radius:50%;background:linear-gradient(145deg,#e5e7eb,#64748b);box-shadow:inset 0 0 5px rgba(0,0,0,.7)}.dial i{position:relative;z-index:2;color:#111827;font-size:17px;font-weight:900;font-style:normal}
+.shotsPanel{display:grid;grid-template-columns:50px 1fr 50px;align-items:center;gap:5px;margin-top:2px}.cardIcons{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;text-align:center;color:#fff}.cardIcons span{font-size:12px}.cardIcons b{font-size:10px;line-height:1;color:#e5e7eb}.rightIcons{direction:rtl}.shotsCenter{display:grid;gap:2px;text-align:center}.shotsCenter span{font-size:8.5px;color:#e5e7eb;font-weight:900;white-space:nowrap}.shotsCenter>div{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px}.shotsCenter b{font-size:14px;color:#fff}.shotBars{display:grid;gap:3px}.shotBars i,.shotBars em{height:4px;border-radius:999px;background:linear-gradient(90deg,#e5e7eb,#94a3b8);box-shadow:0 0 7px rgba(226,232,240,.45)}.shotBars em{width:78%;justify-self:end}
+.attackTimelineBox{margin-top:6px;background:#07100d;border:1px solid rgba(0,214,111,.45);border-radius:7px;padding:5px;overflow:hidden}.attackTimelineTitle{text-align:center;color:#e5e7eb;font-size:9px;font-weight:900;letter-spacing:.4px;margin-bottom:3px}.teamsLine{display:flex;justify-content:space-between;color:#cbd5e1;font-size:8px;font-weight:900;margin-bottom:2px}.teamsLine span:first-child{color:#22c55e}.teamsLine span:last-child{color:#818cf8}.attackGraph{position:relative;height:62px;background:linear-gradient(180deg,rgba(34,197,94,.18),rgba(34,197,94,.08) 49%,rgba(255,255,255,.18) 50%,rgba(99,102,241,.10) 51%,rgba(99,102,241,.22));border:1px solid rgba(255,255,255,.10);border-radius:6px;display:flex;align-items:center;gap:1px;padding:4px;overflow:hidden}.attackTick{flex:1;height:100%;display:flex;flex-direction:column;justify-content:center;gap:1px}.attackTick i,.attackTick em{display:block;width:100%;max-width:5px;margin:0 auto;border-radius:2px}.attackTick i{background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.45);align-self:center}.attackTick em{background:#6366f1;box-shadow:0 0 5px rgba(99,102,241,.45);align-self:center}.middleAxis{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.28);z-index:2}.nowAxis{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:3;box-shadow:0 0 8px rgba(239,68,68,.75)}.eventIcon{position:absolute;z-index:4;font-size:12px;filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}.goalEvent{left:18%;top:2px}.cardEvent{left:62%;bottom:1px}.cornerEvent{left:80%;top:2px}.timeScale{display:flex;justify-content:space-between;margin-top:2px;color:#94a3b8;font-size:7.5px;font-weight:800}
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
 
