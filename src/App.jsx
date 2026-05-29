@@ -288,10 +288,21 @@ export default function App() {
 
                 <div className="bodyGrid">
                   <div className="leftSide">
-                    <div className="box scoreBox">
-                      <span>Placar</span>
-                      <b>{item.score || "0-0"}</b>
-                      <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
+                    <div className="box gameStatsBox">
+                      <div className="scoreHeader">
+                        <span>Placar</span>
+                        <b>{item.score || "0-0"}</b>
+                        <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
+                      </div>
+
+                      <div className="gameStatsGrid">
+                        <div><strong>{stats.posse}%</strong><small>Posse</small></div>
+                        <div><strong>{stats.finalizacoes}</strong><small>Final.</small></div>
+                        <div><strong>{stats.ataques}</strong><small>Ataq.</small></div>
+                        <div><strong>{stats.cantos}</strong><small>Cantos</small></div>
+                        <div><strong>{stats.cartoes}</strong><small>Cartões</small></div>
+                        <div><strong>{stats.perigosos}</strong><small>Perig.</small></div>
+                      </div>
                     </div>
 
                     <div className="attackPanel">
@@ -334,17 +345,28 @@ export default function App() {
                       </div>
 
                       <div className="timeline">
-                        <div className="halfLine">2º tempo · {item.score || "0-0"}</div>
-                        <span className="extraTime">Tempo adicional 5</span>
-
-                        <div className="eventRow">
-                          <b>{Math.max(62, min || 62)}'</b>
-                          <span>⚡ Ataque perigoso</span>
+                        <div className="timelineHeader">
+                          <span>1ºT</span>
+                          <strong>Intervalo</strong>
+                          <span>2ºT</span>
                         </div>
 
-                        <div className="eventRow">
+                        <div className="timeTrack">
+                          <span></span><span></span><span></span><span></span><span></span>
+                          <i style={{ left: `${Math.min(96, Math.max(6, min || 73))}%` }}></i>
+                        </div>
+
+                        <div className="halfLine">Agora · {liveReal ? `${min || 73}'` : "Base IA"} · {item.score || "0-0"}</div>
+                        <span className="extraTime">+5 min acréscimos</span>
+
+                        <div className="eventRow eventHome">
+                          <b>{Math.max(62, min || 62)}'</b>
+                          <span>🟢 {nomeCurto(times.casa)} pressionou</span>
+                        </div>
+
+                        <div className="eventRow eventAway">
                           <b>{Math.max(72, min || 72)}'</b>
-                          <span>🚩 Escanteio perigoso</span>
+                          <span>🔵 {nomeCurto(times.fora)} respondeu</span>
                         </div>
                       </div>
                     </div>
@@ -470,8 +492,15 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .bodyGrid{display:grid;grid-template-columns:.92fr 1.08fr;gap:6px;align-items:start}
 .leftSide{display:grid;gap:5px}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
-.scoreBox{height:64px;align-content:center}
-.scoreBox b{font-size:18px;line-height:1}
+.gameStatsBox{min-height:118px;gap:6px}
+.scoreHeader{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px}
+.scoreHeader span{font-size:9px;color:#cbd5e1;font-weight:800}
+.scoreHeader b{font-size:20px;line-height:1;color:#fff;grid-row:1 / span 2;grid-column:2;text-align:right}
+.scoreHeader small{font-size:8px;color:#cbd5e1}
+.gameStatsGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.gameStatsGrid div{background:#08140f;border:1px solid rgba(0,214,111,.25);border-radius:5px;padding:3px;text-align:center;display:grid;gap:1px}
+.gameStatsGrid strong{color:#00ff70;font-size:11px;line-height:1}
+.gameStatsGrid small{font-size:7px;color:#cbd5e1;white-space:nowrap}
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
 
@@ -493,10 +522,18 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .awayDot{background:#6366f1}
 
 .timeline{margin-top:5px;display:grid;gap:3px;font-size:8px}
+.timelineHeader{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;color:#9ca3af;font-size:7.5px;font-weight:900;text-align:center}
+.timelineHeader strong{color:#cbd5e1;font-size:7px}
+.timeTrack{position:relative;height:8px;background:#111827;border:1px solid rgba(255,255,255,.10);border-radius:999px;overflow:hidden;display:grid;grid-template-columns:repeat(5,1fr)}
+.timeTrack span{border-right:1px solid rgba(255,255,255,.10)}
+.timeTrack i{position:absolute;top:-2px;width:3px;height:12px;background:#ef4444;border-radius:999px;box-shadow:0 0 8px rgba(239,68,68,.8)}
 .halfLine{text-align:center;color:#ef4444;font-weight:900;border-top:1px solid rgba(239,68,68,.45);padding-top:3px}
 .extraTime{justify-self:center;background:#1f2937;color:#d1d5db;padding:2px 7px;border-radius:999px;font-size:7.8px;font-weight:800}
-.eventRow{display:flex;justify-content:space-between;gap:5px;color:#d1d5db;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:2px}
-.eventRow b{color:#fff}
+.eventRow{display:grid;grid-template-columns:24px 1fr;gap:5px;color:#d1d5db;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:2px;align-items:center}
+.eventRow b{color:#fff;text-align:left}
+.eventRow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eventHome span{color:#bbf7d0}
+.eventAway span{color:#c7d2fe}
 
 .miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
 .stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
