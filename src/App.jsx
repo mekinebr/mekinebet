@@ -806,4 +806,230 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 @media(max-width:520px){.page{padding:5px!important}h1{font-size:23px!important}.filters{grid-template-columns:repeat(3,1fr)!important}.search{height:32px!important}.proStats{padding:4px!important}.statsTopGrid{grid-template-columns:1fr!important}.metricPair{display:grid!important;grid-template-columns:80px 1fr!important;align-items:center!important}.metricPair small{text-align:left!important;height:auto!important;font-size:7px!important}.metricNumbers{grid-template-columns:34px 18px 34px!important;justify-content:end!important}.dualMiniBar{grid-column:1/-1!important}.statsMiddleRow{grid-template-columns:1fr!important}.sideCounters{grid-template-columns:repeat(3,1fr)!important}.flowLegend{display:none!important}}
 
+
+/* ===== CORREÇÃO FINAL MOBILE: ESTATÍSTICAS PROPORCIONAIS IGUAL PC ===== */
+@media(max-width:700px){
+  .proStats{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:4px!important;
+    min-height:auto!important;
+    padding:5px!important;
+  }
+
+  .statsTopGrid{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:3px!important;
+  }
+
+  .metricPair{
+    display:block!important;
+    min-width:0!important;
+    min-height:42px!important;
+    padding:3px!important;
+  }
+
+  .metricPair small{
+    display:block!important;
+    text-align:center!important;
+    height:10px!important;
+    font-size:5.7px!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    letter-spacing:-.25px!important;
+  }
+
+  .metricNumbers{
+    display:grid!important;
+    grid-template-columns:1fr 16px 1fr!important;
+    gap:1px!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-height:18px!important;
+  }
+
+  .metricNumbers b{
+    font-size:11px!important;
+    width:auto!important;
+    min-width:0!important;
+    text-align:center!important;
+  }
+
+  .metricVs{
+    width:16px!important;
+    height:16px!important;
+    background:conic-gradient(var(--home) 0 50%, var(--away) 50% 100%)!important;
+  }
+
+  .metricVs:before{inset:4px!important}
+  .metricVs:after{
+    font-size:7px!important;
+    left:5.4px!important;
+    top:2.4px!important;
+  }
+  .metricVs.danger:after{left:5px!important}
+  .metricVs.ball:after{left:5.8px!important;top:3px!important;font-size:6px!important}
+
+  .dualMiniBar{
+    grid-column:auto!important;
+    height:3px!important;
+    margin-top:1px!important;
+  }
+
+  .statsMiddleRow{
+    display:grid!important;
+    grid-template-columns:38px minmax(0,1fr) 38px!important;
+    gap:4px!important;
+    align-items:center!important;
+  }
+
+  .sideCounters{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    padding:2px!important;
+    gap:1px!important;
+    min-height:35px!important;
+  }
+
+  .sideCounters strong{
+    display:block!important;
+    grid-column:1/-1!important;
+    font-size:6px!important;
+    max-width:34px!important;
+  }
+
+  .sideCounters span{
+    font-size:8px!important;
+  }
+
+  .sideCounters b{
+    font-size:7px!important;
+  }
+
+  .shotBoxPro{
+    display:grid!important;
+    grid-template-columns:30px minmax(0,1fr) 30px!important;
+    gap:3px!important;
+    padding:3px 4px!important;
+    min-height:35px!important;
+  }
+
+  .shotBoxPro small{
+    font-size:5.9px!important;
+    height:8px!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+
+  .shotBoxPro strong{
+    font-size:11px!important;
+  }
+
+  .shotBoxPro .shotBars{
+    gap:2px!important;
+  }
+
+  .shotBoxPro .shotBars span,
+  .shotBoxPro .shotBars em{
+    height:3px!important;
+  }
+
+  .matchHero{
+    grid-template-columns:42px minmax(0,1fr) 42px!important;
+    height:60px!important;
+    min-height:60px!important;
+  }
+
+  .heroLogo{
+    width:31px!important;
+    height:31px!important;
+    max-width:31px!important;
+    max-height:31px!important;
+  }
+
+  .teamSide small{
+    font-size:6.8px!important;
+    max-width:39px!important;
+  }
+
+  .heroCenter h2{
+    font-size:11px!important;
+    line-height:1!important;
+  }
+
+  .heroCenter p{
+    font-size:7px!important;
+    margin:2px 0!important;
+  }
+
+  .heroCenter b{
+    font-size:22px!important;
+  }
+
+  .heroCenter strong{
+    font-size:10px!important;
+  }
+
+  .badges span{
+    font-size:7px!important;
+    padding:2px 5px!important;
+  }
+
+  .field3d{
+    height:62px!important;
+  }
+
+  .flowCard{
+    min-height:112px!important;
+    padding:4px!important;
+  }
+
+  .flowWrap{
+    height:68px!important;
+  }
+
+  .flowMinuteScale{
+    font-size:6.8px!important;
+  }
+}
+
+@media(max-width:520px){
+  .statsTopGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+
+  .metricPair{
+    display:block!important;
+  }
+
+  .metricPair small{
+    text-align:center!important;
+  }
+
+  .metricNumbers{
+    grid-template-columns:1fr 15px 1fr!important;
+  }
+
+  .statsMiddleRow{
+    grid-template-columns:36px minmax(0,1fr) 36px!important;
+  }
+
+  .sideCounters strong{
+    display:block!important;
+  }
+
+  .shotBoxPro{
+    grid-template-columns:28px minmax(0,1fr) 28px!important;
+  }
+
+  .shotBoxPro strong{
+    font-size:10px!important;
+  }
+}
+
 `;
