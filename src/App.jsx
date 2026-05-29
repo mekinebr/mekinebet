@@ -261,6 +261,7 @@ export default function App() {
             const times = timesDoJogo(item);
             const ballX = Math.min(82, Math.max(18, stats.ataques));
             const ballY = Math.min(72, Math.max(24, stats.perigosos + 22));
+            const min = minuto(item);
 
             return (
               <section key={item.id || index} className="card">
@@ -286,10 +287,46 @@ export default function App() {
                 </div>
 
                 <div className="bodyGrid">
-                  <div className="box scoreBox">
-                    <span>Placar</span>
-                    <b>{item.score || "0-0"}</b>
-                    <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
+                  <div className="leftSide">
+                    <div className="box scoreBox">
+                      <span>Placar</span>
+                      <b>{item.score || "0-0"}</b>
+                      <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
+                    </div>
+
+                    <div className="attackPanel">
+                      <div className="attackTitle">Momento de ataque</div>
+
+                      <div className="attackChart">
+                        {Array.from({ length: 34 }).map((_, i) => {
+                          const value = ((i * 7 + stats.ataques + stats.perigosos) % 28) + 7;
+                          const home = i % 3 !== 0;
+                          return (
+                            <span
+                              key={i}
+                              className={home ? "barUp" : "barDown"}
+                              style={{ height: `${value}px` }}
+                            />
+                          );
+                        })}
+                        <div className="chartMiddle"></div>
+                      </div>
+
+                      <div className="timeline">
+                        <div className="halfLine">2º tempo · {item.score || "0-0"}</div>
+                        <span className="extraTime">Tempo adicional 5</span>
+
+                        <div className="eventRow">
+                          <b>{Math.max(62, min || 62)}'</b>
+                          <span>⚽ Ataque perigoso</span>
+                        </div>
+
+                        <div className="eventRow">
+                          <b>{Math.max(72, min || 72)}'</b>
+                          <span>🚩 Escanteio perigoso</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="miniMap">
@@ -393,12 +430,12 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
 
-.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;height:350px;min-height:350px;max-height:350px}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:430px}
 
-.matchHero{position:relative;display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:8px;min-height:58px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
+.matchHero{position:relative;display:grid;grid-template-columns:50px minmax(0,1fr) 50px;align-items:center;gap:7px;min-height:54px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
 .matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:16px}
-.logoSlot{width:58px;height:58px;display:flex;align-items:center;justify-content:center}
-.heroLogo{width:54px;height:54px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.22);box-shadow:0 0 12px rgba(255,255,255,.15),0 0 20px rgba(0,255,120,.15)}
+.logoSlot{width:50px;height:50px;display:flex;align-items:center;justify-content:center}
+.heroLogo{width:46px;height:46px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.22);box-shadow:0 0 10px rgba(255,255,255,.12),0 0 16px rgba(0,255,120,.12)}
 .heroCenter{min-width:0;text-align:center}
 .heroCenter h2{color:#00ff70;font-size:14px;margin:0;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .heroCenter p{margin:4px 0 0;color:#c8d6cc;font-size:8.5px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -409,12 +446,25 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
 
-.bodyGrid{display:grid;grid-template-columns:.74fr 1.26fr;gap:6px;align-items:start}
+.bodyGrid{display:grid;grid-template-columns:.92fr 1.08fr;gap:6px;align-items:start}
+.leftSide{display:grid;gap:5px}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
-.scoreBox{height:70px;align-content:center}
+.scoreBox{height:64px;align-content:center}
 .scoreBox b{font-size:18px;line-height:1}
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
+
+.attackPanel{background:#06100d;border:1px solid #0f7a3e;border-radius:7px;padding:5px}
+.attackTitle{text-align:center;color:#cbd5e1;font-size:9px;font-weight:800;margin-bottom:3px}
+.attackChart{position:relative;height:44px;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:5px;display:flex;align-items:center;gap:2px;padding:3px;overflow:hidden}
+.barUp{width:4px;align-self:flex-start;background:#22c55e;border-radius:2px 2px 0 0;opacity:.85}
+.barDown{width:4px;align-self:flex-end;background:#6366f1;border-radius:0 0 2px 2px;opacity:.85}
+.chartMiddle{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.25)}
+.timeline{margin-top:5px;display:grid;gap:3px;font-size:8px}
+.halfLine{text-align:center;color:#ef4444;font-weight:900;border-top:1px solid rgba(239,68,68,.45);padding-top:3px}
+.extraTime{justify-self:center;background:#1f2937;color:#d1d5db;padding:2px 7px;border-radius:999px;font-size:7.8px;font-weight:800}
+.eventRow{display:flex;justify-content:space-between;gap:5px;color:#d1d5db;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:2px}
+.eventRow b{color:#fff}
 
 .miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
 .stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
@@ -467,10 +517,10 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .bodyGrid{grid-template-columns:1fr!important}
   .badges{justify-content:flex-start!important}
   .bars,.metricsRow{grid-template-columns:1fr!important}
-  .matchHero{grid-template-columns:52px minmax(0,1fr) 52px}
-  .logoSlot{width:52px;height:52px}
-  .heroLogo{width:50px;height:50px}
-  .card{height:auto;max-height:none;min-height:350px}
+  .matchHero{grid-template-columns:48px minmax(0,1fr) 48px}
+  .logoSlot{width:48px;height:48px}
+  .heroLogo{width:44px;height:44px}
+  .card{height:auto;max-height:none;min-height:430px}
   .stadium{max-width:100%;height:145px}
   .field3d{height:86px}
 }
