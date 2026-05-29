@@ -409,53 +409,57 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="attackFlow">
-                  <div className="flowTop">
-                    <span style={{ color: homeColor }}>{nomeCurto(times.casa)} em cima</span>
-                    <b>DINÂMICA DO JOGO</b>
-                    <span style={{ color: awayColor }}>{nomeCurto(times.fora)} embaixo</span>
+                <div className="attackFlow cleanFlow">
+                  <div className="flowTop cleanTop">
+                    <span style={{ color: homeColor }}>▲ {nomeCurto(times.casa)} atacando</span>
+                    <b>CRONOLOGIA DA PARTIDA</b>
+                    <span style={{ color: awayColor }}>▼ {nomeCurto(times.fora)} atacando</span>
                   </div>
 
-                  <div className="flowChart">
-                    <div className="flowMiddle"></div>
-                    <div className="flowNow" style={{ left: `${currentMinute}%` }}>
+                  <div className="flowChartClean">
+                    <div className="flowMinuteScale">
+                      <span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span>
+                    </div>
+
+                    <div className="flowMiddleClean"></div>
+
+                    <div className="flowNowClean" style={{ left: `${currentMinute}%` }}>
                       <small>{currentMinute}'</small>
                     </div>
 
-                    <div className="flowEvent goal" style={{ left: "25%", top: "2px" }}>⚽</div>
-                    <div className="flowEvent cardEvt" style={{ left: "46%", top: "50%" }}>🟨</div>
-                    <div className="flowEvent cornerEvt" style={{ left: "74%", bottom: "2px" }}>🚩</div>
+                    <div className="eventIcon ballEvt" style={{ left: "24%", top: "10px" }}>⚽</div>
+                    <div className="eventIcon cornerEvt" style={{ left: "46%", top: "42px" }}>🚩</div>
+                    <div className="eventIcon cardEvt" style={{ left: "72%", top: "12px" }}>🟨</div>
 
-                    {Array.from({ length: 46 }).map((_, i) => {
-                      const homeAttack = (i + index) % 5 !== 3;
-                      const dangerValue = (i * 11 + stats.perigosos + stats.ataques + index * 9) % 100;
-                      const danger = dangerValue > 82 ? "high" : dangerValue > 52 ? "mid" : "low";
-                      const height = danger === "high" ? 34 : danger === "mid" ? 23 : 11;
+                    {Array.from({ length: 34 }).map((_, i) => {
+                      const homeAttack = i % 2 === 0;
+                      const dangerValue = (i * 17 + stats.perigosos + index * 11) % 100;
+                      const danger = dangerValue > 82 ? "chance" : dangerValue > 55 ? "danger" : "normal";
+                      const height = danger === "chance" ? 31 : danger === "danger" ? 22 : 10;
+                      const minute = Math.round((i / 33) * 90);
 
                       return (
                         <span
                           key={i}
-                          className={`flowBar ${homeAttack ? "home" : "away"} ${danger}`}
+                          className={`attackStick ${homeAttack ? "homeStick" : "awayStick"} ${danger}`}
                           style={{
+                            left: `${(i / 33) * 100}%`,
                             height: `${height}px`,
                             background: homeAttack ? homeColor : awayColor,
-                            boxShadow: `0 0 7px ${homeAttack ? homeColor : awayColor}`
+                            boxShadow: danger === "chance" ? `0 0 8px ${homeAttack ? homeColor : awayColor}` : "none"
                           }}
-                          title={`${Math.round((i / 45) * 90)}' - ${homeAttack ? nomeCurto(times.casa) : nomeCurto(times.fora)}`}
+                          title={`${minute}' - ${homeAttack ? nomeCurto(times.casa) : nomeCurto(times.fora)} - ${danger === "chance" ? "quase gol" : danger === "danger" ? "ataque perigoso" : "ataque leve"}`}
                         />
                       );
                     })}
                   </div>
 
-                  <div className="flowScale">
-                    <span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span>
-                  </div>
-
-                  <div className="flowLegend">
-                    <span><i style={{ background: homeColor }}></i>Casa atacando</span>
-                    <span><i style={{ background: awayColor }}></i>Fora atacando</span>
-                    <span>⬆ perto do gol</span>
-                    <span>⬇ contra-ataque</span>
+                  <div className="flowLegend cleanLegend">
+                    <span><i style={{ background: homeColor }}></i>Casa em cima</span>
+                    <span><i style={{ background: awayColor }}></i>Fora embaixo</span>
+                    <span>⚽ gol</span>
+                    <span>🚩 canto</span>
+                    <span>🟨 cartão</span>
                   </div>
                 </div>
 
@@ -688,4 +692,182 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .flowTop span,.flowTop span:first-child,.flowTop span:last-child{text-align:center}
   .flowLegend{grid-template-columns:1fr 1fr}
 }
+/* ===== CRONOLOGIA LIMPA: SEM ATAQUES SIMULTÂNEOS ===== */
+.cleanFlow{
+  margin-top:6px!important;
+  padding:6px!important;
+  background:linear-gradient(180deg,#07140f,#050b09)!important;
+  border:1px solid #0f7a3e!important;
+  border-radius:8px!important;
+}
+
+.cleanTop{
+  display:grid!important;
+  grid-template-columns:1fr auto 1fr!important;
+  gap:5px!important;
+  align-items:center!important;
+  margin-bottom:4px!important;
+  font-size:7.5px!important;
+  font-weight:900!important;
+}
+
+.cleanTop b{
+  color:#fff!important;
+  font-size:8.5px!important;
+  letter-spacing:.3px!important;
+  text-align:center!important;
+}
+
+.cleanTop span:first-child{text-align:left!important}
+.cleanTop span:last-child{text-align:right!important}
+
+.flowChartClean{
+  position:relative;
+  height:82px;
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:7px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.04),transparent 40%),
+    linear-gradient(180deg,rgba(34,197,94,.10) 0%,rgba(34,197,94,.04) 48%,rgba(255,255,255,.16) 50%,rgba(99,102,241,.04) 52%,rgba(99,102,241,.10) 100%),
+    #101820;
+  overflow:hidden;
+  padding:0 8px;
+}
+
+.flowMinuteScale{
+  position:absolute;
+  left:8px;
+  right:8px;
+  top:4px;
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  color:#d1d5db;
+  font-size:7px;
+  font-weight:900;
+  text-align:center;
+  z-index:4;
+}
+
+.flowMinuteScale span{
+  border-left:1px solid rgba(255,255,255,.22);
+}
+
+.flowMinuteScale span:last-child{
+  border-right:1px solid rgba(255,255,255,.22);
+}
+
+.flowMiddleClean{
+  position:absolute;
+  left:8px;
+  right:8px;
+  top:50%;
+  height:1px;
+  background:rgba(255,255,255,.62);
+  z-index:3;
+}
+
+.attackStick{
+  position:absolute;
+  width:4px;
+  border-radius:999px;
+  z-index:5;
+  transform:translateX(-50%);
+  opacity:.95;
+}
+
+.homeStick{
+  bottom:calc(50% + 2px);
+}
+
+.awayStick{
+  top:calc(50% + 2px);
+}
+
+.attackStick.normal{
+  opacity:.58;
+}
+
+.attackStick.danger{
+  opacity:.86;
+  width:5px;
+}
+
+.attackStick.chance{
+  opacity:1;
+  width:6px;
+  filter:brightness(1.18);
+}
+
+.flowNowClean{
+  position:absolute;
+  top:16px;
+  bottom:8px;
+  width:2px;
+  background:#ef4444;
+  z-index:8;
+  box-shadow:0 0 8px #ef4444;
+}
+
+.flowNowClean small{
+  position:absolute;
+  bottom:-7px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#ef4444;
+  color:#fff;
+  border-radius:999px;
+  padding:1px 5px;
+  font-size:7px;
+  font-weight:900;
+}
+
+.eventIcon{
+  position:absolute;
+  z-index:9;
+  font-size:10px;
+  transform:translateX(-50%);
+  filter:drop-shadow(0 0 3px #000);
+}
+
+.cleanLegend{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin-top:4px!important;
+  font-size:7px!important;
+  color:#d1d5db!important;
+  font-weight:800!important;
+}
+
+.cleanLegend span{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+.cleanLegend i{
+  width:7px!important;
+  height:7px!important;
+  border-radius:50%!important;
+  display:inline-block!important;
+  flex:0 0 auto!important;
+}
+
+/* volta visual da estatística compacta anterior */
+.statsBet365{gap:2px!important}
+.gameStatsBox{min-height:132px!important}
+.statCompare{grid-template-columns:30px 1fr 30px!important;font-size:7.8px!important}
+.statCompare strong{font-size:8.5px!important}
+.compareBars{height:4px!important}
+
+@media(max-width:900px){
+  .cleanTop{grid-template-columns:1fr!important;text-align:center!important}
+  .cleanTop span,.cleanTop span:first-child,.cleanTop span:last-child{text-align:center!important}
+  .cleanLegend{grid-template-columns:1fr 1fr!important}
+}
+
 `;
