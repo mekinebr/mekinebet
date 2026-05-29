@@ -704,4 +704,60 @@ const css = `
   .sideCounters{grid-template-columns:repeat(3,1fr)!important}
 }
 
+
+
+/* ===== AJUSTE EXTRA: LOGOS MENORES, STATS PROPORCIONAIS E SINAL VISÍVEL ===== */
+.heroLogo{width:46px!important;height:46px!important}
+.matchHero{grid-template-columns:62px 1fr 62px!important;min-height:78px!important;height:78px!important}
+.teamSide small{font-size:9px!important;max-width:60px!important}
+.heroCenter h2{font-size:14px!important}
+.heroCenter b{font-size:27px!important}
+
+.statsTopGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important}
+.metricPair{border:1px solid rgba(255,255,255,.07)!important;border-radius:7px!important;background:rgba(0,0,0,.16)!important;padding:4px!important}
+.metricVs{background:conic-gradient(var(--home) 0 50%, var(--away) 50% 100%)!important}
+.metricVs:before{background:#07141a!important}
+.dualMiniBar{height:5px!important;background:#101820!important;gap:0!important}
+.dualMiniBar i{border-radius:999px 0 0 999px!important}
+.dualMiniBar em{border-radius:0 999px 999px 0!important}
+
+.shotBoxPro{grid-template-columns:40px 1fr 40px!important;padding:5px!important}
+.shotBoxPro .shotBars{gap:5px!important}
+.shotBoxPro .shotBars span,.shotBoxPro .shotBars em{height:5px!important;max-width:100%!important}
+.shotBoxPro small:after{content:'  •  1ª linha: Finalizações / 2ª linha: No gol';font-size:6.8px;color:#9ca3af;font-weight:800}
+
+.sideCounters{padding:4px 2px!important}
+.sideCounters strong{font-size:7.5px!important}
+
+.marketLine{border:1px solid rgba(250,204,21,.45)!important;background:linear-gradient(180deg,rgba(250,204,21,.09),rgba(0,0,0,.18))!important;box-shadow:0 0 12px rgba(250,204,21,.10)!important}
+.marketLine div:first-child b{font-size:13px!important;color:#fff!important;text-transform:uppercase!important;text-align:center!important}
+.marketLine div:first-child span{display:block!important;text-align:center!important;font-size:12px!important;color:#fff!important;font-weight:900!important}
+.marketLine div:first-child strong{display:block!important;text-align:center!important;font-size:14px!important;color:#facc15!important}
+.marketLine div:first-child{background:rgba(0,0,0,.22)!important;border-radius:7px!important;padding:5px!important;border:1px solid rgba(250,204,21,.25)!important}
+
+@media(max-width:700px){
+  .page{padding:6px!important}
+  h1{font-size:25px!important}
+  .statusWrap{gap:5px!important}.pill{padding:6px 8px!important;font-size:11px!important}
+  .filters{grid-template-columns:repeat(3,1fr)!important;gap:5px!important}
+  .filters button{font-size:9px!important;padding:7px 2px!important}
+  .card{padding:7px!important}
+  .matchHero{grid-template-columns:50px 1fr 50px!important;height:auto!important;min-height:70px!important}
+  .heroLogo{width:40px!important;height:40px!important}
+  .heroCenter h2{font-size:12px!important}
+  .heroCenter b{font-size:24px!important}
+  .badges{margin-top:0!important;justify-content:center!important}
+  .proStats{padding:6px 5px!important}
+  .statsTopGrid{grid-template-columns:1fr!important;gap:4px!important}
+  .metricPair{display:grid!important;grid-template-columns:72px 1fr!important;gap:4px!important;align-items:center!important}
+  .metricPair small{height:auto!important;text-align:left!important;font-size:7.8px!important}
+  .metricNumbers{grid-template-columns:35px 24px 35px!important;justify-content:center!important}
+  .dualMiniBar{grid-column:1/-1!important}
+  .statsMiddleRow{grid-template-columns:1fr!important;gap:5px!important}
+  .sideCounters{grid-template-columns:repeat(3,1fr)!important}
+  .shotBoxPro{grid-template-columns:38px 1fr 38px!important}
+  .miniMap{padding:0!important}.field3d{height:76px!important}
+  .flowLegend{grid-template-columns:repeat(2,1fr)!important}
+  .marketLine{grid-template-columns:1fr!important}
+}
 `;
