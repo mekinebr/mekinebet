@@ -286,18 +286,6 @@ export default function App() {
               perigosos: Math.max(6, Math.round(stats.perigosos * 0.55))
             };
 
-            const gols = String(item.score || "0-0").match(/\d+/g) || [0, 0];
-            const golsCasa = Number(gols[0] || 0);
-            const golsFora = Number(gols[1] || 0);
-            const timelineEvents = [
-              { min: 12, side: "home", icon: "⚡", label: "pressão" },
-              { min: 24, side: golsCasa > 0 ? "home" : "away", icon: golsCasa > 0 ? "⚽" : "🚩", label: golsCasa > 0 ? "gol" : "canto" },
-              { min: 41, side: stats.cantos >= awayStats.cantos ? "home" : "away", icon: "🚩", label: "canto" },
-              { min: 58, side: golsFora > 0 ? "away" : "home", icon: golsFora > 0 ? "⚽" : "🔥", label: golsFora > 0 ? "gol" : "chance" },
-              { min: 72, side: stats.perigosos >= awayStats.perigosos ? "home" : "away", icon: "🎯", label: "finalização" },
-              { min: 84, side: "away", icon: "🟨", label: "cartão" }
-            ];
-
             return (
               <section key={item.id || index} className="card">
                 <div className="matchHero">
@@ -399,35 +387,53 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="easyTimeline">
-                  <div className="timelineHead">
-                    <span>{nomeCurto(times.casa)}</span>
-                    <strong>CRONOLOGIA DO JOGO</strong>
-                    <span>{nomeCurto(times.fora)}</span>
+                <div className="attackTimeline">
+                  <div className="tlHeader">
+                    <span>📈 Momento de ataque</span>
+                    <b>{nomeCurto(times.casa)} em cima • {nomeCurto(times.fora)} embaixo</b>
                   </div>
 
-                  <div className="timelineTrack">
-                    <div className="halfMark mark45">45'</div>
-                    <div className="halfMark mark90">90'</div>
-                    <div className="centerTrack"></div>
+                  <div className="tlBody">
+                    <div className="tlTeams">
+                      <img src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
+                      <img src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
+                    </div>
 
-                    {timelineEvents.map((ev, evIndex) => (
+                    <div className="tlChart">
+                      <div className="tlCenterLine"></div>
                       <div
-                        key={evIndex}
-                        className={`timeEvent ${ev.side === "home" ? "homeEvent" : "awayEvent"}`}
-                        style={{ left: `${Math.min(96, Math.max(4, (ev.min / 90) * 100))}%` }}
-                        title={`${ev.min}' ${ev.label}`}
-                      >
-                        <span>{ev.icon}</span>
-                        <small>{ev.min}'</small>
-                      </div>
-                    ))}
+                        className="tlNowLine"
+                        style={{ left: `${Math.min(96, Math.max(4, ((minuto(item) || 67) / 90) * 100))}%` }}
+                      ></div>
+
+                      {Array.from({ length: 42 }).map((_, i) => {
+                        const fase = i / 41;
+                        const pertoAgora = Math.abs(fase - ((minuto(item) || 67) / 90)) < 0.12;
+                        const homeBase = ((i * 7 + stats.ataques + stats.perigosos) % 28) + 5;
+                        const awayBase = ((i * 5 + awayStats.ataques + awayStats.perigosos) % 24) + 5;
+                        const homePower = Math.min(34, homeBase + (pertoAgora && stats.perigosos >= awayStats.perigosos ? 10 : 0));
+                        const awayPower = Math.min(34, awayBase + (pertoAgora && awayStats.perigosos > stats.perigosos ? 10 : 0));
+                        const eventIcon = i === 7 || i === 29 ? "⚽" : i === 16 ? "🟨" : i === 34 ? "🚩" : "";
+
+                        return (
+                          <div className="tlColumn" key={i}>
+                            {eventIcon && <span className="tlEventIcon">{eventIcon}</span>}
+                            <i className="tlHomeBar" style={{ height: `${homePower}px` }}></i>
+                            <em className="tlAwayBar" style={{ height: `${awayPower}px` }}></em>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="timelineLegend">
-                    <span>🟢 Casa em cima</span>
-                    <span>🔵 Visitante em baixo</span>
-                    <span>⚽ gol · 🚩 canto · 🟨 cartão</span>
+                  <div className="tlFooter">
+                    <span>0'</span>
+                    <span>15'</span>
+                    <span>30'</span>
+                    <span>45'</span>
+                    <span>60'</span>
+                    <span>75'</span>
+                    <span>90'</span>
                   </div>
                 </div>
 
@@ -494,7 +500,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
 
-.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:405px}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:430px}
 
 .matchHero{position:relative;display:grid;grid-template-columns:50px minmax(0,1fr) 50px;align-items:center;gap:7px;min-height:54px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
 .matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:16px}
@@ -510,172 +516,34 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
 
-.bodyGrid{display:grid;grid-template-columns:.78fr 1.22fr;gap:6px;align-items:start}
+.bodyGrid{display:grid;grid-template-columns:.92fr 1.08fr;gap:6px;align-items:start}
 .leftSide{display:grid;gap:5px}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
-.gameStatsBox{min-height:118px;gap:4px}
+.gameStatsBox{min-height:132px;gap:6px}
 .scoreHeader{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px}
 .scoreHeader span{font-size:9px;color:#cbd5e1;font-weight:800}
 .scoreHeader b{font-size:20px;line-height:1;color:#fff;grid-row:1 / span 2;grid-column:2;text-align:right}
 .scoreHeader small{font-size:8px;color:#cbd5e1}
 .statsBet365{display:grid;gap:3px}
 .statsTitle{text-align:center;color:#00ff70;font-size:8px;font-weight:900;letter-spacing:.3px;margin-bottom:1px}
-.statCompare{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;gap:3px;font-size:7px}
-.statCompare strong{font-size:7.8px;color:#fff;font-weight:900;text-align:center}
+.statCompare{display:grid;grid-template-columns:30px 1fr 30px;align-items:center;gap:4px;font-size:7.8px}
+.statCompare strong{font-size:8.5px;color:#fff;font-weight:900;text-align:center}
 .statCompare span{color:#cbd5e1;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.compareBars{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:2px;height:3px;background:#1e293b;border-radius:999px;overflow:hidden}
+.compareBars{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:2px;height:4px;background:#1e293b;border-radius:999px;overflow:hidden}
 .compareBars i{justify-self:end;height:100%;background:#00ff70;border-radius:999px 0 0 999px}
 .compareBars em{justify-self:start;height:100%;background:#6366f1;border-radius:0 999px 999px 0}
-
-.easyTimeline{
-  margin-top:6px;
-  background:linear-gradient(180deg,#071a10,#06100d);
-  border:1px solid rgba(0,214,111,.45);
-  border-radius:8px;
-  padding:6px;
-}
-
-.timelineHead{
-  display:grid;
-  grid-template-columns:1fr auto 1fr;
-  align-items:center;
-  gap:6px;
-  font-size:8px;
-  font-weight:900;
-  color:#cbd5e1;
-  margin-bottom:5px;
-}
-
-.timelineHead strong{
-  color:#00ff70;
-  font-size:8.5px;
-  letter-spacing:.4px;
-}
-
-.timelineHead span:first-child{
-  color:#22c55e;
-  text-align:left;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.timelineHead span:last-child{
-  color:#60a5fa;
-  text-align:right;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.timelineTrack{
-  position:relative;
-  height:58px;
-  background:
-    linear-gradient(180deg,rgba(34,197,94,.16) 0%,rgba(34,197,94,.08) 48%,rgba(255,255,255,.22) 50%,rgba(96,165,250,.08) 52%,rgba(96,165,250,.18) 100%),
-    #101820;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:7px;
-  overflow:hidden;
-}
-
-.timelineTrack:before{
-  content:"0'";
-  position:absolute;
-  left:5px;
-  top:50%;
-  transform:translateY(-50%);
-  font-size:7px;
-  color:#94a3b8;
-  z-index:2;
-}
-
-.centerTrack{
-  position:absolute;
-  left:0;
-  right:0;
-  top:50%;
-  height:1px;
-  background:rgba(255,255,255,.35);
-}
-
-.halfMark{
-  position:absolute;
-  top:2px;
-  bottom:2px;
-  width:1px;
-  background:rgba(255,255,255,.18);
-  font-size:7px;
-  color:#94a3b8;
-  padding-left:3px;
-}
-
-.mark45{left:50%}
-.mark90{right:4px}
-
-.timeEvent{
-  position:absolute;
-  transform:translateX(-50%);
-  display:grid;
-  justify-items:center;
-  gap:1px;
-  z-index:4;
-}
-
-.timeEvent span{
-  width:20px;
-  height:20px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  background:#071a10;
-  border:1px solid rgba(255,255,255,.35);
-  box-shadow:0 0 8px rgba(0,0,0,.45);
-  font-size:11px;
-}
-
-.timeEvent small{
-  font-size:7px;
-  color:#e5e7eb;
-  font-weight:900;
-}
-
-.homeEvent{top:5px}
-.awayEvent{bottom:3px}
-
-.homeEvent span{
-  border-color:#22c55e;
-  box-shadow:0 0 8px rgba(34,197,94,.35);
-}
-
-.awayEvent span{
-  border-color:#60a5fa;
-  box-shadow:0 0 8px rgba(96,165,250,.35);
-}
-
-.timelineLegend{
-  margin-top:4px;
-  display:flex;
-  justify-content:space-between;
-  gap:4px;
-  flex-wrap:wrap;
-  font-size:7.5px;
-  color:#cbd5e1;
-  font-weight:800;
-}
-
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
 
 .miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
-.stadium{position:relative;width:100%;max-width:290px;margin:0 auto;height:126px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
+.stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
 .lights{position:absolute;left:0;right:0;top:0;height:34px;background:radial-gradient(circle at 10% 30%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 22% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 35% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 50% 12%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 65% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 78% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 90% 30%,rgba(255,255,255,.95),transparent 7%);filter:blur(.2px);opacity:.9}
 .eventBubble{position:absolute;z-index:6;top:15px;left:50%;transform:translateX(-50%);min-width:118px;height:32px;background:#050505;border-radius:999px;display:flex;align-items:center;gap:7px;padding:4px 10px;box-shadow:0 4px 12px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15)}
 .eventBubble span{width:24px;height:24px;background:#fff;color:#111;border-radius:50%;display:grid;place-items:center;font-size:12px}
 .eventBubble b{display:block;color:#fff;font-size:9.5px;line-height:1;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .eventBubble small{display:block;color:#9ca3af;font-size:8px}
 
-.field3d{position:absolute;left:8px;right:8px;bottom:8px;height:76px;border:1px solid rgba(255,255,255,.65);border-radius:5px;overflow:hidden;background:repeating-linear-gradient(90deg,#3d991f 0 22px,#2d841b 22px 44px);transform:perspective(220px) rotateX(38deg);transform-origin:center bottom;box-shadow:inset 0 10px 14px rgba(255,255,255,.15),inset 0 -10px 18px rgba(0,0,0,.35),0 10px 20px rgba(0,0,0,.55)}
+.field3d{position:absolute;left:8px;right:8px;bottom:8px;height:68px;border:1px solid rgba(255,255,255,.65);border-radius:5px;overflow:hidden;background:repeating-linear-gradient(90deg,#3d991f 0 22px,#2d841b 22px 44px);transform:perspective(220px) rotateX(38deg);transform-origin:center bottom;box-shadow:inset 0 10px 14px rgba(255,255,255,.15),inset 0 -10px 18px rgba(0,0,0,.35),0 10px 20px rgba(0,0,0,.55)}
 .grass{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 30%),repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 16px)}
 .shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.12),transparent 45%)}
 .midLine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.85)}
@@ -694,6 +562,23 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 @keyframes ballPulse{0%,100%{scale:1}50%{scale:1.35}}
 
 .stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8px;color:#f1f5f9;text-align:center}
+
+.attackTimeline{margin-top:5px;background:#071a10;border:1px solid #0f7a3e;border-radius:7px;padding:5px;overflow:hidden}
+.tlHeader{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}
+.tlHeader span{color:#00ff70;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap}
+.tlHeader b{color:#cbd5e1;font-size:7.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlBody{display:grid;grid-template-columns:24px 1fr;gap:4px;align-items:center}
+.tlTeams{display:grid;grid-template-rows:1fr 1fr;gap:3px;align-items:center;justify-items:center;height:76px}
+.tlTeams img{width:18px;height:18px;border-radius:50%;object-fit:contain;background:#fff;padding:1px;border:1px solid rgba(255,255,255,.35)}
+.tlChart{position:relative;height:76px;background:linear-gradient(180deg,rgba(34,197,94,.18) 0%,rgba(34,197,94,.08) 49%,rgba(255,255,255,.20) 50%,rgba(99,102,241,.09) 51%,rgba(99,102,241,.22) 100%),#111827;border:1px solid rgba(255,255,255,.14);border-radius:6px;display:flex;align-items:center;gap:2px;padding:4px;overflow:hidden}
+.tlColumn{position:relative;flex:1;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px;min-width:2px}
+.tlHomeBar{width:100%;max-width:5px;background:#22c55e;border-radius:2px 2px 0 0;box-shadow:0 0 4px rgba(34,197,94,.55);align-self:center}
+.tlAwayBar{width:100%;max-width:5px;background:#6366f1;border-radius:0 0 2px 2px;box-shadow:0 0 4px rgba(99,102,241,.55);align-self:center}
+.tlCenterLine{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.32);z-index:2}
+.tlNowLine{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:4;box-shadow:0 0 8px rgba(239,68,68,.8)}
+.tlEventIcon{position:absolute;top:-2px;font-size:9px;z-index:5;filter:drop-shadow(0 0 3px rgba(0,0,0,.9))}
+.tlFooter{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;color:#94a3b8;font-size:7px;font-weight:800;margin:3px 0 0 28px;text-align:center}
+
 .bars,.metricsRow{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;font-weight:900;margin-top:5px;align-items:center}
 .barBg{height:6px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:2px}
 .barGreen{height:100%;background:#00ff70}
@@ -721,7 +606,7 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .matchHero{grid-template-columns:48px minmax(0,1fr) 48px}
   .logoSlot{width:48px;height:48px}
   .heroLogo{width:44px;height:44px}
-  .card{height:auto;max-height:none;min-height:420px}
+  .card{height:auto;max-height:none;min-height:430px}
   .stadium{max-width:100%;height:145px}
   .field3d{height:86px}
 }
