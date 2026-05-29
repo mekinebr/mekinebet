@@ -760,4 +760,50 @@ const css = `
   .flowLegend{grid-template-columns:repeat(2,1fr)!important}
   .marketLine{grid-template-columns:1fr!important}
 }
+
+/* ===== PACOTE FINAL: PADRÃO BET365 COMPACTO / ALINHADO ===== */
+:root{--mb-border:rgba(0,214,111,.34)}
+.page{padding:7px!important;background:#111!important}
+.topBar{padding:0 2px!important;margin-bottom:6px!important}
+h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
+.subTitle{font-size:11px!important;font-weight:700!important}.pill{padding:7px 13px!important;border-radius:8px!important;font-size:13px!important}
+.notice{font-size:11px!important;padding:6px 8px!important;margin-bottom:6px!important}
+.filters{gap:5px!important;margin-bottom:6px!important;grid-template-columns:repeat(13,minmax(0,1fr))!important}
+.filters button{height:31px!important;padding:5px 3px!important;border-radius:6px!important;font-size:9px!important;font-weight:800!important;letter-spacing:-.15px!important;text-transform:none!important}
+.search{height:35px!important;padding:7px 10px!important;font-size:12px!important;margin-bottom:7px!important;border-radius:6px!important}
+.grid{gap:8px!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important}
+.card{padding:6px!important;min-height:560px!important;border-radius:9px!important;background:linear-gradient(180deg,#071519,#06110d)!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.matchHero{grid-template-columns:52px minmax(0,1fr) 52px!important;height:70px!important;min-height:70px!important;gap:5px!important;position:relative!important;z-index:3!important}
+.heroLogo{width:38px!important;height:38px!important;max-width:38px!important;max-height:38px!important;object-fit:contain!important;filter:drop-shadow(0 0 4px rgba(255,255,255,.18))!important}
+.teamSide{min-width:0!important;overflow:hidden!important}.teamSide small{font-size:8px!important;line-height:1!important;max-width:48px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.heroCenter{min-width:0!important;overflow:hidden!important}.heroCenter h2{font-size:13px!important;line-height:1.02!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}.heroCenter p{font-size:8.5px!important;margin:3px 0!important}.heroCenter b{font-size:26px!important}.heroCenter strong{font-size:11px!important}
+.badges{margin-top:-8px!important;margin-bottom:3px!important;min-height:18px!important;gap:3px!important;position:relative!important;z-index:8!important;justify-content:flex-end!important}.badges span{font-size:8px!important;padding:2px 6px!important}
+
+/* estatísticas compactas bet365 */
+.proStats{min-height:86px!important;padding:5px 5px!important;gap:4px!important;margin-bottom:5px!important;border-top:1px solid rgba(255,255,255,.06)!important;border-bottom:1px solid rgba(255,255,255,.06)!important;background:rgba(0,0,0,.06)!important}
+.statsTopGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}
+.metricPair{padding:3px 4px!important;border-radius:5px!important;background:rgba(255,255,255,.018)!important;border:1px solid rgba(255,255,255,.055)!important;min-height:44px!important}
+.metricPair small{font-size:6.8px!important;height:12px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#fff!important;font-weight:800!important}
+.metricNumbers{grid-template-columns:1fr 20px 1fr!important;min-height:22px!important}.metricNumbers b{font-size:14px!important}.metricVs{width:20px!important;height:20px!important;background:conic-gradient(var(--home) 0 50%, var(--away) 50% 100%)!important}.metricVs:before{inset:5px!important;background:#07141a!important}.metricVs:after{left:6.5px!important;top:3.2px!important;font-size:9px!important;color:#e5e7eb!important}.metricVs.danger:after{left:6px!important}.metricVs.ball:after{left:7px!important;top:4px!important;font-size:7px!important}.dualMiniBar{height:3px!important;margin-top:1px!important;gap:0!important;background:#0b1117!important}
+.statsMiddleRow{grid-template-columns:45px minmax(0,1fr) 45px!important;gap:5px!important}.sideCounters{font-size:8px!important;padding:2px!important;border-radius:5px!important}.sideCounters strong{font-size:6.8px!important;max-width:38px!important}.sideCounters b{font-size:8px!important}.sideCounters span{font-size:9px!important}
+.shotBoxPro{grid-template-columns:34px minmax(0,1fr) 34px!important;padding:4px 5px!important;border-radius:5px!important;gap:4px!important}.shotBoxPro small{font-size:6.8px!important;line-height:1!important}.shotBoxPro small:after{content:''!important}.shotBoxPro strong{font-size:13px!important}.shotBoxPro .shotBars{gap:3px!important}.shotBoxPro .shotBars span,.shotBoxPro .shotBars em{height:4px!important;border-radius:999px!important}
+
+/* mini campo compacto sem sinal no meio */
+.eventBubble{display:none!important}.miniMap{width:100%!important;max-width:none!important;margin:0 auto 5px!important;padding:0 4px!important}.field3d{height:72px!important;margin:5px auto 0!important;border-radius:12px!important;transform:perspective(245px) rotateX(25deg)!important}.mapStats{font-size:8px!important;margin-top:1px!important}.dot{width:6px!important;height:6px!important}
+
+/* cronologia menor, mais limpa e alinhada */
+.flowCard{margin-top:5px!important;min-height:132px!important;padding:5px!important;border-radius:7px!important}.flowCard h3{font-size:9.5px!important;height:13px!important;line-height:13px!important;margin-bottom:2px!important}.flowMinuteScale{font-size:7.5px!important;padding:0 8px 2px 42px!important}.flowWrap{height:82px!important;padding-left:42px!important;padding-right:8px!important;border-radius:6px!important}.flowWrap:before{left:42px!important;right:8px!important}.middleLine{left:42px!important;right:8px!important}.teamMini{width:38px!important;font-size:7px!important}.teamMini img{width:18px!important;height:18px!important}.homeMini{top:7px!important}.awayMini{bottom:7px!important}.flowSpike{width:1.6px!important;transform:translateX(-.8px)!important}.flowSpike.home{margin-bottom:1px!important}.flowSpike.away{margin-top:1px!important}.flowIcon{font-size:10px!important}.flowIcon.home{bottom:calc(50% + 24px)!important}.flowIcon.away{top:calc(50% + 24px)!important}.nowLine{width:1.6px!important}.nowLine b{font-size:8px!important;padding:1px 4px!important}.flowLegend{font-size:7px!important;gap:3px!important;min-height:14px!important;margin-top:4px!important}.flowLegend i{width:6px!important;height:6px!important}
+
+/* sinal principal mais visível porém compacto */
+.marketLine{margin-top:auto!important;min-height:54px!important;padding:6px!important;grid-template-columns:1.25fr 1fr!important;border-radius:7px!important}.marketLine div:first-child{padding:4px!important}.marketLine div:first-child b{font-size:12px!important}.marketLine div:first-child span{font-size:10px!important}.marketLine div:first-child strong{font-size:13px!important}.marketLine b{font-size:11px!important}.marketLine small{font-size:9px!important}.bar{height:5px!important}.bookies{height:32px!important;margin-top:5px!important;gap:6px!important}.bookies button{padding:6px 10px!important;min-width:68px!important;border-radius:5px!important;font-size:11px!important}
+
+/* celular organizado */
+@media(max-width:1100px){
+  .grid{grid-template-columns:1fr!important;gap:8px!important}.card{min-height:auto!important}.filters{grid-template-columns:repeat(4,1fr)!important}.filters button{font-size:8.5px!important}.topBar{flex-direction:column!important;align-items:flex-start!important}.statusWrap{gap:5px!important}.pill{font-size:11px!important;padding:6px 8px!important}
+  .matchHero{grid-template-columns:46px minmax(0,1fr) 46px!important;height:66px!important;min-height:66px!important}.heroLogo{width:34px!important;height:34px!important}.teamSide small{font-size:7.5px!important;max-width:42px!important}.heroCenter h2{font-size:12px!important}.heroCenter b{font-size:24px!important}.badges{margin-top:0!important;justify-content:center!important}
+  .statsTopGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:3px!important}.metricPair small{font-size:6px!important}.metricNumbers{grid-template-columns:1fr 18px 1fr!important}.metricNumbers b{font-size:12px!important}.metricVs{width:18px!important;height:18px!important}.metricVs:after{font-size:8px!important;left:6px!important;top:3px!important}
+  .statsMiddleRow{grid-template-columns:42px minmax(0,1fr) 42px!important;gap:4px!important}.shotBoxPro{grid-template-columns:32px minmax(0,1fr) 32px!important}.shotBoxPro strong{font-size:12px!important}.sideCounters strong{display:none!important}.field3d{height:68px!important}.flowCard{min-height:126px!important}.flowWrap{height:78px!important}.flowLegend{grid-template-columns:repeat(3,1fr)!important;overflow:hidden!important}.marketLine{grid-template-columns:1fr!important}.bookies button{min-width:auto!important;flex:1!important}
+}
+@media(max-width:520px){.page{padding:5px!important}h1{font-size:23px!important}.filters{grid-template-columns:repeat(3,1fr)!important}.search{height:32px!important}.proStats{padding:4px!important}.statsTopGrid{grid-template-columns:1fr!important}.metricPair{display:grid!important;grid-template-columns:80px 1fr!important;align-items:center!important}.metricPair small{text-align:left!important;height:auto!important;font-size:7px!important}.metricNumbers{grid-template-columns:34px 18px 34px!important;justify-content:end!important}.dualMiniBar{grid-column:1/-1!important}.statsMiddleRow{grid-template-columns:1fr!important}.sideCounters{grid-template-columns:repeat(3,1fr)!important}.flowLegend{display:none!important}}
+
 `;
