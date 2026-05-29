@@ -140,21 +140,16 @@ export default function App() {
                 <img className="heroLogo" src={logoFora(item)} alt="" />
               </div>
 
-              {/* Cronologia Sofascore Style */}
               <div className="timeline">
                 <div className="timelineTitle">📋 CRONOLOGIA DA PARTIDA</div>
                 <div className="timelineBar">
-                  <div className="teamSide">
-                    <img src={logoCasa(item)} alt="" />
-                  </div>
+                  <div className="teamSide"><img src={logoCasa(item)} alt="" /></div>
                   <div className="events">
                     <div className="event green">15' ⚽ Gol</div>
                     <div className="event yellow">28' 🟨 Cartão</div>
                     <div className="event green">42' ⚽ Gol</div>
                   </div>
-                  <div className="teamSide">
-                    <img src={logoFora(item)} alt="" />
-                  </div>
+                  <div className="teamSide"><img src={logoFora(item)} alt="" /></div>
                 </div>
               </div>
 
@@ -227,7 +222,6 @@ h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
 
 .card { background: linear-gradient(180deg, #102016, #0a1411); border: 1px solid #00d66f; border-radius: 10px; padding: 12px; min-height: 460px; }
 
-/* HEADER COM LOGOS GRANDES */
 .teams { display: flex; align-items: center; gap: 10px; }
 .teams img { width: 52px; height: 52px; border-radius: 50%; background: #fff; padding: 4px; border: 2px solid #1e3a2f; flex-shrink: 0; }
 
@@ -236,7 +230,6 @@ h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
 .away { text-align: left; }
 .vs { font-size: 15px; font-weight: 900; color: #00ff9d; padding: 0 8px; }
 
-/* CRONOLOGIA */
 .timeline { margin: 10px 0; background: #071a10; border: 1px solid #0f7a3e; border-radius: 10px; padding: 10px; }
 .timelineTitle { text-align: center; color: #00ff70; font-size: 11px; font-weight: 700; margin-bottom: 8px; }
 .timelineBar { display: flex; align-items: center; gap: 8px; background: #0a1f17; border-radius: 8px; padding: 6px; }
@@ -246,16 +239,7 @@ h1 { color: #00ff70; font-size: 28px; font-weight: 900; }
 .green { background: #22c55e; color: #111; }
 .yellow { background: #facc15; color: #000; }
 
-/* CAMPO 3D */
-.field {
-  height: 78px;
-  background: linear-gradient(180deg, #0f6b2e 0%, #0a5a25 50%, #0f6b2e 100%);
-  border: 3px solid #ffffff66;
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: inset 0 10px 20px rgba(0,0,0,0.6);
-}
+.field { height: 78px; background: linear-gradient(180deg, #0f6b2e, #0a5a25); border: 3px solid #ffffff66; border-radius: 12px; position: relative; overflow: hidden; }
 .ball { position: absolute; top: 41%; width: 14px; height: 14px; border-radius: 50%; }
 .home { background: #facc15; left: 34%; }
 .away { background: #00d9ff; left: 62%; }
