@@ -367,7 +367,7 @@ export default function App() {
                       <small>ATAQUES</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.ataques}</b>
-                        <span className="metricVs" style={{ background: `conic-gradient(${homeColor} 0 ${atkHomePct}%, ${awayColor} ${atkHomePct}% 100%)` }}></span>
+                        <span className="metricVs" style={{ "--pct": `${atkHomePct}%` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.ataques}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -380,7 +380,7 @@ export default function App() {
                       <small>ATAQUES PERIGOSOS</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
-                        <span className="metricVs danger" style={{ background: `conic-gradient(${homeColor} 0 ${dangerHomePct}%, ${awayColor} ${dangerHomePct}% 100%)` }}></span>
+                        <span className="metricVs danger" style={{ "--pct": `${dangerHomePct}%` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -393,7 +393,7 @@ export default function App() {
                       <small>% POSSE</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.posse}%</b>
-                        <span className="metricVs ball" style={{ background: `conic-gradient(${homeColor} 0 ${posseHomePct}%, ${awayColor} ${posseHomePct}% 100%)` }}></span>
+                        <span className="metricVs ball" style={{ "--pct": `${posseHomePct}%` }}></span>
                         <b style={{ color: awayColor }}>{stats.away.posse}%</b>
                       </div>
                       <div className="dualMiniBar">
@@ -1161,4 +1161,208 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
   }
 }
 
+
+
+/* ===== CORREÇÃO DEFINITIVA MOBILE: CARTÕES EM CADA LADO + GRÁFICO REDONDO PROPORCIONAL ===== */
+
+/* Mantém o layout das estatísticas igual ao PC também no celular */
+@media(max-width:700px){
+  .proStats{
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:4px!important;
+  }
+
+  .statsTopGrid{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:3px!important;
+  }
+
+  .metricPair{
+    display:block!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+
+  .metricNumbers{
+    display:grid!important;
+    grid-template-columns:minmax(20px,1fr) 18px minmax(20px,1fr)!important;
+    justify-items:center!important;
+    align-items:center!important;
+  }
+
+  .metricNumbers b{
+    display:block!important;
+    min-width:0!important;
+    width:auto!important;
+    text-align:center!important;
+    font-size:11px!important;
+  }
+
+  /* O gráfico redondo volta a aparecer e muda conforme a proporção real */
+  .metricVs,
+  .metricVs.danger,
+  .metricVs.ball{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    min-height:18px!important;
+    border-radius:50%!important;
+    position:relative!important;
+    flex:0 0 18px!important;
+    background:conic-gradient(var(--home) 0 var(--pct,50%), var(--away) var(--pct,50%) 100%)!important;
+    box-shadow:0 0 5px rgba(255,255,255,.16)!important;
+  }
+
+  .metricVs:before,
+  .metricVs.danger:before,
+  .metricVs.ball:before{
+    content:""!important;
+    position:absolute!important;
+    inset:4px!important;
+    background:#07141a!important;
+    border-radius:50%!important;
+    z-index:1!important;
+  }
+
+  .metricVs:after{
+    content:"▶"!important;
+    position:absolute!important;
+    left:5.8px!important;
+    top:2.6px!important;
+    color:#e5e7eb!important;
+    font-size:7px!important;
+    z-index:2!important;
+  }
+
+  .metricVs.danger:after{
+    content:"➤"!important;
+    left:5.2px!important;
+    top:2.4px!important;
+  }
+
+  .metricVs.ball:after{
+    content:"●"!important;
+    left:6.5px!important;
+    top:3.2px!important;
+    font-size:6px!important;
+  }
+
+  /* Cartões/escanteios sempre separados: casa esquerda, fora direita */
+  .statsMiddleRow{
+    display:grid!important;
+    grid-template-columns:42px minmax(0,1fr) 42px!important;
+    grid-template-areas:"home shots away"!important;
+    align-items:center!important;
+    gap:4px!important;
+  }
+
+  .sideHome{
+    grid-area:home!important;
+    justify-self:stretch!important;
+  }
+
+  .sideAway{
+    grid-area:away!important;
+    justify-self:stretch!important;
+  }
+
+  .shotBoxPro{
+    grid-area:shots!important;
+    min-width:0!important;
+  }
+
+  .sideCounters{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:1px!important;
+    align-items:center!important;
+    justify-items:center!important;
+    min-height:35px!important;
+    padding:2px!important;
+  }
+
+  .sideCounters strong{
+    display:block!important;
+    grid-column:1/-1!important;
+    font-size:6px!important;
+    max-width:36px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+
+  .sideCounters span{
+    display:grid!important;
+    justify-items:center!important;
+    font-size:8px!important;
+    line-height:1!important;
+  }
+
+  .sideCounters b{
+    font-size:7px!important;
+    line-height:1!important;
+  }
+
+  /* Finalizações e chutes ao gol: duas linhas proporcionais, casa vs fora */
+  .shotSplitBars{
+    display:grid!important;
+    gap:2px!important;
+  }
+
+  .splitBar{
+    width:100%!important;
+    height:3px!important;
+    display:flex!important;
+    overflow:hidden!important;
+    border-radius:999px!important;
+    background:#0b1117!important;
+  }
+
+  .splitBar i,
+  .splitBar em{
+    display:block!important;
+    height:100%!important;
+    min-width:1px!important;
+  }
+}
+
+/* Em celulares menores, não empilha os cartões dos dois times: mantém casa | finalizações | fora */
+@media(max-width:520px){
+  .statsTopGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+
+  .metricPair{
+    display:block!important;
+    min-height:42px!important;
+  }
+
+  .metricPair small{
+    text-align:center!important;
+    font-size:5.6px!important;
+  }
+
+  .statsMiddleRow{
+    grid-template-columns:40px minmax(0,1fr) 40px!important;
+    grid-template-areas:"home shots away"!important;
+  }
+
+  .sideCounters{
+    grid-template-columns:repeat(3,1fr)!important;
+  }
+
+  .sideCounters strong{
+    display:block!important;
+  }
+
+  .shotBoxPro{
+    grid-template-columns:30px minmax(0,1fr) 30px!important;
+  }
+}
 `;
