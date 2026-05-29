@@ -158,6 +158,23 @@ export default function App() {
     return { home, away };
   }
 
+
+  function climaDoJogo(item, index = 0) {
+    const raw = String(item.weather || item.clima || item.condition || "").toLowerCase();
+    if (raw.includes("rain") || raw.includes("chuva")) return { icon: "🌧️", label: "Chuva", cls: "rain" };
+    if (raw.includes("storm") || raw.includes("temp")) return { icon: "⛈️", label: "Temporal", cls: "rain" };
+    if (raw.includes("cloud") || raw.includes("nublado")) return { icon: "☁️", label: "Nublado", cls: "cloud" };
+    if (raw.includes("sun") || raw.includes("sol") || raw.includes("clear") || raw.includes("limpo")) return { icon: "☀️", label: "Sol", cls: "sun" };
+
+    const presets = [
+      { icon: "☀️", label: "Sol", cls: "sun" },
+      { icon: "🌧️", label: "Chuva leve", cls: "rain" },
+      { icon: "☁️", label: "Nublado", cls: "cloud" },
+      { icon: "🌦️", label: "Tempo instável", cls: "rain" }
+    ];
+    return presets[index % presets.length];
+  }
+
   function mercadoStatus(item) {
     const gols = totalGols(item);
     const min = minuto(item);
@@ -328,6 +345,7 @@ export default function App() {
             const homeColor = teamColor(times.casa, "#22c55e");
             const awayColor = teamColor(times.fora, "#6366f1");
             const currentMinute = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
+            const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
@@ -436,11 +454,14 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="miniMap">
+                <div className={`miniMap weather-${weather.cls}`}>
                   <div className="eventBubble"><span>⚽</span><div><b>{status.replace("🔥", "")}</b><small>{item.pressure || 70}% pressão</small></div></div>
+                  <div className="weatherBadge"><span>{weather.icon}</span><b>{weather.label}</b></div>
+                  <div className="stadiumLights"><i></i><i></i><i></i><i></i><i></i></div>
                   <div className="field3d">
                     <div className="grass"></div><div className="shade"></div><div className="midLine"></div><div className="centerCircle"></div><div className="boxLeft"></div><div className="boxRight"></div><div className="goalLeft"></div><div className="goalRight"></div>
                     <div className="dot d1" style={{ background: homeColor }}></div><div className="dot d2" style={{ background: homeColor }}></div><div className="dot d3" style={{ background: awayColor }}></div><div className="dot d4" style={{ background: awayColor }}></div>
+                    <div className="weatherLayer"></div>
                   </div>
                   <div className="mapStats"><span>Posse {stats.home.posse}%</span><span>Final. {stats.home.finalizacoes}</span><span>Atq. {stats.home.ataques}</span></div>
                 </div>
@@ -1365,4 +1386,131 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
     grid-template-columns:30px minmax(0,1fr) 30px!important;
   }
 }
+
+/* ===== AJUSTE FINAL: GRÁFICO REDONDO PC + MOBILE E MINI CAMPO 5D COM CLIMA ===== */
+.metricVs{
+  display:block!important;
+  border-radius:50%!important;
+  background:conic-gradient(var(--home) 0 var(--pct,50%), var(--away) var(--pct,50%) 100%)!important;
+  box-shadow:0 0 8px rgba(255,255,255,.16), inset 0 0 2px rgba(255,255,255,.35)!important;
+  flex:none!important;
+}
+.metricVs:before{display:block!important;content:""!important;position:absolute!important;border-radius:50%!important;background:#07141a!important;z-index:1!important}
+.metricVs:after{display:block!important;z-index:2!important}
+.statsTopGrid .metricPair .metricNumbers .metricVs{visibility:visible!important;opacity:1!important}
+
+/* PC mantém os redondos visíveis */
+@media(min-width:701px){
+  .metricVs{width:22px!important;height:22px!important;position:relative!important}
+  .metricVs:before{inset:5px!important}
+  .metricVs:after{left:7px!important;top:3.5px!important;font-size:9px!important;color:#e5e7eb!important;position:absolute!important}
+  .metricVs.danger:after{left:6.5px!important}
+  .metricVs.ball:after{left:7.5px!important;top:4px!important;font-size:7px!important}
+}
+
+/* Mobile também mantém os redondos visíveis, sem sumir */
+@media(max-width:700px){
+  .metricVs{width:16px!important;height:16px!important;position:relative!important;min-width:16px!important;min-height:16px!important}
+  .metricVs:before{inset:4px!important}
+  .metricVs:after{left:5.4px!important;top:2.4px!important;font-size:7px!important;position:absolute!important;color:#e5e7eb!important}
+  .metricVs.danger:after{left:5px!important}
+  .metricVs.ball:after{left:5.8px!important;top:3px!important;font-size:6px!important}
+}
+
+/* Mini campo mais realista 5D, com estádio, luz e clima */
+.miniMap{
+  position:relative!important;
+  perspective:520px!important;
+  isolation:isolate!important;
+  overflow:hidden!important;
+  border-radius:14px!important;
+}
+.stadiumLights{
+  position:absolute!important;
+  left:18px!important;
+  right:18px!important;
+  top:0!important;
+  height:18px!important;
+  display:flex!important;
+  justify-content:space-around!important;
+  pointer-events:none!important;
+  z-index:3!important;
+}
+.stadiumLights i{
+  width:24px!important;
+  height:13px!important;
+  border-radius:0 0 18px 18px!important;
+  background:radial-gradient(circle at 50% 15%,rgba(255,255,255,.95),rgba(190,230,255,.45) 38%,transparent 72%)!important;
+  filter:blur(.2px)!important;
+  opacity:.8!important;
+}
+.weatherBadge{
+  position:absolute!important;
+  right:10px!important;
+  top:7px!important;
+  z-index:5!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  padding:3px 7px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  background:rgba(2,6,10,.68)!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.35)!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  color:#e5e7eb!important;
+}
+.weatherBadge span{font-size:12px!important;line-height:1!important}
+.field3d{
+  height:76px!important;
+  margin-top:10px!important;
+  border-radius:14px!important;
+  background:
+    radial-gradient(circle at 50% -20%,rgba(255,255,255,.22),transparent 30%),
+    repeating-linear-gradient(90deg,#41a72b 0 24px,#2f8d22 24px 48px)!important;
+  transform:perspective(360px) rotateX(31deg) scale(1.01)!important;
+  transform-origin:center bottom!important;
+  box-shadow:
+    inset 0 11px 18px rgba(255,255,255,.14),
+    inset 0 -24px 24px rgba(0,0,0,.42),
+    0 11px 18px rgba(0,0,0,.55)!important;
+}
+.field3d:before{
+  content:""!important;
+  position:absolute!important;
+  inset:-8px 0 0!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 38%,rgba(0,0,0,.24))!important;
+  z-index:1!important;
+  pointer-events:none!important;
+}
+.field3d:after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 10px),
+    radial-gradient(circle at 52% 42%,rgba(255,255,255,.15),transparent 40%)!important;
+  z-index:1!important;
+  pointer-events:none!important;
+}
+.field3d > *{position:absolute;z-index:2}.field3d .weatherLayer{z-index:4!important;pointer-events:none!important;inset:0!important}
+.weather-rain .weatherLayer{
+  background:repeating-linear-gradient(115deg,rgba(180,220,255,.0) 0 7px,rgba(180,220,255,.55) 7px 8px,rgba(180,220,255,.0) 8px 14px)!important;
+  opacity:.42!important;
+  animation:rainMove .7s linear infinite!important;
+}
+.weather-rain .field3d{filter:saturate(.9) brightness(.88)!important}
+.weather-cloud .field3d{filter:saturate(.9) brightness(.82)!important}
+.weather-sun .field3d{filter:saturate(1.15) brightness(1.08)!important}
+.weather-sun .weatherLayer{background:radial-gradient(circle at 82% 7%,rgba(255,220,90,.25),transparent 22%)!important}
+.weather-cloud .weatherLayer{background:linear-gradient(180deg,rgba(180,200,220,.25),transparent 40%)!important}
+@keyframes rainMove{from{background-position:0 0}to{background-position:-12px 22px}}
+
+@media(max-width:700px){
+  .field3d{height:66px!important;margin-top:8px!important;transform:perspective(330px) rotateX(29deg) scale(1.01)!important}
+  .weatherBadge{right:8px!important;top:5px!important;font-size:7px!important;padding:2px 6px!important}
+  .weatherBadge span{font-size:10px!important}.stadiumLights{height:14px!important;left:14px!important;right:14px!important}.stadiumLights i{width:18px!important;height:10px!important}
+}
+
 `;
