@@ -27,7 +27,12 @@ const DEMO_SIGNALS = [
 ];
 
 const normalizar = (v = "") =>
-  String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  String(v)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const fallbackLogo = (name = "Time") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
@@ -109,7 +114,7 @@ export default function App() {
   }
 
   function minuto(item) {
-    return Number(String(item.minute || 72).replace(/\D/g, "")) || 72;
+    return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
   }
 
   function statsDoJogo(item) {
@@ -175,23 +180,27 @@ export default function App() {
     return item.category?.toUpperCase() || "BASE";
   }
 
-  function isVip(item) {
-    return (item.confidence || 70) >= 82 || String(item.alert || "").includes("GOL");
+  function teamColor(nome = "", fallback = "#22c55e") {
+    const key = normalizar(nome);
+    const colors = {
+      "ipswich town fc": "#2563eb",
+      "west ham united fc": "#7f1d1d",
+      "liverpool fc": "#ef4444",
+      "crystal palace fc": "#2563eb",
+      "southampton fc": "#dc2626",
+      "arsenal fc": "#ef4444",
+      "tottenham hotspur fc": "#f8fafc",
+      "brighton & hove albion fc": "#2563eb",
+      "wolverhampton wanderers fc": "#facc15",
+      "brentford fc": "#ef4444",
+      "newcastle united fc": "#f8fafc",
+      "everton fc": "#2563eb"
+    };
+    return colors[key] || fallback;
   }
 
-  function gerarMomentos(item, stats, awayStats) {
-    const minAtual = minuto(item);
-    return Array.from({ length: 18 }).map((_, i) => {
-      const minutoBloco = i * 5;
-      const faseFinal = minutoBloco > minAtual - 15;
-      const casaBase = ((i * 13 + stats.ataques + stats.perigosos) % 36) + 10;
-      const foraBase = ((i * 11 + awayStats.ataques + awayStats.perigosos) % 32) + 8;
-      return {
-        min: minutoBloco,
-        casa: Math.min(52, Math.max(8, faseFinal ? casaBase + 10 : casaBase)),
-        fora: Math.min(52, Math.max(8, faseFinal ? foraBase - 4 : foraBase))
-      };
-    });
+  function isVip(item) {
+    return (item.confidence || 70) >= 82 || String(item.alert || "").includes("GOL");
   }
 
   const sinaisFiltrados = useMemo(() => {
@@ -285,7 +294,9 @@ export default function App() {
             const vip = isVip(item);
             const liveReal = item.type === "live";
             const times = timesDoJogo(item);
-            const minAtual = minuto(item);
+            const homeColor = teamColor(times.casa, "#22c55e");
+            const awayColor = teamColor(times.fora, "#6366f1");
+            const currentMinute = Math.min(90, Math.max(1, minuto(item) || 72));
             const ballX = Math.min(82, Math.max(18, stats.ataques));
             const ballY = Math.min(72, Math.max(24, stats.perigosos + 22));
             const awayStats = {
@@ -296,9 +307,6 @@ export default function App() {
               cartoes: Math.max(1, Math.round(stats.cartoes * 1.35)),
               perigosos: Math.max(6, Math.round(stats.perigosos * 0.55))
             };
-            const momentos = gerarMomentos(item, stats, awayStats);
-            const casaForte = stats.perigosos >= awayStats.perigosos;
-            const tendencia = casaForte ? `${nomeCurto(times.casa)} pressiona mais` : `${nomeCurto(times.fora)} pressiona mais`;
 
             return (
               <section key={item.id || index} className="card">
@@ -329,45 +337,36 @@ export default function App() {
                       <div className="scoreHeader">
                         <span>Placar</span>
                         <b>{item.score || "0-0"}</b>
-                        <small>{liveReal ? `${item.minute || minAtual}'` : "Pré/Base"}</small>
+                        <small>{liveReal ? `${item.minute || 0}'` : "Pré/Base"}</small>
                       </div>
 
-                      <div className="statsPro">
-                        <div className="statsProTitle">ESTATÍSTICAS DA PARTIDA</div>
+                      <div className="statsBet365">
+                        <div className="statsTitle">📊 ESTATÍSTICAS AO VIVO</div>
 
-                        <div className="attackMeters">
-                          <div>
-                            <span>Ataques</span>
-                            <strong>{stats.ataques}</strong>
-                            <i>➤</i>
-                            <strong>{awayStats.ataques}</strong>
-                          </div>
-                          <div>
-                            <span>Perigosos</span>
-                            <strong>{stats.perigosos}</strong>
-                            <i>➤</i>
-                            <strong>{awayStats.perigosos}</strong>
-                          </div>
-                        </div>
+                        {[
+                          ["Posse", `${stats.posse}%`, `${awayStats.posse}%`, stats.posse, awayStats.posse],
+                          ["Finalizações", stats.finalizacoes, awayStats.finalizacoes, stats.finalizacoes, awayStats.finalizacoes],
+                          ["Ataques", stats.ataques, awayStats.ataques, stats.ataques, awayStats.ataques],
+                          ["Perigosos", stats.perigosos, awayStats.perigosos, stats.perigosos, awayStats.perigosos],
+                          ["Cantos", stats.cantos, awayStats.cantos, stats.cantos, awayStats.cantos],
+                          ["Cartões", stats.cartoes, awayStats.cartoes, stats.cartoes, awayStats.cartoes]
+                        ].map(([label, homeValue, awayValue, homeRaw, awayRaw]) => {
+                          const total = Math.max(1, Number(homeRaw) + Number(awayRaw));
+                          const homePct = Math.round((Number(homeRaw) / total) * 100);
+                          const awayPct = 100 - homePct;
 
-                        <div className="shotLine">
-                          <small>Finalizações / No Gol</small>
-                          <b>{stats.finalizacoes}/{Math.max(1, Math.round(stats.finalizacoes / 2))}</b>
-                          <div className="shotBar">
-                            <span style={{ width: `${Math.min(85, stats.finalizacoes * 5)}%` }}></span>
-                            <em style={{ width: `${Math.min(85, awayStats.finalizacoes * 5)}%` }}></em>
-                          </div>
-                          <b>{awayStats.finalizacoes}/{Math.max(0, Math.round(awayStats.finalizacoes / 3))}</b>
-                        </div>
-
-                        <div className="cardStats">
-                          <span>🚩 {stats.cantos}</span>
-                          <span>🟨 {stats.cartoes}</span>
-                          <span>🟥 0</span>
-                          <span>🟥 0</span>
-                          <span>🟨 {awayStats.cartoes}</span>
-                          <span>🚩 {awayStats.cantos}</span>
-                        </div>
+                          return (
+                            <div className="statCompare" key={label}>
+                              <strong>{homeValue}</strong>
+                              <span>{label}</span>
+                              <strong>{awayValue}</strong>
+                              <div className="compareBars">
+                                <i style={{ width: `${homePct}%` }}></i>
+                                <em style={{ width: `${awayPct}%` }}></em>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -410,47 +409,53 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="attackTimeline">
-                  <div className="timelineHead">
-                    <b>📈 Momento de ataque</b>
-                    <span>{tendencia}</span>
+                <div className="attackFlow">
+                  <div className="flowTop">
+                    <span style={{ color: homeColor }}>{nomeCurto(times.casa)} em cima</span>
+                    <b>DINÂMICA DO JOGO</b>
+                    <span style={{ color: awayColor }}>{nomeCurto(times.fora)} embaixo</span>
                   </div>
 
-                  <div className="timelineTeams">
-                    <span className="homeTeamDot">
-                      <img src={logoCasa(item)} alt="" /> {nomeCurto(times.casa)}
-                    </span>
-                    <span className="awayTeamDot">
-                      {nomeCurto(times.fora)} <img src={logoFora(item)} alt="" />
-                    </span>
-                  </div>
-
-                  <div className="momentumChart">
-                    <div className="centerLine"></div>
-                    <div className="nowLine" style={{ left: `${Math.min(97, Math.max(3, (minAtual / 90) * 100))}%` }}>
-                      <small>{minAtual}'</small>
+                  <div className="flowChart">
+                    <div className="flowMiddle"></div>
+                    <div className="flowNow" style={{ left: `${currentMinute}%` }}>
+                      <small>{currentMinute}'</small>
                     </div>
 
-                    <div className="eventIcon goalIcon" style={{ left: "26%" }}>⚽</div>
-                    <div className="eventIcon cardIcon" style={{ left: "48%" }}>🟨</div>
-                    <div className="eventIcon cornerIcon" style={{ left: "76%" }}>🚩</div>
+                    <div className="flowEvent goal" style={{ left: "25%", top: "2px" }}>⚽</div>
+                    <div className="flowEvent cardEvt" style={{ left: "46%", top: "50%" }}>🟨</div>
+                    <div className="flowEvent cornerEvt" style={{ left: "74%", bottom: "2px" }}>🚩</div>
 
-                    {momentos.map((m) => (
-                      <div className="momentColumn" key={m.min}>
-                        <span className="homeMoment" style={{ height: `${m.casa}%` }}></span>
-                        <span className="awayMoment" style={{ height: `${m.fora}%` }}></span>
-                      </div>
-                    ))}
+                    {Array.from({ length: 46 }).map((_, i) => {
+                      const homeAttack = (i + index) % 5 !== 3;
+                      const dangerValue = (i * 11 + stats.perigosos + stats.ataques + index * 9) % 100;
+                      const danger = dangerValue > 82 ? "high" : dangerValue > 52 ? "mid" : "low";
+                      const height = danger === "high" ? 34 : danger === "mid" ? 23 : 11;
+
+                      return (
+                        <span
+                          key={i}
+                          className={`flowBar ${homeAttack ? "home" : "away"} ${danger}`}
+                          style={{
+                            height: `${height}px`,
+                            background: homeAttack ? homeColor : awayColor,
+                            boxShadow: `0 0 7px ${homeAttack ? homeColor : awayColor}`
+                          }}
+                          title={`${Math.round((i / 45) * 90)}' - ${homeAttack ? nomeCurto(times.casa) : nomeCurto(times.fora)}`}
+                        />
+                      );
+                    })}
                   </div>
 
-                  <div className="timeScale">
-                    <span>0'</span>
-                    <span>15'</span>
-                    <span>30'</span>
-                    <span>45'</span>
-                    <span>60'</span>
-                    <span>75'</span>
-                    <span>90'</span>
+                  <div className="flowScale">
+                    <span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span>
+                  </div>
+
+                  <div className="flowLegend">
+                    <span><i style={{ background: homeColor }}></i>Casa atacando</span>
+                    <span><i style={{ background: awayColor }}></i>Fora atacando</span>
+                    <span>⬆ perto do gol</span>
+                    <span>⬇ contra-ataque</span>
                   </div>
                 </div>
 
@@ -517,14 +522,15 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .search{width:100%;background:#202b2b;border:1px solid #00d66f;color:#fff;padding:9px;border-radius:7px;margin-bottom:7px;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
 
-.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:480px}
+.card{background:linear-gradient(180deg,#102016,#0a1411);border:1px solid rgba(0,214,111,.58);border-radius:9px;padding:7px;box-shadow:0 0 8px rgba(0,255,80,.08);overflow:hidden;display:flex;flex-direction:column;min-height:360px}
 
-.matchHero{position:relative;display:grid;grid-template-columns:46px minmax(0,1fr) 46px;align-items:center;gap:7px;min-height:52px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
-.logoSlot{width:46px;height:46px;display:flex;align-items:center;justify-content:center}
-.heroLogo{width:42px;height:42px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.22);box-shadow:0 0 10px rgba(255,255,255,.12),0 0 16px rgba(0,255,120,.12)}
+.matchHero{position:relative;display:grid;grid-template-columns:50px minmax(0,1fr) 50px;align-items:center;gap:7px;min-height:54px;padding:5px 8px;margin-bottom:5px;border:1px solid rgba(0,214,111,.45);border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 100%,rgba(0,255,112,.18),transparent 45%),linear-gradient(180deg,#101f18,#07100c);box-shadow:inset 0 0 18px rgba(0,255,112,.06)}
+.matchHero:after{content:"✦";position:absolute;right:8px;bottom:2px;color:rgba(255,255,255,.35);font-size:16px}
+.logoSlot{width:50px;height:50px;display:flex;align-items:center;justify-content:center}
+.heroLogo{width:46px;height:46px;border-radius:50%;object-fit:contain;background:#fff;padding:3px;border:2px solid rgba(255,255,255,.22);box-shadow:0 0 10px rgba(255,255,255,.12),0 0 16px rgba(0,255,120,.12)}
 .heroCenter{min-width:0;text-align:center}
-.heroCenter h2{color:#00ff70;font-size:13.5px;margin:0;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
-.heroCenter p{margin:4px 0 0;color:#c8d6cc;font-size:8px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heroCenter h2{color:#00ff70;font-size:14px;margin:0;line-height:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.heroCenter p{margin:4px 0 0;color:#c8d6cc;font-size:8.5px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .badges{display:flex;gap:4px;flex-wrap:nowrap;justify-content:flex-end;align-items:flex-start;margin-bottom:5px}
 .badges span{padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
@@ -532,42 +538,34 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .vip{background:#facc15;color:#000}
 .market{background:#0ea5e9}
 
-.bodyGrid{display:grid;grid-template-columns:.88fr 1.12fr;gap:6px;align-items:start}
+.bodyGrid{display:grid;grid-template-columns:.92fr 1.08fr;gap:6px;align-items:start}
 .leftSide{display:grid;gap:5px}
 .box{background:#071a10;border:1px solid #0f7a3e;border-radius:6px;padding:6px;display:grid;gap:1px;font-size:10.5px}
-.gameStatsBox{min-height:128px;gap:5px;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.10),transparent 45%),#08110f}
+.gameStatsBox{min-height:132px;gap:6px}
 .scoreHeader{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px}
-.scoreHeader span{font-size:8px;color:#cbd5e1;font-weight:800}
+.scoreHeader span{font-size:9px;color:#cbd5e1;font-weight:800}
 .scoreHeader b{font-size:20px;line-height:1;color:#fff;grid-row:1 / span 2;grid-column:2;text-align:right}
-.scoreHeader small{font-size:7.5px;color:#cbd5e1}
-
-.statsPro{display:grid;gap:5px}
-.statsProTitle{text-align:center;color:#fff;font-size:8px;font-weight:900;letter-spacing:.3px}
-.attackMeters{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.attackMeters div{text-align:center}
-.attackMeters span{display:block;color:#e5e7eb;font-size:8px;font-weight:800;margin-bottom:2px}
-.attackMeters strong{font-size:13px;color:#fff}
-.attackMeters i{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;margin:0 4px;background:radial-gradient(circle,#dbeafe 0 35%,#111827 36% 52%,#ef4444 53% 100%);font-style:normal;font-size:12px;color:#111;box-shadow:0 0 8px rgba(239,68,68,.35)}
-.shotLine{display:grid;grid-template-columns:auto 1fr auto;gap:5px;align-items:center}
-.shotLine small{grid-column:1/-1;text-align:center;color:#e5e7eb;font-size:8px;font-weight:800}
-.shotLine b{font-size:11px;color:#fff;text-align:center}
-.shotBar{display:grid;gap:2px}
-.shotBar span,.shotBar em{display:block;height:4px;border-radius:999px;background:#e5e7eb;box-shadow:0 0 6px rgba(255,255,255,.20)}
-.shotBar em{justify-self:end;background:#94a3b8}
-.cardStats{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;text-align:center;font-size:9px;font-weight:900;color:#fff}
-
+.scoreHeader small{font-size:8px;color:#cbd5e1}
+.statsBet365{display:grid;gap:3px}
+.statsTitle{text-align:center;color:#00ff70;font-size:8px;font-weight:900;letter-spacing:.3px;margin-bottom:1px}
+.statCompare{display:grid;grid-template-columns:30px 1fr 30px;align-items:center;gap:4px;font-size:7.8px}
+.statCompare strong{font-size:8.5px;color:#fff;font-weight:900;text-align:center}
+.statCompare span{color:#cbd5e1;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compareBars{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:2px;height:4px;background:#1e293b;border-radius:999px;overflow:hidden}
+.compareBars i{justify-self:end;height:100%;background:#00ff70;border-radius:999px 0 0 999px}
+.compareBars em{justify-self:start;height:100%;background:#6366f1;border-radius:0 999px 999px 0}
 .marketBox{margin-top:5px;text-align:center}
 .marketBox strong{color:#facc15}
 
 .miniMap{background:#050c0a;border:1px solid #0f7a3e;border-radius:8px;padding:4px;width:100%;overflow:hidden}
-.stadium{position:relative;width:100%;max-width:280px;margin:0 auto;height:124px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
+.stadium{position:relative;width:100%;max-width:260px;margin:0 auto;height:118px;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#1c2c35 0%,#07110d 38%,#020605 100%);box-shadow:inset 0 0 28px rgba(255,255,255,.12)}
 .lights{position:absolute;left:0;right:0;top:0;height:34px;background:radial-gradient(circle at 10% 30%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 22% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 35% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 50% 12%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 65% 15%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 78% 20%,rgba(255,255,255,.95),transparent 7%),radial-gradient(circle at 90% 30%,rgba(255,255,255,.95),transparent 7%);filter:blur(.2px);opacity:.9}
 .eventBubble{position:absolute;z-index:6;top:15px;left:50%;transform:translateX(-50%);min-width:118px;height:32px;background:#050505;border-radius:999px;display:flex;align-items:center;gap:7px;padding:4px 10px;box-shadow:0 4px 12px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15)}
 .eventBubble span{width:24px;height:24px;background:#fff;color:#111;border-radius:50%;display:grid;place-items:center;font-size:12px}
 .eventBubble b{display:block;color:#fff;font-size:9.5px;line-height:1;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .eventBubble small{display:block;color:#9ca3af;font-size:8px}
 
-.field3d{position:absolute;left:8px;right:8px;bottom:8px;height:72px;border:1px solid rgba(255,255,255,.65);border-radius:5px;overflow:hidden;background:repeating-linear-gradient(90deg,#3d991f 0 22px,#2d841b 22px 44px);transform:perspective(220px) rotateX(38deg);transform-origin:center bottom;box-shadow:inset 0 10px 14px rgba(255,255,255,.15),inset 0 -10px 18px rgba(0,0,0,.35),0 10px 20px rgba(0,0,0,.55)}
+.field3d{position:absolute;left:8px;right:8px;bottom:8px;height:68px;border:1px solid rgba(255,255,255,.65);border-radius:5px;overflow:hidden;background:repeating-linear-gradient(90deg,#3d991f 0 22px,#2d841b 22px 44px);transform:perspective(220px) rotateX(38deg);transform-origin:center bottom;box-shadow:inset 0 10px 14px rgba(255,255,255,.15),inset 0 -10px 18px rgba(0,0,0,.35),0 10px 20px rgba(0,0,0,.55)}
 .grass{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 30%),repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 16px)}
 .shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.12),transparent 45%)}
 .midLine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.85)}
@@ -586,27 +584,6 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 @keyframes ballPulse{0%,100%{scale:1}50%{scale:1.35}}
 
 .stats{margin-top:3px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;font-size:8px;color:#f1f5f9;text-align:center}
-
-.attackTimeline{margin-top:6px;background:#07110f;border:1px solid #0f7a3e;border-radius:8px;padding:6px;overflow:hidden}
-.timelineHead{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px}
-.timelineHead b{font-size:10px;color:#00ff70;text-transform:uppercase}
-.timelineHead span{font-size:8px;color:#facc15;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.timelineTeams{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:8px;font-weight:900;color:#fff}
-.timelineTeams img{width:14px;height:14px;border-radius:50%;object-fit:contain;background:#fff;padding:1px;vertical-align:middle}
-.homeTeamDot,.awayTeamDot{display:flex;align-items:center;gap:4px;min-width:0}
-.momentumChart{position:relative;height:84px;background:linear-gradient(180deg,rgba(34,197,94,.18) 0 49%,rgba(255,255,255,.18) 50%,rgba(99,102,241,.20) 51% 100%),#111827;border:1px solid rgba(255,255,255,.12);border-radius:6px;display:grid;grid-template-columns:repeat(18,1fr);gap:2px;padding:6px 5px;overflow:hidden}
-.centerLine{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.35);z-index:3}
-.nowLine{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:4;box-shadow:0 0 8px rgba(239,68,68,.8)}
-.nowLine small{position:absolute;bottom:1px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;border-radius:999px;padding:1px 4px;font-size:7px;font-weight:900}
-.eventIcon{position:absolute;top:2px;transform:translateX(-50%);z-index:5;font-size:11px;filter:drop-shadow(0 0 4px #000)}
-.cardIcon{top:34px}
-.cornerIcon{top:2px}
-.momentColumn{height:100%;display:flex;flex-direction:column;justify-content:center;gap:1px;z-index:2}
-.homeMoment,.awayMoment{width:100%;border-radius:3px}
-.homeMoment{align-self:flex-end;background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.35)}
-.awayMoment{align-self:flex-start;background:#6366f1;box-shadow:0 0 5px rgba(99,102,241,.35)}
-.timeScale{display:grid;grid-template-columns:repeat(7,1fr);font-size:7.5px;color:#cbd5e1;font-weight:800;margin-top:3px;text-align:center}
-
 .bars,.metricsRow{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;font-weight:900;margin-top:5px;align-items:center}
 .barBg{height:6px;background:#1e293b;border-radius:999px;overflow:hidden;margin-top:2px}
 .barGreen{height:100%;background:#00ff70}
@@ -625,6 +602,76 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
 .footerBar{margin-top:8px;min-height:42px;border:1px solid rgba(0,255,100,.22);background:#101820;border-radius:8px;display:flex;justify-content:space-around;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:700;padding:8px}
 .footerBar b{color:#00ff70}
 
+/* ===== ESTATÍSTICAS BET365 MAIS LIMPAS ===== */
+.gameStatsBox{min-height:126px!important;padding:6px!important}
+.scoreHeader b{font-size:22px!important}
+.statsTitle{font-size:8.5px!important;margin:0 0 2px!important}
+.statCompare{grid-template-columns:26px 1fr 26px!important;gap:3px!important;font-size:7px!important}
+.statCompare strong{font-size:8px!important}
+.compareBars{height:3px!important}
+
+/* ===== CRONOLOGIA SOFASCORE CLARA ===== */
+.attackFlow{
+  margin-top:6px;
+  background:linear-gradient(180deg,#07140f,#050b09);
+  border:1px solid #0f7a3e;
+  border-radius:8px;
+  padding:6px;
+  overflow:hidden;
+}
+.flowTop{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:6px;
+  align-items:center;
+  margin-bottom:4px;
+  font-size:8px;
+  font-weight:900;
+}
+.flowTop b{color:#fff;font-size:9px;letter-spacing:.3px;text-align:center}
+.flowTop span:first-child{text-align:left}
+.flowTop span:last-child{text-align:right}
+.flowChart{
+  position:relative;
+  height:72px;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  padding:5px 5px;
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,.12);
+  background:
+    linear-gradient(180deg,rgba(34,197,94,.14) 0%,rgba(34,197,94,.06) 49%,rgba(255,255,255,.18) 50%,rgba(99,102,241,.06) 51%,rgba(99,102,241,.16) 100%),
+    #111827;
+}
+.flowMiddle{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.42);z-index:3}
+.flowNow{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:6;box-shadow:0 0 9px #ef4444}
+.flowNow small{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;border-radius:999px;padding:1px 4px;font-size:7px;font-weight:900}
+.flowBar{
+  position:relative;
+  flex:1;
+  max-width:8px;
+  min-width:3px;
+  border-radius:3px;
+  opacity:.92;
+  z-index:4;
+}
+.flowBar.home{align-self:flex-start;margin-top:2px}
+.flowBar.away{align-self:flex-end;margin-bottom:2px}
+.flowBar.low{opacity:.55}
+.flowBar.mid{opacity:.82}
+.flowBar.high{opacity:1;filter:brightness(1.25)}
+.flowEvent{position:absolute;z-index:8;font-size:11px;filter:drop-shadow(0 0 4px #000)}
+.flowScale{display:grid;grid-template-columns:repeat(7,1fr);font-size:7px;color:#d1d5db;font-weight:900;margin-top:3px;text-align:center}
+.flowLegend{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:4px;font-size:7px;color:#d1d5db;font-weight:800}
+.flowLegend span{display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flowLegend i{width:7px;height:7px;border-radius:50%;display:inline-block;flex:0 0 auto}
+
+/* mini campo com mais espaço */
+.bodyGrid{grid-template-columns:.82fr 1.18fr!important}
+.stadium{height:126px!important}
+.field3d{height:76px!important}
+
 @media(max-width:900px){
   .grid{grid-template-columns:1fr!important;gap:10px!important}
   .filters{grid-template-columns:repeat(3,1fr)!important}
@@ -634,8 +681,11 @@ h1{color:#00ff70;font-size:clamp(22px,2.5vw,34px);margin:0;font-weight:900;line-
   .matchHero{grid-template-columns:48px minmax(0,1fr) 48px}
   .logoSlot{width:48px;height:48px}
   .heroLogo{width:44px;height:44px}
-  .card{height:auto;max-height:none;min-height:480px}
+  .card{height:auto;max-height:none;min-height:360px}
   .stadium{max-width:100%;height:145px}
   .field3d{height:86px}
+  .flowTop{grid-template-columns:1fr;font-size:8px;text-align:center}
+  .flowTop span,.flowTop span:first-child,.flowTop span:last-child{text-align:center}
+  .flowLegend{grid-template-columns:1fr 1fr}
 }
 `;
