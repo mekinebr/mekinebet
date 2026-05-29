@@ -351,31 +351,72 @@ export default function App() {
                   <span className="market">{cat}</span>
                 </div>
 
-                <div className="betStats">
-                  <div className="statDial" style={{ "--home": homeColor, "--away": awayColor }}>
-                    <small>ATAQUES</small>
-                    <div><b style={{ color: homeColor }}>{stats.home.ataques}</b><i></i><b style={{ color: awayColor }}>{stats.away.ataques}</b></div>
+                <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
+                  <div className="statsTopGrid">
+                    <div className="metricPair">
+                      <small>ATAQUES</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.ataques}</b>
+                        <span className="metricVs"></span>
+                        <b style={{ color: awayColor }}>{stats.away.ataques}</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${Math.min(100, (stats.home.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: homeColor }}></i>
+                        <em style={{ width: `${Math.min(100, (stats.away.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
+
+                    <div className="metricPair">
+                      <small>ATAQUES PERIGOSOS</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
+                        <span className="metricVs danger"></span>
+                        <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${Math.min(100, (stats.home.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: homeColor }}></i>
+                        <em style={{ width: `${Math.min(100, (stats.away.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
+
+                    <div className="metricPair posseMetric">
+                      <small>% POSSE</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.posse}%</b>
+                        <span className="metricVs ball"></span>
+                        <b style={{ color: awayColor }}>{stats.away.posse}%</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${stats.home.posse}%`, background: homeColor }}></i>
+                        <em style={{ width: `${stats.away.posse}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
                   </div>
-                  <div className="statDial" style={{ "--home": homeColor, "--away": awayColor }}>
-                    <small>ATAQUES PERIGOSOS</small>
-                    <div><b style={{ color: homeColor }}>{stats.home.perigosos}</b><i></i><b style={{ color: awayColor }}>{stats.away.perigosos}</b></div>
-                  </div>
-                  <div className="shotBox">
-                    <small>FINALIZAÇÕES / CHUTES AO GOL</small>
-                    <strong>{stats.home.finalizacoes}/{stats.home.noGol}</strong>
-                    <div className="shotBars"><span style={{ width: `${Math.min(90, stats.home.finalizacoes * 4)}%`, background: homeColor }}></span><em style={{ width: `${Math.min(90, stats.away.finalizacoes * 5)}%`, background: awayColor }}></em></div>
-                    <strong>{stats.away.finalizacoes}/{stats.away.noGol}</strong>
-                  </div>
-                  <div className="miniCounters homeCounters">
-                    <span>🚩 <b>{stats.home.cantos}</b></span><span>🟨 <b>{stats.home.cartoes}</b></span><span>🟥 <b>0</b></span>
-                  </div>
-                  <div className="miniCounters awayCounters">
-                    <span>🟨 <b>{stats.away.cartoes}</b></span><span>🟥 <b>0</b></span><span>🚩 <b>{stats.away.cantos}</b></span>
-                  </div>
-                  <div className="posseWide">
-                    <span>{stats.home.posse}%</span>
-                    <div><i style={{ width: `${stats.home.posse}%`, background: homeColor }}></i><em style={{ width: `${stats.away.posse}%`, background: awayColor }}></em></div>
-                    <span>{stats.away.posse}%</span>
+
+                  <div className="statsMiddleRow">
+                    <div className="sideCounters sideHome">
+                      <strong style={{ color: homeColor }}>{sigla(times.casa)}</strong>
+                      <span>🚩 <b>{stats.home.cantos}</b></span>
+                      <span>🟨 <b>{stats.home.cartoes}</b></span>
+                      <span>🟥 <b>0</b></span>
+                    </div>
+
+                    <div className="shotBox shotBoxPro">
+                      <small>FINALIZAÇÕES / CHUTES AO GOL</small>
+                      <strong style={{ color: homeColor }}>{stats.home.finalizacoes}/{stats.home.noGol}</strong>
+                      <div className="shotBars">
+                        <span style={{ width: `${Math.min(92, stats.home.finalizacoes * 4)}%`, background: homeColor }}></span>
+                        <em style={{ width: `${Math.min(92, stats.away.finalizacoes * 5)}%`, background: awayColor }}></em>
+                      </div>
+                      <strong style={{ color: awayColor }}>{stats.away.finalizacoes}/{stats.away.noGol}</strong>
+                    </div>
+
+                    <div className="sideCounters sideAway">
+                      <strong style={{ color: awayColor }}>{sigla(times.fora)}</strong>
+                      <span>🚩 <b>{stats.away.cantos}</b></span>
+                      <span>🟨 <b>{stats.away.cartoes}</b></span>
+                      <span>🟥 <b>0</b></span>
+                    </div>
                   </div>
                 </div>
 
@@ -451,5 +492,216 @@ const css = `
 .flowCard{margin-top:8px!important;min-height:170px!important}.flowCard h3{height:16px!important;line-height:16px!important}.flowMinuteScale{padding-left:52px!important;padding-right:10px!important;align-items:center!important}.flowWrap{height:114px!important;padding-left:52px!important;padding-right:10px!important}.flowWrap:before{left:52px!important;right:10px!important}.middleLine{left:52px!important;right:10px!important}.teamMini{width:48px!important}.teamMini img{width:25px!important;height:25px!important}.flowSpike{width:2px!important;transform:translateX(-1px)!important}.flowIcon{font-size:13px!important;transform:translateX(-50%)!important}.nowLine{transform:translateX(-1px)!important}.flowLegend{min-height:18px!important;align-items:center!important;overflow:hidden!important}.flowLegend span{text-align:center!important;font-size:8px!important}
 .marketLine{margin-top:auto!important;min-height:64px!important;align-items:center!important}.bookies{height:38px!important;align-items:center!important}.bookies button{min-width:80px!important}
 @media(max-width:1100px){.card{min-height:auto!important}.matchHero{height:auto!important}.betStats{grid-template-columns:1fr 1fr!important}.flowLegend{grid-template-columns:repeat(3,1fr)!important}.bookies button{min-width:auto!important;flex:1}}
+
+
+/* ===== AJUSTES SOLICITADOS: ESTATÍSTICA BET365 ALINHADA ===== */
+.teamSide small{
+  max-width:68px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  line-height:1!important;
+}
+.heroCenter h2{
+  font-size:15px!important;
+  padding:0 4px!important;
+}
+.badges{
+  margin-top:-13px!important;
+  position:relative!important;
+  z-index:5!important;
+}
+
+.proStats{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:6px!important;
+  min-height:112px!important;
+  padding:8px 6px!important;
+  align-items:stretch!important;
+}
+
+.statsTopGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  align-items:stretch;
+}
+
+.metricPair{
+  min-width:0;
+  background:rgba(255,255,255,.025);
+  border-right:1px solid rgba(255,255,255,.10);
+  padding:0 5px 3px;
+}
+
+.metricPair:last-child{border-right:0}
+
+.metricPair small{
+  display:block;
+  text-align:center;
+  color:#e5e7eb;
+  font-size:7.4px;
+  font-weight:900;
+  line-height:1.1;
+  height:18px;
+  white-space:normal;
+}
+
+.metricNumbers{
+  display:grid;
+  grid-template-columns:1fr 26px 1fr;
+  align-items:center;
+  gap:2px;
+  min-height:25px;
+}
+
+.metricNumbers b{
+  text-align:center;
+  font-size:16px;
+  font-weight:900;
+  line-height:1;
+}
+
+.metricVs{
+  width:25px;
+  height:25px;
+  margin:auto;
+  border-radius:50%;
+  display:block;
+  position:relative;
+  background:conic-gradient(var(--home) 0 55%, rgba(226,232,240,.75) 55% 64%, var(--away) 64% 100%);
+  box-shadow:0 0 7px rgba(255,255,255,.10);
+}
+
+.metricVs:before{
+  content:"";
+  position:absolute;
+  inset:6px;
+  border-radius:50%;
+  background:#07141a;
+}
+
+.metricVs:after{
+  content:"▶";
+  position:absolute;
+  left:8px;
+  top:4px;
+  color:#dbeafe;
+  font-size:11px;
+  z-index:2;
+}
+
+.metricVs.danger:after{content:"➤";left:7px}
+.metricVs.ball:after{content:"●";left:9px;top:5px;font-size:9px;color:#fff}
+
+.dualMiniBar{
+  height:4px;
+  display:flex;
+  gap:2px;
+  background:#111827;
+  border-radius:999px;
+  overflow:hidden;
+  margin-top:2px;
+}
+
+.dualMiniBar i,
+.dualMiniBar em{
+  display:block;
+  height:100%;
+  opacity:.95;
+}
+
+.statsMiddleRow{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr) 58px;
+  gap:7px;
+  align-items:center;
+}
+
+.sideCounters{
+  min-width:0;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2px;
+  justify-items:center;
+  align-items:center;
+  font-size:10px;
+  padding:3px;
+  border-radius:7px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.sideCounters strong{
+  grid-column:1/-1;
+  font-size:8px;
+  font-weight:900;
+  max-width:48px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.sideCounters span{
+  display:grid;
+  justify-items:center;
+  gap:1px;
+  line-height:1;
+}
+
+.sideCounters b{
+  color:#fff;
+  font-size:10px;
+  line-height:1;
+}
+
+.shotBoxPro{
+  display:grid!important;
+  grid-template-columns:42px 1fr 42px!important;
+  gap:5px!important;
+  align-items:center!important;
+  min-width:0!important;
+  background:rgba(0,0,0,.14);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:7px;
+  padding:5px 6px;
+}
+
+.shotBoxPro small{
+  grid-column:1/-1!important;
+  font-size:7.6px!important;
+  text-align:center!important;
+  color:#e5e7eb!important;
+  font-weight:900!important;
+  line-height:1!important;
+}
+
+.shotBoxPro strong{
+  font-size:15px!important;
+  text-align:center!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+}
+
+.shotBoxPro .shotBars{
+  display:grid!important;
+  gap:4px!important;
+  min-width:0!important;
+}
+
+.shotBoxPro .shotBars span,
+.shotBoxPro .shotBars em{
+  height:4px!important;
+  border-radius:999px!important;
+}
+
+.posseWide{display:none!important}
+
+@media(max-width:1100px){
+  .statsTopGrid{grid-template-columns:1fr!important}
+  .statsMiddleRow{grid-template-columns:1fr!important}
+  .sideCounters{grid-template-columns:repeat(3,1fr)!important}
+}
 
 `;
