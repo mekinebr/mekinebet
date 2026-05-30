@@ -303,7 +303,7 @@ export default function App() {
 
       <header className="topBar">
         <div>
-          <h1>MekineBet AO VIVO <span className="liveDot"></span></h1>
+          <h1>MekineBet <span className="liveDot"></span></h1>
           <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
         <div className="statusWrap">
