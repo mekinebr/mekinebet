@@ -440,7 +440,7 @@ export default function App() {
       {loading ? (
         <div className="empty">Carregando sinais...</div>
       ) : (
-        <main className={`grid ${sinaisFiltrados.length === 1 ? "isSingle" : ""}`}>
+        <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
@@ -1645,5 +1645,11 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 @media(max-width:700px){
   .grid.isSingle{grid-template-columns:1fr!important}
 }
+
+
+/* ===== VOLTAR COMO ERA: JOGO NÃO FICA CENTRALIZADO ===== */
+.grid.isSingle{grid-template-columns:repeat(3,minmax(0,1fr))!important;justify-content:stretch!important}
+.grid.isSingle .card{max-width:none!important;margin:0!important}
+@media(max-width:1100px){.grid.isSingle{grid-template-columns:1fr!important}}
 
 `;
