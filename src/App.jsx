@@ -15,7 +15,23 @@ const TEAM_LOGOS = {
   "newcastle united fc": "https://media.api-sports.io/football/teams/34.png",
   "everton fc": "https://media.api-sports.io/football/teams/45.png",
   "brentford fc": "https://media.api-sports.io/football/teams/55.png",
-  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png"
+  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png",
+  "flamengo": "https://media.api-sports.io/football/teams/127.png",
+  "cr flamengo": "https://media.api-sports.io/football/teams/127.png",
+  "flamengo rj": "https://media.api-sports.io/football/teams/127.png",
+  "palmeiras": "https://media.api-sports.io/football/teams/121.png",
+  "se palmeiras": "https://media.api-sports.io/football/teams/121.png",
+  "sao paulo": "https://media.api-sports.io/football/teams/126.png",
+  "são paulo": "https://media.api-sports.io/football/teams/126.png",
+  "corinthians": "https://media.api-sports.io/football/teams/131.png",
+  "vasco da gama": "https://media.api-sports.io/football/teams/133.png",
+  "botafogo": "https://media.api-sports.io/football/teams/120.png",
+  "fluminense": "https://media.api-sports.io/football/teams/124.png",
+  "atletico mineiro": "https://media.api-sports.io/football/teams/1062.png",
+  "atlético mineiro": "https://media.api-sports.io/football/teams/1062.png",
+  "gremio": "https://media.api-sports.io/football/teams/130.png",
+  "grêmio": "https://media.api-sports.io/football/teams/130.png",
+  "internacional": "https://media.api-sports.io/football/teams/119.png"
 };
 
 const TEAM_COLORS = {
@@ -30,7 +46,23 @@ const TEAM_COLORS = {
   "wolverhampton wanderers fc": "#f59e0b",
   "brentford fc": "#ef4444",
   "newcastle united fc": "#e5e7eb",
-  "everton fc": "#2563eb"
+  "everton fc": "#2563eb",
+  "flamengo": "#ef4444",
+  "cr flamengo": "#ef4444",
+  "flamengo rj": "#ef4444",
+  "palmeiras": "#22c55e",
+  "se palmeiras": "#22c55e",
+  "sao paulo": "#f8fafc",
+  "são paulo": "#f8fafc",
+  "corinthians": "#f8fafc",
+  "vasco da gama": "#f8fafc",
+  "botafogo": "#e5e7eb",
+  "fluminense": "#7f1d1d",
+  "atletico mineiro": "#f8fafc",
+  "atlético mineiro": "#f8fafc",
+  "gremio": "#60a5fa",
+  "grêmio": "#60a5fa",
+  "internacional": "#ef4444"
 };
 
 const DEMO_SIGNALS = [
@@ -223,11 +255,35 @@ export default function App() {
     return presets[index % presets.length];
   }
 
+  function alertaForte(item) {
+    const alertRaw = String(item.alert ?? item.alerta ?? "").toLowerCase();
+    return (
+      item.alert === true ||
+      alertRaw.includes("sinal") ||
+      alertRaw.includes("forte") ||
+      alertRaw.includes("🚨") ||
+      alertRaw.includes("🔥") ||
+      Number(item.pressure || 0) >= 85 ||
+      Number(item.confidence || 0) >= 90 ||
+      Number(item.pressao || 0) >= 85 ||
+      Number(item.confianca || item["confiança"] || 0) >= 90
+    );
+  }
+
   function mercadoStatus(item) {
     const gols = totalGols(item);
     const min = minuto(item);
-    const pressure = item.pressure || 70;
+    const pressure = Number(item.pressure || 0);
+    const confidence = Number(item.confidence || 0);
     const market = String(item.market || "").toLowerCase();
+    const alertText = String(item.alert ?? item.alerta ?? "").trim();
+
+    if (alertText && alertText !== "true" && alertText !== "false") {
+      return alertText;
+    }
+
+    if (alertaForte(item)) return "🚨 SINAL MUITO FORTE";
+
     if (market.includes("0.5") || market.includes("0,5")) {
       if (gols >= 1) return "✅ GREEN";
       if (min >= 12 && pressure >= 70) return "🔥 GOL IMINENTE";
@@ -255,23 +311,25 @@ export default function App() {
     }
     if (market.includes("cart") || market.includes("card")) return "🟨 CARTÕES AO VIVO";
     if (market.includes("canto") || market.includes("corner")) return "🚩 CANTOS AO VIVO";
+    if (pressure >= 80 || confidence >= 85) return "🔥 ENTRADA FORTE";
     return "📊 MONITORAMENTO IA";
   }
 
   function categoriaMercado(item) {
     const market = String(item.market || "").toLowerCase();
-    if (market.includes("0.5") || market.includes("0,5")) return "OVER 0,5";
-    if (market.includes("1.5") || market.includes("1,5")) return "OVER 1,5";
-    if (market.includes("2.5") || market.includes("2,5")) return "OVER 2,5";
-    if (market.includes("3.5") || market.includes("3,5")) return "OVER 3,5";
-    if (market.includes("cart") || market.includes("card")) return "CARTÕES";
-    if (market.includes("canto") || market.includes("corner")) return "CANTOS";
-    if (market.includes("btts") || market.includes("ambas")) return "BTTS";
+    const category = String(item.category || item.categoria || "").toLowerCase();
+    if (market.includes("0.5") || market.includes("0,5") || category.includes("over05")) return "OVER 0,5";
+    if (market.includes("1.5") || market.includes("1,5") || category.includes("over15")) return "OVER 1,5";
+    if (market.includes("2.5") || market.includes("2,5") || category.includes("over25")) return "OVER 2,5";
+    if (market.includes("3.5") || market.includes("3,5") || category.includes("over35")) return "OVER 3,5";
+    if (market.includes("cart") || market.includes("card") || category.includes("cart")) return "CARTÕES";
+    if (market.includes("canto") || market.includes("corner") || category.includes("canto")) return "CANTOS";
+    if (market.includes("btts") || market.includes("ambas") || category.includes("btts")) return "BTTS";
     return item.category?.toUpperCase() || "BASE";
   }
 
   function isVip(item) {
-    return (item.confidence || 70) >= 82 || String(item.alert || "").includes("GOL");
+    return (item.confidence || 70) >= 82 || alertaForte(item) || String(item.alert || "").includes("GOL");
   }
 
   function pctValue(a = 0, b = 0) {
@@ -326,7 +384,7 @@ export default function App() {
         const cat = categoriaMercado(item);
         if (filtro === "TODOS") return true;
         if (filtro === "LIVE") return item.type === "live";
-        if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
+        if (filtro === "ALERTA") return alertaForte(item) || mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
         if (filtro === "OVER05") return cat === "OVER 0,5";
         if (filtro === "OVER15") return cat === "OVER 1,5";
         if (filtro === "OVER25") return cat === "OVER 2,5";
@@ -343,7 +401,7 @@ export default function App() {
   }, [signals, busca, filtro]);
 
   const liveCount = signals.filter((s) => s.type === "live").length;
-  const alertCount = signals.filter((s) => mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨")).length;
+  const alertCount = signals.filter((s) => alertaForte(s) || mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨")).length;
 
   return (
     <div className="page">
@@ -382,7 +440,7 @@ export default function App() {
       {loading ? (
         <div className="empty">Carregando sinais...</div>
       ) : (
-        <main className="grid">
+        <main className={`grid ${sinaisFiltrados.length === 1 ? "isSingle" : ""}`}>
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
@@ -1559,6 +1617,33 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
   .field3d{height:66px!important;margin-top:8px!important;transform:perspective(330px) rotateX(29deg) scale(1.01)!important}
   .weatherBadge{right:8px!important;top:5px!important;font-size:7px!important;padding:2px 6px!important}
   .weatherBadge span{font-size:10px!important}.stadiumLights{height:14px!important;left:14px!important;right:14px!important}.stadiumLights i{width:18px!important;height:10px!important}
+}
+
+/* ===== AJUSTE API REAL: 1 CARD CENTRALIZADO, ALERTA E LOGOS ===== */
+.grid.isSingle{
+  grid-template-columns:minmax(320px,440px)!important;
+  justify-content:center!important;
+}
+.grid.isSingle .card{
+  width:100%!important;
+}
+.heroLogo{
+  border-radius:6px!important;
+  background:rgba(255,255,255,.04)!important;
+  padding:1px!important;
+}
+.metricVs{
+  background:conic-gradient(var(--home) 0 var(--pct), var(--away) var(--pct) 100%)!important;
+}
+.marketLine{
+  border-color:rgba(250,204,21,.75)!important;
+  box-shadow:0 0 16px rgba(250,204,21,.18)!important;
+}
+.marketLine div:first-child b::before{
+  content:"🔥 ";
+}
+@media(max-width:700px){
+  .grid.isSingle{grid-template-columns:1fr!important}
 }
 
 `;
