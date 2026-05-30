@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_URL = "https://mekinebet.onrender.com/api/signals";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet-api.onrender.com").replace(/\/$/, "");
+const API_URL = `${API_BASE_URL}/api/signals`;
 
 const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
@@ -47,8 +48,54 @@ const normalizar = (v = "") =>
 const fallbackLogo = (name = "Time") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
 
+const valor = (...vals) => {
+  for (const v of vals) {
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+};
+
+const normalizarSinal = (item = {}) => {
+  const match = valor(item.match, item.partida, item.game, "");
+  const home = valor(item.homeTeam, item.home, item.casa, item.mandante, item.teams?.home?.name, "");
+  const away = valor(item.awayTeam, item.away, item.fora, item.visitante, item.teams?.away?.name, "");
+  const market = valor(item.market, item.mercado, item.signal, item.sinal, "Monitoramento IA");
+  const confidence = Number(valor(item.confidence, item.confianca, item.confiança, 70)) || 70;
+  const pressure = Number(valor(item.pressure, item.pressao, item.pressão, 70)) || 70;
+
+  return {
+    ...item,
+    match: match || `${home || "Casa"} vs ${away || "Fora"}`,
+    home,
+    away,
+    homeTeam: home,
+    awayTeam: away,
+    league: valor(item.league, item.liga, "Futebol"),
+    score: valor(item.score, item.placar, "0 - 0"),
+    market,
+    odd: valor(item.odd, item.odds, item.cotacao, item.cotação, "1.72"),
+    minute: valor(item.minute, item.minuto, item.tempo, 0),
+    type: valor(item.type, item.tipo, "live"),
+    category: valor(item.category, item.categoria, ""),
+    status: valor(item.status, item.estado, "AO VIVO"),
+    confidence,
+    pressure,
+    alert: valor(item.alert, item.alerta, ""),
+    possession: Number(valor(item.possession, item.posse, item.ballPossession, 0)) || undefined,
+    shots: Number(valor(item.shots, item.finalizacoes, item.finalizações, item.chutes, 0)) || undefined,
+    shotsOnGoal: Number(valor(item.shotsOnGoal, item.chutesNoGol, item.chutes_no_gol, item.noGol, 0)) || undefined,
+    attacks: Number(valor(item.attacks, item.ataques, 0)) || undefined,
+    dangerousAttacks: Number(valor(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos, 0)) || undefined,
+    corners: Number(valor(item.corners, item.escanteios, item.cantos, 0)) || undefined,
+    cards: Number(valor(item.cards, item.cartoes, item.cartões, 0)) || undefined,
+    logoHome: valor(item.logoHome, item.logoCasa, item.homeLogo, item.teams?.home?.logo, ""),
+    logoAway: valor(item.logoAway, item.logoFora, item.awayLogo, item.teams?.away?.logo, ""),
+    weather: valor(item.weather, item.clima, item.tempoClima, "")
+  };
+};
+
 export default function App() {
-  const [signals, setSignals] = useState(DEMO_SIGNALS);
+  const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
@@ -59,10 +106,11 @@ export default function App() {
       const res = await fetch(API_URL, { cache: "no-store" });
       const data = await res.json();
       const lista = Array.isArray(data?.activeSignals) ? data.activeSignals : [];
-      setSignals(lista.length ? lista : DEMO_SIGNALS);
+      setSignals(lista.map(normalizarSinal));
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
-      setSignals(DEMO_SIGNALS);
+      console.error("Erro ao buscar API MekineBet:", e);
+      setSignals([]);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
       setLoading(false);
