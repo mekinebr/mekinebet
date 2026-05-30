@@ -87,6 +87,23 @@ const valor = (...vals) => {
   return undefined;
 };
 
+const numero = (...vals) => {
+  const v = valor(...vals);
+  if (v === undefined) return undefined;
+
+  const n = Number(
+    String(v)
+      .replace("%", "")
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "")
+  );
+
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const usarValor = (v, fallback) =>
+  v === undefined || v === null || Number.isNaN(Number(v)) ? fallback : Number(v);
+
 const normalizarSinal = (item = {}) => {
   const match = valor(item.match, item.partida, item.game, "");
   const home = valor(item.homeTeam, item.home, item.casa, item.mandante, item.teams?.home?.name, "");
@@ -113,13 +130,27 @@ const normalizarSinal = (item = {}) => {
     confidence,
     pressure,
     alert: valor(item.alert, item.alerta, ""),
-    possession: Number(valor(item.possession, item.posse, item.ballPossession, 0)) || undefined,
-    shots: Number(valor(item.shots, item.finalizacoes, item.finalizações, item.chutes, 0)) || undefined,
-    shotsOnGoal: Number(valor(item.shotsOnGoal, item.chutesNoGol, item.chutes_no_gol, item.noGol, 0)) || undefined,
-    attacks: Number(valor(item.attacks, item.ataques, 0)) || undefined,
-    dangerousAttacks: Number(valor(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos, 0)) || undefined,
-    corners: Number(valor(item.corners, item.escanteios, item.cantos, 0)) || undefined,
-    cards: Number(valor(item.cards, item.cartoes, item.cartões, 0)) || undefined,
+    possession: numero(item.possession, item.posse, item.ballPossession),
+    possessionAway: numero(item.possessionAway, item.posseAway, item.posseFora),
+    shots: numero(item.shots, item.finalizacoes, item.finalizações, item.chutes),
+    shotsAway: numero(item.shotsAway, item.finalizacoesAway, item.finalizacoesFora, item.chutesAway),
+    shotsOnGoal: numero(item.shotsOnGoal, item.chutesNoGol, item.chutes_no_gol, item.noGol),
+    shotsOnGoalAway: numero(item.shotsOnGoalAway, item.chutesNoGolAway, item.noGolAway),
+    attacks: numero(item.attacks, item.ataques),
+    attacksAway: numero(item.attacksAway, item.ataquesAway, item.ataquesFora),
+    dangerousAttacks: numero(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos),
+    dangerousAttacksAway: numero(item.dangerousAttacksAway, item.ataquesPerigososAway, item.perigososFora),
+    corners: numero(item.corners, item.escanteios, item.cantos),
+    cornersAway: numero(item.cornersAway, item.escanteiosAway, item.cantosAway, item.cantosFora),
+    cards: numero(item.cards, item.cartoes, item.cartões),
+    cardsAway: numero(item.cardsAway, item.cartoesAway, item.cartoesFora),
+    yellowCards: numero(item.yellowCards, item.amarelos, item.cartoesAmarelos),
+    yellowCardsAway: numero(item.yellowCardsAway, item.amarelosAway, item.cartoesAmarelosAway),
+    redCards: numero(item.redCards, item.vermelhos, item.cartoesVermelhos),
+    redCardsAway: numero(item.redCardsAway, item.vermelhosAway, item.cartoesVermelhosAway),
+    fouls: numero(item.fouls, item.faltas),
+    foulsAway: numero(item.foulsAway, item.faltasAway, item.faltasFora),
+    statsSource: valor(item.statsSource, item.stats_source, ""),
     logoHome: valor(item.logoHome, item.logoCasa, item.homeLogo, item.teams?.home?.logo, ""),
     logoAway: valor(item.logoAway, item.logoFora, item.awayLogo, item.teams?.away?.logo, ""),
     weather: valor(item.weather, item.clima, item.tempoClima, "")
@@ -178,6 +209,13 @@ export default function App() {
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
+  const [apiInfo, setApiInfo] = useState({
+    source: "",
+    mode: "",
+    statsMode: "",
+    realStatsGames: 0,
+    apiStatus: ""
+  });
 
   async function carregar() {
     try {
@@ -186,10 +224,18 @@ export default function App() {
       const lista = Array.isArray(data?.activeSignals) ? data.activeSignals : [];
       const normalizados = lista.map(normalizarSinal);
       setSignals(agruparPorPartida(normalizados));
+      setApiInfo({
+        source: data?.source || "",
+        mode: data?.mode || "",
+        statsMode: data?.statsMode || "",
+        realStatsGames: Number(data?.realStatsGames || 0),
+        apiStatus: data?.apiStatus || ""
+      });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
       console.error("Erro ao buscar API MekineBet:", e);
       setSignals([]);
+      setApiInfo({ source: "erro", mode: "offline", statsMode: "erro", realStatsGames: 0, apiStatus: "error" });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
       setLoading(false);
@@ -265,27 +311,36 @@ export default function App() {
     const press = Number(item.pressure || 70);
     const gols = totalGols(item);
 
+    const homePossession = usarValor(
+      numero(item.possession, item.posse, item.ballPossession),
+      Math.min(72, Math.max(42, conf - 18))
+    );
+
+    const awayPossessionRaw = numero(item.possessionAway, item.posseAway, item.posseFora);
+
     const home = {
-      posse: Number(item.possession ?? item.posse ?? 0) || Math.min(72, Math.max(42, conf - 18)),
-      finalizacoes: Number(item.shots ?? item.finalizacoes ?? item.finalizações ?? 0) || Math.max(6, Math.round(press / 8 + gols * 2)),
-      noGol: Number(item.shotsOnGoal ?? item.chutesNoGol ?? item.noGol ?? 0) || Math.max(1, Math.round(press / 24 + gols)),
-      ataques: Number(item.attacks ?? item.ataques ?? 0) || Math.max(16, Math.round(press / 2.3)),
-      cantos: Number(item.corners ?? item.cantos ?? item.escanteios ?? 0) || Math.max(1, Math.round(press / 24)),
-      cartoes: Number(item.cards ?? item.cartoes ?? item.cartões ?? 0) || Math.max(0, Math.round((100 - conf) / 35)),
-      perigosos: Number(item.dangerousAttacks ?? item.ataquesPerigosos ?? item.perigosos ?? 0) || Math.max(6, Math.round(press / 3.5))
+      posse: homePossession,
+      finalizacoes: usarValor(numero(item.shots, item.finalizacoes, item.finalizações, item.chutes), Math.max(6, Math.round(press / 8 + gols * 2))),
+      noGol: usarValor(numero(item.shotsOnGoal, item.chutesNoGol, item.noGol), Math.max(1, Math.round(press / 24 + gols))),
+      ataques: usarValor(numero(item.attacks, item.ataques), Math.max(16, Math.round(press / 2.3))),
+      cantos: usarValor(numero(item.corners, item.cantos, item.escanteios), Math.max(1, Math.round(press / 24))),
+      cartoes: usarValor(numero(item.yellowCards, item.cards, item.cartoes, item.cartões), Math.max(0, Math.round((100 - conf) / 35))),
+      vermelhos: usarValor(numero(item.redCards, item.vermelhos, item.cartoesVermelhos), 0),
+      perigosos: usarValor(numero(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos), Math.max(6, Math.round(press / 3.5)))
     };
 
     const away = {
-      posse: Number(item.possessionAway ?? item.posseAway ?? item.posseFora ?? 0) || Math.max(20, 100 - home.posse),
-      finalizacoes: Number(item.shotsAway ?? item.finalizacoesAway ?? item.finalizacoesFora ?? 0) || Math.max(3, Math.round(home.finalizacoes * 0.55)),
-      noGol: Number(item.shotsOnGoalAway ?? item.chutesNoGolAway ?? item.noGolAway ?? 0) || Math.max(0, Math.round(home.noGol * 0.45)),
-      ataques: Number(item.attacksAway ?? item.ataquesAway ?? item.ataquesFora ?? 0) || Math.max(10, Math.round(home.ataques * 0.58)),
-      cantos: Number(item.cornersAway ?? item.cantosAway ?? item.cantosFora ?? 0) || Math.max(0, Math.round(home.cantos * 0.55)),
-      cartoes: Number(item.cardsAway ?? item.cartoesAway ?? item.cartoesFora ?? 0) || Math.max(0, Math.round(home.cartoes * 0.8)),
-      perigosos: Number(item.dangerousAttacksAway ?? item.ataquesPerigososAway ?? item.perigososFora ?? 0) || Math.max(4, Math.round(home.perigosos * 0.55))
+      posse: usarValor(awayPossessionRaw, Math.max(20, 100 - home.posse)),
+      finalizacoes: usarValor(numero(item.shotsAway, item.finalizacoesAway, item.finalizacoesFora), Math.max(3, Math.round(home.finalizacoes * 0.55))),
+      noGol: usarValor(numero(item.shotsOnGoalAway, item.chutesNoGolAway, item.noGolAway), Math.max(0, Math.round(home.noGol * 0.45))),
+      ataques: usarValor(numero(item.attacksAway, item.ataquesAway, item.ataquesFora), Math.max(10, Math.round(home.ataques * 0.58))),
+      cantos: usarValor(numero(item.cornersAway, item.cantosAway, item.cantosFora), Math.max(0, Math.round(home.cantos * 0.55))),
+      cartoes: usarValor(numero(item.yellowCardsAway, item.cardsAway, item.cartoesAway, item.cartoesFora), Math.max(0, Math.round(home.cartoes * 0.8))),
+      vermelhos: usarValor(numero(item.redCardsAway, item.vermelhosAway, item.cartoesVermelhosAway), 0),
+      perigosos: usarValor(numero(item.dangerousAttacksAway, item.ataquesPerigososAway, item.perigososFora), Math.max(4, Math.round(home.perigosos * 0.55)))
     };
 
-    if (!item.possessionAway && home.posse + away.posse !== 100) {
+    if (awayPossessionRaw === undefined && home.posse + away.posse !== 100) {
       away.posse = Math.max(20, 100 - home.posse);
     }
 
@@ -496,12 +551,22 @@ export default function App() {
           <span className="pill">🟢 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
           <span className="pill">👑 VIP</span>
+          <span className="pill">📡 {apiInfo.mode || "api"}</span>
+          <span className="pill">📊 {apiInfo.statsMode === "real" ? `Real ${apiInfo.realStatsGames || ""}` : "Estimado"}</span>
           <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
-      {liveCount === 0 && (
-        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.</div>
+      {apiInfo.mode === "fallback-ia" && (
+        <div className="notice">⚠️ API sem jogos reais agora. Mostrando base IA/fallback enquanto monitora automaticamente.</div>
+      )}
+
+      {apiInfo.mode !== "fallback-ia" && liveCount > 0 && apiInfo.statsMode !== "real" && (
+        <div className="notice">📊 Jogos reais carregados. Algumas partidas ainda estão sem estatísticas detalhadas da API, então o painel calcula uma estimativa temporária.</div>
+      )}
+
+      {liveCount === 0 && apiInfo.mode !== "fallback-ia" && (
+        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando jogos pré-live/histórico enquanto monitora automaticamente.</div>
       )}
 
       <div className="filters">
@@ -616,7 +681,7 @@ export default function App() {
                       <strong style={{ color: homeColor }}>{sigla(times.casa)}</strong>
                       <span>🚩 <b>{stats.home.cantos}</b></span>
                       <span>🟨 <b>{stats.home.cartoes}</b></span>
-                      <span>🟥 <b>0</b></span>
+                      <span>🟥 <b>{stats.home.vermelhos}</b></span>
                     </div>
 
                     <div className="shotBox shotBoxPro">
@@ -639,7 +704,7 @@ export default function App() {
                       <strong style={{ color: awayColor }}>{sigla(times.fora)}</strong>
                       <span>🚩 <b>{stats.away.cantos}</b></span>
                       <span>🟨 <b>{stats.away.cartoes}</b></span>
-                      <span>🟥 <b>0</b></span>
+                      <span>🟥 <b>{stats.away.vermelhos}</b></span>
                     </div>
                   </div>
                 </div>
