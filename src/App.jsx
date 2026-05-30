@@ -261,27 +261,34 @@ export default function App() {
   }
 
   function statsDoJogo(item) {
-    const conf = item.confidence || 70;
-    const press = item.pressure || 70;
+    const conf = Number(item.confidence || 70);
+    const press = Number(item.pressure || 70);
     const gols = totalGols(item);
+
     const home = {
-      posse: item.possession || Math.min(72, Math.max(42, conf - 18)),
-      finalizacoes: item.shots || Math.max(8, Math.round(press / 6 + gols * 2)),
-      noGol: item.shotsOnGoal || Math.max(2, Math.round((press / 18) + gols)),
-      ataques: item.attacks || Math.max(18, Math.round(press / 2)),
-      cantos: item.corners || Math.max(2, Math.round(press / 18)),
-      cartoes: item.cards || Math.max(0, Math.round((100 - conf) / 30)),
-      perigosos: item.dangerousAttacks || Math.max(8, Math.round(press / 3))
+      posse: Number(item.possession ?? item.posse ?? 0) || Math.min(72, Math.max(42, conf - 18)),
+      finalizacoes: Number(item.shots ?? item.finalizacoes ?? item.finalizações ?? 0) || Math.max(6, Math.round(press / 8 + gols * 2)),
+      noGol: Number(item.shotsOnGoal ?? item.chutesNoGol ?? item.noGol ?? 0) || Math.max(1, Math.round(press / 24 + gols)),
+      ataques: Number(item.attacks ?? item.ataques ?? 0) || Math.max(16, Math.round(press / 2.3)),
+      cantos: Number(item.corners ?? item.cantos ?? item.escanteios ?? 0) || Math.max(1, Math.round(press / 24)),
+      cartoes: Number(item.cards ?? item.cartoes ?? item.cartões ?? 0) || Math.max(0, Math.round((100 - conf) / 35)),
+      perigosos: Number(item.dangerousAttacks ?? item.ataquesPerigosos ?? item.perigosos ?? 0) || Math.max(6, Math.round(press / 3.5))
     };
+
     const away = {
-      posse: Math.max(28, 100 - home.posse),
-      finalizacoes: Math.max(3, Math.round(home.finalizacoes * 0.55)),
-      noGol: Math.max(0, Math.round(home.noGol * 0.45)),
-      ataques: Math.max(12, Math.round(home.ataques * 0.58)),
-      cantos: Math.max(1, Math.round(home.cantos * 0.55)),
-      cartoes: Math.max(0, Math.round(home.cartoes * 0.8)),
-      perigosos: Math.max(6, Math.round(home.perigosos * 0.55))
+      posse: Number(item.possessionAway ?? item.posseAway ?? item.posseFora ?? 0) || Math.max(20, 100 - home.posse),
+      finalizacoes: Number(item.shotsAway ?? item.finalizacoesAway ?? item.finalizacoesFora ?? 0) || Math.max(3, Math.round(home.finalizacoes * 0.55)),
+      noGol: Number(item.shotsOnGoalAway ?? item.chutesNoGolAway ?? item.noGolAway ?? 0) || Math.max(0, Math.round(home.noGol * 0.45)),
+      ataques: Number(item.attacksAway ?? item.ataquesAway ?? item.ataquesFora ?? 0) || Math.max(10, Math.round(home.ataques * 0.58)),
+      cantos: Number(item.cornersAway ?? item.cantosAway ?? item.cantosFora ?? 0) || Math.max(0, Math.round(home.cantos * 0.55)),
+      cartoes: Number(item.cardsAway ?? item.cartoesAway ?? item.cartoesFora ?? 0) || Math.max(0, Math.round(home.cartoes * 0.8)),
+      perigosos: Number(item.dangerousAttacksAway ?? item.ataquesPerigososAway ?? item.perigososFora ?? 0) || Math.max(4, Math.round(home.perigosos * 0.55))
     };
+
+    if (!item.possessionAway && home.posse + away.posse !== 100) {
+      away.posse = Math.max(20, 100 - home.posse);
+    }
+
     return { home, away };
   }
 
@@ -387,7 +394,7 @@ export default function App() {
 
   function timelineEvents(item, index, homeColor, awayColor) {
     const stats = statsDoJogo(item);
-    const current = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
+    const current = item.type === "live" ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
 
     const iconsByMinute = {
       12: "⚽",
@@ -523,7 +530,7 @@ export default function App() {
             const times = timesDoJogo(item);
             const homeColor = teamColor(times.casa, "#22c55e");
             const awayColor = teamColor(times.fora, "#6366f1");
-            const currentMinute = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
+            const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
