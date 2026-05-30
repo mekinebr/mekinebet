@@ -2,9 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet-api.onrender.com").replace(/\/$/, "");
 const API_URL = `${API_BASE_URL}/api/signals`;
-const REFRESH_MS = Math.max(5000, Number(import.meta.env.VITE_REFRESH_MS || 10000));
-const FETCH_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_FETCH_TIMEOUT_MS || 12000));
-
 
 const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
@@ -80,20 +77,6 @@ const DEMO_SIGNALS = [
 const normalizar = (v = "") =>
   String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-const clamp = (value, min = 0, max = 100) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-};
-
-const toNumber = (value, fallback = 0) => {
-  if (value === undefined || value === null || value === "") return fallback;
-  if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
-  const cleaned = String(value).replace("%", "").replace(",", ".").replace(/[^0-9.-]/g, "");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : fallback;
-};
-
 const fallbackLogo = (name = "Time") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
 
@@ -104,233 +87,90 @@ const valor = (...vals) => {
   return undefined;
 };
 
-const nomeTime = (...vals) => {
-  for (const v of vals) {
-    if (!v) continue;
-    if (typeof v === "string") return v;
-    if (typeof v === "object") {
-      if (v.name) return v.name;
-      if (v.team?.name) return v.team.name;
-      if (v.shortName) return v.shortName;
-    }
-  }
-  return "";
-};
-
-const logoTime = (...vals) => {
-  for (const v of vals) {
-    if (!v) continue;
-    if (typeof v === "string" && /^https?:\/\//i.test(v)) return v;
-    if (typeof v === "object") {
-      if (v.logo) return v.logo;
-      if (v.team?.logo) return v.team.logo;
-      if (v.crest) return v.crest;
-      if (v.image) return v.image;
-    }
-  }
-  return "";
-};
-
-const totalGolsItem = (item = {}) => {
-  const nums = String(item.score || item.placar || "0-0").match(/\d+/g) || [0, 0];
-  return Number(nums[0] || 0) + Number(nums[1] || 0);
-};
-
-const minutoItem = (item = {}) => Number(String(valor(item.minute, item.minuto, item.tempo, 0)).replace(/\D/g, "")) || 0;
-
-const placarFormatado = (item = {}) => {
-  if (typeof item.score === "string" || typeof item.placar === "string") return valor(item.score, item.placar);
-  const home = valor(
-    item.goals?.home,
-    item.score?.fulltime?.home,
-    item.score?.halftime?.home,
-    item.homeScore,
-    item.scoreHome,
-    item.placarCasa
-  );
-  const away = valor(
-    item.goals?.away,
-    item.score?.fulltime?.away,
-    item.score?.halftime?.away,
-    item.awayScore,
-    item.scoreAway,
-    item.placarFora
-  );
-  if (home !== undefined || away !== undefined) return `${home ?? 0} - ${away ?? 0}`;
-  return "0 - 0";
-};
-
-const statApiFootball = (item = {}, side = "home", aliases = []) => {
-  const arr = Array.isArray(item.statistics) ? item.statistics : [];
-  const bloco = side === "home" ? arr[0] : arr[1];
-  const stats = Array.isArray(bloco?.statistics) ? bloco.statistics : [];
-  const wanted = aliases.map(normalizar);
-  const found = stats.find((s) => wanted.includes(normalizar(s?.type || s?.name || s?.key || "")));
-  return found ? found.value : undefined;
-};
-
-const statDireta = (item = {}, side = "home", keys = []) => {
-  const sideObj = valor(item?.stats?.[side], item?.statistics?.[side], item?.[`${side}Stats`], item?.[side]);
-  for (const key of keys) {
-    const candidates = [
-      item?.[`${side}${key}`],
-      item?.[`${side}_${key}`],
-      item?.[key],
-      sideObj?.[key]
-    ];
-    const v = valor(...candidates);
-    if (v !== undefined) return v;
-  }
-  return undefined;
-};
-
-const montarStats = (item = {}, side = "home") => {
-  const aliases = {
-    posse: ["Ball Possession", "Possession", "Posse de bola", "Posse"],
-    finalizacoes: ["Total Shots", "Shots total", "Shots", "Finalizações", "Chutes"],
-    noGol: ["Shots on Goal", "Shots on Target", "Chutes no gol", "No gol"],
-    ataques: ["Attacks", "Ataques"],
-    perigosos: ["Dangerous Attacks", "Ataques Perigosos"],
-    cantos: ["Corner Kicks", "Corners", "Escanteios", "Cantos"],
-    cartoes: ["Yellow Cards", "Cards", "Cartões", "Cartoes"]
-  };
-
-  const directKeys = {
-    posse: ["possession", "posse", "ballPossession"],
-    finalizacoes: ["shots", "finalizacoes", "finalizações", "chutes"],
-    noGol: ["shotsOnGoal", "shotsOnTarget", "chutesNoGol", "chutes_no_gol", "noGol"],
-    ataques: ["attacks", "ataques"],
-    perigosos: ["dangerousAttacks", "ataquesPerigosos", "perigosos"],
-    cantos: ["corners", "escanteios", "cantos"],
-    cartoes: ["cards", "yellowCards", "cartoes", "cartões"]
-  };
-
-  const out = {};
-  for (const key of Object.keys(aliases)) {
-    out[key] = toNumber(valor(statDireta(item, side, directKeys[key]), statApiFootball(item, side, aliases[key])), undefined);
-  }
-  return out;
-};
-
-const calcularPressao = (statsHome = {}, statsAway = {}, item = {}) => {
-  const minuto = minutoItem(item);
-  const gols = totalGolsItem(item);
-  const totalAtaques = toNumber(statsHome.ataques, 0) + toNumber(statsAway.ataques, 0);
-  const totalPerigosos = toNumber(statsHome.perigosos, 0) + toNumber(statsAway.perigosos, 0);
-  const totalFinal = toNumber(statsHome.finalizacoes, 0) + toNumber(statsAway.finalizacoes, 0);
-  const totalNoGol = toNumber(statsHome.noGol, 0) + toNumber(statsAway.noGol, 0);
-  const totalCantos = toNumber(statsHome.cantos, 0) + toNumber(statsAway.cantos, 0);
-
-  const bruto =
-    38 +
-    totalPerigosos * 0.55 +
-    totalAtaques * 0.08 +
-    totalFinal * 1.4 +
-    totalNoGol * 4.5 +
-    totalCantos * 2.4 +
-    gols * 3.5 +
-    (minuto >= 55 ? 5 : minuto >= 25 ? 2 : 0);
-
-  return Math.round(clamp(bruto, 35, 98));
-};
-
-const calcularConfianca = ({ pressure = 70, minute = 0, market = "", odd = 0, source = "api" }) => {
-  const mercado = normalizar(market);
-  const oddNum = toNumber(odd, 0);
-  let score = pressure * 0.72 + 20;
-
-  if (source === "api") score += 5;
-  if (minute >= 12 && minute <= 85) score += 4;
-  if (mercado.includes("over") || mercado.includes("ambas") || mercado.includes("btts")) score += 3;
-  if (oddNum >= 1.35 && oddNum <= 2.25) score += 3;
-  if (minute > 88) score -= 8;
-
-  return Math.round(clamp(score, 45, 98));
-};
-
-const extrairListaDaApi = (data) => {
-  const candidates = [
-    data?.activeSignals,
-    data?.signals,
-    data?.data?.activeSignals,
-    data?.data?.signals,
-    data?.data,
-    data?.response,
-    data?.fixtures,
-    data?.games,
-    data
-  ];
-  return candidates.find(Array.isArray) || [];
-};
-
-const apiCacheUrl = () => `${API_URL}${API_URL.includes("?") ? "&" : "?"}_=${Date.now()}`;
-
-const qualidadeSinal = (item = {}) => {
-  const liveBonus = item.type === "live" ? 240 : 0;
-  const apiBonus = item.source === "api" ? 500 : 0;
-  const alertaBonus = item.alert === true || String(item.alert || "").trim() ? 80 : 0;
-  const min = minutoItem(item);
-  const minutoBonus = min >= 12 && min <= 85 ? 35 : min > 85 ? -35 : 0;
-  return apiBonus + liveBonus + alertaBonus + minutoBonus + toNumber(item.confidence, 0) * 2.2 + toNumber(item.pressure, 0) * 1.8;
-};
-
 const normalizarSinal = (item = {}) => {
-  const source = valor(item.__source, item.source, item.origem, "api");
-  const home = nomeTime(item.homeTeam, item.home, item.casa, item.mandante, item.teams?.home, item.teamHome);
-  const away = nomeTime(item.awayTeam, item.away, item.fora, item.visitante, item.teams?.away, item.teamAway);
-  const match = valor(item.match, item.partida, item.game, home && away ? `${home} vs ${away}` : "");
-  const statusRaw = valor(item.status, item.estado, item.fixture?.status?.long, item.fixture?.status?.short, source === "fallback" ? "BASE IA" : "AO VIVO");
-  const statusNorm = normalizar(statusRaw);
-  const liveStatus = /ao vivo|live|1h|2h|ht|et|intervalo|in play|andamento/.test(statusNorm);
-  const type = valor(item.type, item.tipo, liveStatus ? "live" : source === "fallback" ? "base" : "live");
-  const minute = toNumber(valor(item.minute, item.minuto, item.tempo, item.fixture?.status?.elapsed, item.status?.elapsed), 0);
-  const score = placarFormatado(item);
-  const market = valor(item.market, item.mercado, item.signal, item.sinal, item.pick, "Monitoramento ao vivo");
-  const homeStats = montarStats(item, "home");
-  const awayStats = montarStats(item, "away");
-  const pressaoCalculada = calcularPressao(homeStats, awayStats, { ...item, score, minute });
-  const pressure = Math.round(clamp(toNumber(valor(item.pressure, item.pressao, item.pressão), pressaoCalculada), 1, 99));
-  const odd = valor(item.odd, item.odds, item.price, item.cotacao, item.cotação, "-");
-  const confidence = Math.round(clamp(
-    toNumber(valor(item.confidence, item.confianca, item.confiança), calcularConfianca({ pressure, minute, market, odd, source })),
-    1,
-    99
-  ));
+  const match = valor(item.match, item.partida, item.game, "");
+  const home = valor(item.homeTeam, item.home, item.casa, item.mandante, item.teams?.home?.name, "");
+  const away = valor(item.awayTeam, item.away, item.fora, item.visitante, item.teams?.away?.name, "");
+  const market = valor(item.market, item.mercado, item.signal, item.sinal, "Monitoramento IA");
+  const confidence = Number(valor(item.confidence, item.confianca, item.confiança, 70)) || 70;
+  const pressure = Number(valor(item.pressure, item.pressao, item.pressão, 70)) || 70;
 
   return {
     ...item,
-    id: valor(item.id, item.fixture?.id, item.eventId, `${source}-${normalizar(match || `${home}-${away}`)}-${minute}`),
-    source,
-    match: String(match || `${home || "Casa"} vs ${away || "Fora"}`),
+    match: match || `${home || "Casa"} vs ${away || "Fora"}`,
     home,
     away,
     homeTeam: home,
     awayTeam: away,
-    league: valor(item.league?.name, item.league, item.liga, item.competition?.name, "Futebol"),
-    score,
+    league: valor(item.league, item.liga, "Futebol"),
+    score: valor(item.score, item.placar, "0 - 0"),
     market,
-    odd,
-    minute,
-    type,
+    odd: valor(item.odd, item.odds, item.cotacao, item.cotação, "1.72"),
+    minute: valor(item.minute, item.minuto, item.tempo, 0),
+    type: valor(item.type, item.tipo, "live"),
     category: valor(item.category, item.categoria, ""),
-    status: statusRaw,
+    status: valor(item.status, item.estado, "AO VIVO"),
     confidence,
     pressure,
     alert: valor(item.alert, item.alerta, ""),
-    possession: toNumber(valor(item.possession, item.posse, item.ballPossession, homeStats.posse), undefined),
-    shots: toNumber(valor(item.shots, item.finalizacoes, item.finalizações, item.chutes, homeStats.finalizacoes), undefined),
-    shotsOnGoal: toNumber(valor(item.shotsOnGoal, item.chutesNoGol, item.chutes_no_gol, item.noGol, homeStats.noGol), undefined),
-    attacks: toNumber(valor(item.attacks, item.ataques, homeStats.ataques), undefined),
-    dangerousAttacks: toNumber(valor(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos, homeStats.perigosos), undefined),
-    corners: toNumber(valor(item.corners, item.escanteios, item.cantos, homeStats.cantos), undefined),
-    cards: toNumber(valor(item.cards, item.cartoes, item.cartões, homeStats.cartoes), undefined),
-    homeStats,
-    awayStats,
-    logoHome: valor(item.logoHome, item.logoCasa, item.homeLogo, logoTime(item.teams?.home, item.homeTeam, item.home), ""),
-    logoAway: valor(item.logoAway, item.logoFora, item.awayLogo, logoTime(item.teams?.away, item.awayTeam, item.away), ""),
-    weather: valor(item.weather, item.clima, item.tempoClima, item.condition, "")
+    possession: Number(valor(item.possession, item.posse, item.ballPossession, 0)) || undefined,
+    shots: Number(valor(item.shots, item.finalizacoes, item.finalizações, item.chutes, 0)) || undefined,
+    shotsOnGoal: Number(valor(item.shotsOnGoal, item.chutesNoGol, item.chutes_no_gol, item.noGol, 0)) || undefined,
+    attacks: Number(valor(item.attacks, item.ataques, 0)) || undefined,
+    dangerousAttacks: Number(valor(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos, 0)) || undefined,
+    corners: Number(valor(item.corners, item.escanteios, item.cantos, 0)) || undefined,
+    cards: Number(valor(item.cards, item.cartoes, item.cartões, 0)) || undefined,
+    logoHome: valor(item.logoHome, item.logoCasa, item.homeLogo, item.teams?.home?.logo, ""),
+    logoAway: valor(item.logoAway, item.logoFora, item.awayLogo, item.teams?.away?.logo, ""),
+    weather: valor(item.weather, item.clima, item.tempoClima, "")
   };
 };
+
+
+function agruparPorPartida(lista = []) {
+  const mapa = new Map();
+
+  lista.forEach((item) => {
+    const chave = [
+      normalizar(item.fixtureId || ""),
+      normalizar(item.homeTeam || item.home || ""),
+      normalizar(item.awayTeam || item.away || ""),
+      normalizar(item.league || "")
+    ].filter(Boolean).join("|");
+
+    const key = chave || normalizar(item.match || item.id || Math.random());
+
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        ...item,
+        id: item.fixtureId || item.id || key,
+        mercados: [item]
+      });
+    } else {
+      const jogo = mapa.get(key);
+      const mercados = [...(jogo.mercados || []), item];
+      const melhor = mercados.reduce((best, atual) => {
+        const scoreBest = Number(best.confidence || 0) + Number(best.pressure || 0);
+        const scoreAtual = Number(atual.confidence || 0) + Number(atual.pressure || 0);
+        return scoreAtual > scoreBest ? atual : best;
+      }, jogo);
+
+      mapa.set(key, {
+        ...jogo,
+        market: melhor.market || jogo.market,
+        category: melhor.category || jogo.category,
+        odd: melhor.odd || jogo.odd,
+        confidence: Math.max(Number(jogo.confidence || 0), Number(item.confidence || 0)),
+        pressure: Math.max(Number(jogo.pressure || 0), Number(item.pressure || 0)),
+        alert: melhor.alert || jogo.alert,
+        signalStatus: melhor.signalStatus || jogo.signalStatus,
+        mercados
+      });
+    }
+  });
+
+  return Array.from(mapa.values());
+}
 
 export default function App() {
   const [signals, setSignals] = useState([]);
@@ -338,58 +178,27 @@ export default function App() {
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
-  const [apiStatus, setApiStatus] = useState({ source: "loading", online: false, count: 0, error: "" });
 
   async function carregar() {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
     try {
-      const res = await fetch(apiCacheUrl(), {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: { Accept: "application/json" }
-      });
-
-      if (!res.ok) throw new Error(`API respondeu ${res.status}`);
-
+      const res = await fetch(API_URL, { cache: "no-store" });
       const data = await res.json();
-      const listaApi = extrairListaDaApi(data)
-        .filter(Boolean)
-        .map((item, index) => normalizarSinal({ ...item, __source: "api", id: valor(item.id, item.fixture?.id, `api-${index}`) }));
-
-      const reaisValidos = listaApi.filter((s) => s.match && s.homeTeam && s.awayTeam);
-      const listaFinal = reaisValidos.length
-        ? reaisValidos
-        : DEMO_SIGNALS.map((item, index) => normalizarSinal({ ...item, __source: "fallback", id: `fallback-${index}` }));
-
-      setSignals(listaFinal);
-      setApiStatus({
-        source: reaisValidos.length ? "api" : "fallback",
-        online: true,
-        count: reaisValidos.length,
-        error: reaisValidos.length ? "" : "API online, mas sem sinais ativos agora"
-      });
+      const lista = Array.isArray(data?.activeSignals) ? data.activeSignals : [];
+      const normalizados = lista.map(normalizarSinal);
+      setSignals(agruparPorPartida(normalizados));
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
       console.error("Erro ao buscar API MekineBet:", e);
-      setSignals(DEMO_SIGNALS.map((item, index) => normalizarSinal({ ...item, __source: "fallback", id: `fallback-${index}` })));
-      setApiStatus({
-        source: "fallback",
-        online: false,
-        count: 0,
-        error: e?.name === "AbortError" ? "tempo limite da API" : e?.message || "falha na API"
-      });
+      setSignals([]);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   }
 
   useEffect(() => {
     carregar();
-    const timer = setInterval(carregar, REFRESH_MS);
+    const timer = setInterval(carregar, 20000);
     return () => clearInterval(timer);
   }, []);
 
@@ -455,32 +264,24 @@ export default function App() {
     const conf = item.confidence || 70;
     const press = item.pressure || 70;
     const gols = totalGols(item);
-    const apiHome = item.homeStats || {};
-    const apiAway = item.awayStats || {};
-
     const home = {
-      posse: toNumber(apiHome.posse, item.possession || Math.min(72, Math.max(42, conf - 18))),
-      finalizacoes: toNumber(apiHome.finalizacoes, item.shots || Math.max(8, Math.round(press / 6 + gols * 2))),
-      noGol: toNumber(apiHome.noGol, item.shotsOnGoal || Math.max(2, Math.round((press / 18) + gols))),
-      ataques: toNumber(apiHome.ataques, item.attacks || Math.max(18, Math.round(press / 2))),
-      cantos: toNumber(apiHome.cantos, item.corners || Math.max(2, Math.round(press / 18))),
-      cartoes: toNumber(apiHome.cartoes, item.cards || Math.max(0, Math.round((100 - conf) / 30))),
-      perigosos: toNumber(apiHome.perigosos, item.dangerousAttacks || Math.max(8, Math.round(press / 3)))
+      posse: item.possession || Math.min(72, Math.max(42, conf - 18)),
+      finalizacoes: item.shots || Math.max(8, Math.round(press / 6 + gols * 2)),
+      noGol: item.shotsOnGoal || Math.max(2, Math.round((press / 18) + gols)),
+      ataques: item.attacks || Math.max(18, Math.round(press / 2)),
+      cantos: item.corners || Math.max(2, Math.round(press / 18)),
+      cartoes: item.cards || Math.max(0, Math.round((100 - conf) / 30)),
+      perigosos: item.dangerousAttacks || Math.max(8, Math.round(press / 3))
     };
-
     const away = {
-      posse: toNumber(apiAway.posse, Math.max(28, 100 - home.posse)),
-      finalizacoes: toNumber(apiAway.finalizacoes, Math.max(3, Math.round(home.finalizacoes * 0.55))),
-      noGol: toNumber(apiAway.noGol, Math.max(0, Math.round(home.noGol * 0.45))),
-      ataques: toNumber(apiAway.ataques, Math.max(12, Math.round(home.ataques * 0.58))),
-      cantos: toNumber(apiAway.cantos, Math.max(1, Math.round(home.cantos * 0.55))),
-      cartoes: toNumber(apiAway.cartoes, Math.max(0, Math.round(home.cartoes * 0.8))),
-      perigosos: toNumber(apiAway.perigosos, Math.max(6, Math.round(home.perigosos * 0.55)))
+      posse: Math.max(28, 100 - home.posse),
+      finalizacoes: Math.max(3, Math.round(home.finalizacoes * 0.55)),
+      noGol: Math.max(0, Math.round(home.noGol * 0.45)),
+      ataques: Math.max(12, Math.round(home.ataques * 0.58)),
+      cantos: Math.max(1, Math.round(home.cantos * 0.55)),
+      cartoes: Math.max(0, Math.round(home.cartoes * 0.8)),
+      perigosos: Math.max(6, Math.round(home.perigosos * 0.55))
     };
-
-    home.posse = Math.round(clamp(home.posse, 1, 99));
-    away.posse = Math.round(clamp(away.posse, 1, 99));
-
     return { home, away };
   }
 
@@ -528,37 +329,37 @@ export default function App() {
       return alertText;
     }
 
-    if (alertaForte(item)) return "🚨 ALERTA MUITO FORTE";
+    if (alertaForte(item)) return "🚨 SINAL MUITO FORTE";
 
     if (market.includes("0.5") || market.includes("0,5")) {
-      if (gols >= 1) return "✅ LINHA BATIDA";
-      if (min >= 12 && pressure >= 70) return "🔥 PRESSÃO ALTA";
+      if (gols >= 1) return "✅ GREEN";
+      if (min >= 12 && pressure >= 70) return "🔥 GOL IMINENTE";
       return "📊 MONITORANDO";
     }
     if (market.includes("1.5") || market.includes("1,5")) {
-      if (gols >= 2) return "✅ LINHA BATIDA";
-      if (gols === 1 && pressure >= 72) return "🔥 BUSCA 2º GOL";
+      if (gols >= 2) return "✅ GREEN";
+      if (gols === 1 && pressure >= 72) return "🔥 2º GOL FORTE";
       return "📊 MONITORANDO";
     }
     if (market.includes("2.5") || market.includes("2,5")) {
-      if (gols >= 3) return "✅ LINHA BATIDA";
-      if (gols >= 2 && pressure >= 74) return "🔥 JOGO ABERTO";
+      if (gols >= 3) return "✅ GREEN";
+      if (gols >= 2 && pressure >= 74) return "🔥 OVER FORTE";
       return "📊 MONITORANDO";
     }
     if (market.includes("3.5") || market.includes("3,5")) {
-      if (gols >= 4) return "✅ LINHA BATIDA";
-      if (gols >= 3 && pressure >= 82) return "🚨 RITMO MUITO ALTO";
+      if (gols >= 4) return "✅ GREEN";
+      if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
       return "📉 RISCO MÉDIO";
     }
     if (market.includes("btts") || market.includes("ambas")) {
-      if (gols >= 2) return "🔥 AMBAS NO JOGO";
+      if (gols >= 2) return "🔥 BTTS QUENTE";
       if (pressure >= 75) return "⚡ AMBAS PRESSIONANDO";
       return "👀 OBSERVAÇÃO";
     }
     if (market.includes("cart") || market.includes("card")) return "🟨 CARTÕES AO VIVO";
     if (market.includes("canto") || market.includes("corner")) return "🚩 CANTOS AO VIVO";
-    if (pressure >= 80 || confidence >= 85) return "🔥 TENDÊNCIA FORTE";
-    return "📊 MONITORAMENTO";
+    if (pressure >= 80 || confidence >= 85) return "🔥 ENTRADA FORTE";
+    return "📊 MONITORAMENTO IA";
   }
 
   function categoriaMercado(item) {
@@ -568,82 +369,15 @@ export default function App() {
     if (market.includes("1.5") || market.includes("1,5") || category.includes("over15")) return "OVER 1,5";
     if (market.includes("2.5") || market.includes("2,5") || category.includes("over25")) return "OVER 2,5";
     if (market.includes("3.5") || market.includes("3,5") || category.includes("over35")) return "OVER 3,5";
-    if (market.includes("top ia") || market.includes("topia") || market.includes("top_ia") || category.includes("top ia") || category.includes("topia") || category.includes("top_ia")) return "TOP IA";
-    if (market.includes("cart") || market.includes("card") || category.includes("cart")) return "CARTÕES FT";
-    if (market.includes("canto") || market.includes("corner") || category.includes("canto")) return "CANTOS FT";
+    if (market.includes("cart") || market.includes("card") || category.includes("cart")) return "CARTÕES";
+    if (market.includes("canto") || market.includes("corner") || category.includes("canto")) return "CANTOS";
     if (market.includes("btts") || market.includes("ambas") || category.includes("btts")) return "BTTS";
+    if (market.includes("top ia") || category.includes("topia")) return "TOP IA";
     return item.category?.toUpperCase() || "BASE";
   }
 
   function isVip(item) {
-    const lista = Array.isArray(item.signals) && item.signals.length ? item.signals : [item];
-    return lista.some((s) =>
-      (s.confidence || 70) >= 82 ||
-      alertaForte(s) ||
-      String(s.alert || "").toUpperCase().includes("GOL") ||
-      categoriaMercado(s) === "TOP IA"
-    );
-  }
-
-  function sinaisDoItem(item) {
-    return Array.isArray(item.signals) && item.signals.length ? item.signals : [item];
-  }
-
-  function chaveJogo(item) {
-    const t = timesDoJogo(item);
-    const fixtureId = valor(item.fixtureId, item.fixture?.id, item.matchId, item.gameId, item.eventId, item.idJogo, "");
-    const fixtureLimpo = fixtureId
-      ? String(fixtureId).replace(/[-_:]?(over05|over15|over25|over35|btts|cantos|corners|cartoes|cartões|cards|topia|top_ia|top-ia)$/i, "")
-      : "";
-    if (fixtureLimpo) return `fixture:${fixtureLimpo}`;
-    return normalizar(`${t.casa}|${t.fora}|${item.league}|${item.score}`);
-  }
-
-  function sinalPassaFiltro(item, filtroAtual) {
-    const cat = categoriaMercado(item);
-    if (filtroAtual === "TODOS") return true;
-    if (filtroAtual === "LIVE") return item.type === "live";
-    if (filtroAtual === "ALERTA") return alertaForte(item) || mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
-    if (filtroAtual === "OVER05") return cat === "OVER 0,5";
-    if (filtroAtual === "OVER15") return cat === "OVER 1,5";
-    if (filtroAtual === "OVER25") return cat === "OVER 2,5";
-    if (filtroAtual === "OVER35") return cat === "OVER 3,5";
-    if (filtroAtual === "CARTÕES") return cat.includes("CARTÕES");
-    if (filtroAtual === "CANTOS") return cat.includes("CANTOS");
-    if (filtroAtual === "BTTS") return cat === "BTTS";
-    if (filtroAtual === "TOP IA") return cat === "TOP IA" || (item.confidence || 70) >= 82;
-    if (filtroAtual === "VIP") return isVip(item);
-    if (filtroAtual === "HISTORICO") return item.type !== "live";
-    return true;
-  }
-
-  function melhorSinalDoGrupo(sinais = [], filtroAtual = "TODOS") {
-    const lista = [...sinais].filter(Boolean).sort((a, b) => qualidadeSinal(b) - qualidadeSinal(a));
-    const candidatos = lista.filter((s) => sinalPassaFiltro(s, filtroAtual));
-
-    let escolhido;
-    if (["OVER05", "OVER15", "OVER25", "OVER35", "CARTÕES", "CANTOS", "BTTS", "TOP IA", "ALERTA", "VIP"].includes(filtroAtual)) {
-      escolhido = candidatos[0] || lista[0];
-    } else {
-      escolhido = lista.find((s) => categoriaMercado(s) === "TOP IA") || candidatos[0] || lista[0];
-    }
-
-    return {
-      ...(escolhido || {}),
-      signals: lista,
-      groupedCount: lista.length
-    };
-  }
-
-  function mercadosDoCard(item) {
-    const vistos = new Set();
-    return sinaisDoItem(item)
-      .map((s) => ({ label: categoriaMercado(s), market: s.market, confidence: s.confidence }))
-      .filter((s) => {
-        if (!s.label || vistos.has(s.label)) return false;
-        vistos.add(s.label);
-        return true;
-      });
+    return (item.confidence || 70) >= 82 || alertaForte(item) || String(item.alert || "").includes("GOL");
   }
 
   function pctValue(a = 0, b = 0) {
@@ -690,44 +424,57 @@ export default function App() {
     }).filter((ev) => ev.m <= Math.max(90, current));
   }
 
-  const jogosAgrupados = useMemo(() => {
-    const mapa = new Map();
 
-    signals.forEach((sinal) => {
-      const key = chaveJogo(sinal);
-      if (!mapa.has(key)) mapa.set(key, []);
-      mapa.get(key).push(sinal);
-    });
+  function mercadosDoItem(item) {
+    return Array.isArray(item.mercados) && item.mercados.length ? item.mercados : [item];
+  }
 
-    return Array.from(mapa.values()).map((grupo) => melhorSinalDoGrupo(grupo, "TODOS"));
-  }, [signals]);
+  function jogoTemCategoria(item, categoria) {
+    return mercadosDoItem(item).some((m) => categoriaMercado(m) === categoria);
+  }
+
+  function jogoTemAlerta(item) {
+    return mercadosDoItem(item).some((m) => alertaForte(m) || mercadoStatus(m).includes("🔥") || mercadoStatus(m).includes("🚨"));
+  }
+
+  function melhorMercado(item) {
+    return mercadosDoItem(item)
+      .slice()
+      .sort((a, b) => (b.confidence || 0) + (b.pressure || 0) - ((a.confidence || 0) + (a.pressure || 0)))[0] || item;
+  }
+
+  function mercadosOrdenados(item) {
+    const ordem = { "TOP IA": 0, "OVER 0,5": 1, "OVER 1,5": 2, "OVER 2,5": 3, "OVER 3,5": 4, "BTTS": 5, "CANTOS": 6, "CARTÕES": 7 };
+    return mercadosDoItem(item)
+      .slice()
+      .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
+  }
 
   const sinaisFiltrados = useMemo(() => {
-    const termo = normalizar(busca);
-
-    return jogosAgrupados
+    return signals
       .filter((item) => {
-        const lista = sinaisDoItem(item);
-        const texto = normalizar([
-          item.match,
-          item.league,
-          item.homeTeam,
-          item.awayTeam,
-          ...lista.map((s) => `${s.market} ${s.category} ${s.categoria}`)
-        ].join(" "));
-
-        if (termo && !texto.includes(termo)) return false;
+        const texto = `${item.match} ${item.league} ${mercadosDoItem(item).map((m) => `${m.market} ${m.category} ${m.alert}`).join(" ")}`.toLowerCase();
+        if (!texto.includes(busca.toLowerCase())) return false;
         if (filtro === "TODOS") return true;
-        return lista.some((s) => sinalPassaFiltro(s, filtro));
+        if (filtro === "LIVE") return item.type === "live" || mercadosDoItem(item).some((m) => m.type === "live");
+        if (filtro === "ALERTA") return jogoTemAlerta(item);
+        if (filtro === "OVER05") return jogoTemCategoria(item, "OVER 0,5");
+        if (filtro === "OVER15") return jogoTemCategoria(item, "OVER 1,5");
+        if (filtro === "OVER25") return jogoTemCategoria(item, "OVER 2,5");
+        if (filtro === "OVER35") return jogoTemCategoria(item, "OVER 3,5");
+        if (filtro === "CARTÕES") return jogoTemCategoria(item, "CARTÕES");
+        if (filtro === "CANTOS") return jogoTemCategoria(item, "CANTOS");
+        if (filtro === "BTTS") return jogoTemCategoria(item, "BTTS");
+        if (filtro === "TOP IA") return jogoTemCategoria(item, "TOP IA") || mercadosDoItem(item).some((m) => (m.confidence || 0) >= 82);
+        if (filtro === "VIP") return mercadosDoItem(item).some((m) => isVip(m));
+        if (filtro === "HISTORICO") return item.type !== "live";
+        return true;
       })
-      .map((item) => melhorSinalDoGrupo(sinaisDoItem(item), filtro))
-      .sort((a, b) => qualidadeSinal(b) - qualidadeSinal(a));
-  }, [jogosAgrupados, busca, filtro]);
+      .sort((a, b) => (melhorMercado(b).confidence || 70) + (melhorMercado(b).pressure || 70) - ((melhorMercado(a).confidence || 70) + (melhorMercado(a).pressure || 70)));
+  }, [signals, busca, filtro]);
 
-  const realLiveCount = jogosAgrupados.filter((jogo) => sinaisDoItem(jogo).some((s) => s.type === "live" && s.source === "api")).length;
-  const liveCount = jogosAgrupados.filter((jogo) => sinaisDoItem(jogo).some((s) => s.type === "live")).length;
-  const alertCount = jogosAgrupados.filter((jogo) => sinaisDoItem(jogo).some((s) => alertaForte(s) || mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨"))).length;
-  const vipCount = jogosAgrupados.filter(isVip).length;
+  const liveCount = signals.filter((s) => s.type === "live" || mercadosDoItem(s).some((m) => m.type === "live")).length;
+  const alertCount = signals.filter((s) => jogoTemAlerta(s)).length;
 
   return (
     <div className="page">
@@ -736,31 +483,25 @@ export default function App() {
       <header className="topBar">
         <div>
           <h1>MekineBet <span className="liveDot"></span></h1>
-          <div className="subTitle">🟢 Scanner live • pressão • estatísticas • mercados</div>
+          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
         </div>
         <div className="statusWrap">
-          <span className={`pill apiState ${apiStatus.source === "api" ? "ok" : "warn"}`}>
-            {apiStatus.source === "api" ? `🟢 API real: ${realLiveCount}` : "🟠 Base IA"}
-          </span>
-          <span className="pill">◉ Live: {liveCount}</span>
+          <span className="pill">🟢 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
-          <span className="pill">⭐ Top: {vipCount}</span>
+          <span className="pill">👑 VIP</span>
           <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
-      {!loading && apiStatus.source !== "api" && (
-        <div className="notice">
-          📊 Nenhum sinal real ativo disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.
-          {apiStatus.error ? ` Detalhe: ${apiStatus.error}.` : ""}
-        </div>
+      {liveCount === 0 && (
+        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.</div>
       )}
 
       <div className="filters">
         {[
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
-          ["CARTÕES", "🟨 CARTÕES FT"], ["CANTOS", "🚩 CANTOS FT"], ["BTTS", "👥 BTTS"],
+          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
           ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
@@ -772,15 +513,13 @@ export default function App() {
       {loading ? (
         <div className="empty">Carregando sinais...</div>
       ) : (
-        <main className={`grid ${sinaisFiltrados.length === 1 ? "isSingle" : ""}`}>
+        <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
             const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
-            const mercados = mercadosDoCard(item);
             const vip = isVip(item);
             const liveReal = item.type === "live";
-            const apiReal = item.source === "api";
             const times = timesDoJogo(item);
             const homeColor = teamColor(times.casa, "#22c55e");
             const awayColor = teamColor(times.fora, "#6366f1");
@@ -814,20 +553,14 @@ export default function App() {
                 </div>
 
                 <div className="badges">
-                  <span className={`base ${apiReal ? "real" : ""}`}>{apiReal ? "API REAL" : liveReal ? "AO VIVO" : "BASE"}</span>
+                  <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
                   {vip && <span className="vip">VIP</span>}
-                  <span className="market">{cat}</span>
-                </div>
-
-                {mercados.length > 1 && (
-                  <div className="signalChips">
-                    {mercados.map((m) => (
-                      <span key={m.label} className={m.label === cat ? "selected" : ""} title={m.market}>
-                        {m.label}
-                      </span>
+                  <div className="marketBadges">
+                    {mercadosOrdenados(item).slice(0, 5).map((m, i) => (
+                      <span key={i} className="market">{categoriaMercado(m)}</span>
                     ))}
                   </div>
-                )}
+                </div>
 
                 <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
                   <div className="statsTopGrid">
@@ -944,12 +677,18 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="marketLine">
-                  <div><b>{item.market}</b><span>Status: {status}</span><strong>Ref.: {item.odd || "-"}</strong></div>
-                  <div><b>IA {item.confidence || 70}%</b><span className="bar"><i style={{ width: `${item.confidence || 70}%` }}></i></span><small>Pressão {item.pressure || 70}%</small></div>
+                <div className="marketsPanel">
+                  {mercadosOrdenados(item).map((m, i) => (
+                    <div key={i} className={`signalChip ${alertaForte(m) ? "strong" : ""}`}>
+                      <b>{categoriaMercado(m)}</b>
+                      <span>{m.alert || mercadoStatus(m)}</span>
+                      <strong>{m.confidence || 70}%</strong>
+                      <em>Odd {m.odd || "1.72"}</em>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="bookies"><button>Análise</button><button>Pressão</button><button>Live</button><button>Top IA</button></div>
+                <div className="bookies"><button>Betano</button><button>Novibet</button><button>Bet365</button><button>VIP</button></div>
               </section>
             );
           })}
@@ -1997,41 +1736,15 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 @media(max-width:1100px){.grid.isSingle{grid-template-columns:1fr!important}}
 
 
-/* ===== API REAL / FALLBACK SEGURO ===== */
-.apiState.ok{border-color:#22c55e!important;background:rgba(34,197,94,.16)!important;color:#dcfce7!important}
-.apiState.warn{border-color:#f59e0b!important;background:rgba(245,158,11,.14)!important;color:#ffedd5!important}
-.base.real{background:linear-gradient(90deg,#16a34a,#22c55e)!important;color:#03130a!important;box-shadow:0 0 10px rgba(34,197,94,.35)!important}
-.notice{line-height:1.35!important}
-
-
-/* ===== AGRUPAMENTO MULTI-SINAIS: 1 CARD POR JOGO ===== */
-.signalChips{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  gap:3px!important;
-  margin:0 0 5px!important;
-  min-height:18px!important;
-  align-items:center!important;
-}
-.signalChips span{
-  border:1px solid rgba(34,197,94,.35)!important;
-  background:rgba(3,12,10,.88)!important;
-  color:#d1fae5!important;
-  border-radius:999px!important;
-  padding:2px 6px!important;
-  font-size:7.5px!important;
-  font-weight:900!important;
-  line-height:1.25!important;
-  white-space:nowrap!important;
-}
-.signalChips span.selected{
-  background:#22c55e!important;
-  border-color:#22c55e!important;
-  color:#001b0b!important;
-}
-@media(max-width:700px){
-  .signalChips{justify-content:center!important}
-  .signalChips span{font-size:7px!important;padding:2px 5px!important}
-}
+/* ===== AGRUPAMENTO DE MERCADOS POR JOGO ===== */
+.marketBadges{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:78%}
+.marketsPanel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:7px;border:1px solid rgba(250,204,21,.38);border-radius:8px;padding:6px;background:linear-gradient(180deg,rgba(250,204,21,.07),rgba(0,0,0,.18));box-shadow:0 0 12px rgba(250,204,21,.08)}
+.signalChip{display:grid;grid-template-columns:1fr auto;gap:2px 6px;align-items:center;border:1px solid rgba(255,255,255,.10);border-radius:7px;background:rgba(0,0,0,.25);padding:5px 6px;min-height:42px}
+.signalChip.strong{border-color:rgba(250,204,21,.65);box-shadow:0 0 10px rgba(250,204,21,.10)}
+.signalChip b{font-size:10px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+.signalChip span{grid-column:1/-1;font-size:8.5px;font-weight:800;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.signalChip strong{font-size:12px;font-weight:900;color:#22c55e;text-align:right}
+.signalChip em{font-style:normal;font-size:8.5px;color:#facc15;font-weight:900;text-align:right}
+@media(max-width:700px){.marketBadges{max-width:100%;justify-content:center}.marketsPanel{grid-template-columns:1fr}.signalChip{min-height:38px}}
 
 `;
