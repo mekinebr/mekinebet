@@ -34,7 +34,7 @@ const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !=
 const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
 const THIRD_PARTY_CACHE_TTL_MS = Number(process.env.THIRD_PARTY_CACHE_TTL_MS || 300000);
 const THE_ODDS_REGIONS = String(process.env.THE_ODDS_REGIONS || "eu,uk,us").trim();
-const THE_ODDS_MARKETS = String(process.env.THE_ODDS_MARKETS || "h2h,spreads,totals,btts").trim();
+const THE_ODDS_MARKETS = String(process.env.THE_ODDS_MARKETS || "h2h,totals,spreads").trim();
 const THE_ODDS_SPORT_KEYS = uniqueText(
   (process.env.ODDS_SPORT_KEYS ||
     "soccer_epl,soccer_usa_mls,soccer_brazil_campeonato,soccer_spain_la_liga,soccer_italy_serie_a,soccer_germany_bundesliga,soccer_france_ligue_one,soccer_netherlands_eredivisie,soccer_portugal_primeira_liga,soccer_conmebol_copa_libertadores,soccer_uefa_champs_league,soccer_uefa_europa_league")
@@ -43,6 +43,7 @@ const THE_ODDS_SPORT_KEYS = uniqueText(
 
 let cache = { timestamp: 0, payload: null };
 let thirdPartyCache = { timestamp: 0, data: null };
+let providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, Number(v || 0)));
 
@@ -275,9 +276,11 @@ async function apiFootballGet(path) {
 
       if (!response.ok || hasApiErrors(data?.errors)) {
         lastError = new Error(`API-Football key falhou: status ${response.status} ${JSON.stringify(data?.errors || data)}`);
+        providerDiagnostics.apiFootball.push({ path, ok: false, status: response.status, errors: data?.errors || data });
         continue;
       }
 
+      providerDiagnostics.apiFootball.push({ path, ok: true, count: Array.isArray(data?.response) ? data.response.length : 0 });
       return Array.isArray(data?.response) ? data.response : [];
     } catch (e) {
       lastError = e;
@@ -1392,39 +1395,52 @@ async function sportmonksGet(path, params = {}) {
   if (!SPORTMONKS_TOKEN) return [];
 
   const url = new URL(`https://api.sportmonks.com/v3/football${path}`);
+  // Sportmonks aceita token por query em vários exemplos e também via Authorization.
+  // Usar os dois deixa o backend mais tolerante aos formatos da conta.
   url.searchParams.set("api_token", SPORTMONKS_TOKEN);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   });
 
-  const data = await fetchJsonWithTimeout(url.toString());
+  const data = await fetchJsonWithTimeout(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      Authorization: SPORTMONKS_TOKEN
+    }
+  });
+
   const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
   return rows;
+}
+
+async function safeSportmonks(path, params = {}, label = path) {
+  try {
+    const rows = await sportmonksGet(path, params);
+    providerDiagnostics.sportmonks.push({ label, ok: true, count: rows.length });
+    return rows;
+  } catch (e) {
+    providerDiagnostics.sportmonks.push({ label, ok: false, error: e.message });
+    console.log("Erro Sportmonks:", label, e.message);
+    return [];
+  }
 }
 
 async function getSportmonksFixtures() {
   if (!SPORTMONKS_TOKEN) return { live: [], prelive: [] };
 
-  const include = "scores;participants;statistics.type;events;league;state";
-  let liveRows = [];
-  let preRows = [];
+  const includeCore = "scores;participants;events;league;state";
+  const includeLight = "scores;participants;league;state";
 
-  try {
-    liveRows = await sportmonksGet("/livescores/inplay", { include });
-  } catch (e) {
-    console.log("Erro Sportmonks live:", e.message);
-  }
+  const [liveInplay, liveAll, fixtures24] = await Promise.all([
+    safeSportmonks("/livescores/inplay", { include: includeCore }, "livescores/inplay"),
+    safeSportmonks("/livescores/latest", { include: includeCore }, "livescores/latest"),
+    safeSportmonks(`/fixtures/between/${todayISO(0)}/${todayISO(1)}`, { include: includeLight }, "fixtures/between/24h")
+  ]);
 
-  try {
-    preRows = await sportmonksGet(`/fixtures/between/${todayISO(0)}/${todayISO(1)}`, { include });
-  } catch (e) {
-    console.log("Erro Sportmonks fixtures 24h:", e.message);
-  }
-
-  const live = uniqueFixtures(liveRows.map(transformSportmonksFixture))
+  const live = uniqueFixtures([...liveInplay, ...liveAll].map(transformSportmonksFixture))
     .filter((row) => isLive(row?.fixture?.status?.short || ""));
 
-  const prelive = uniqueFixtures(preRows.map(transformSportmonksFixture))
+  const prelive = uniqueFixtures(fixtures24.map(transformSportmonksFixture))
     .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
 
   return { live, prelive };
@@ -1507,9 +1523,12 @@ async function theOddsApiGet(path, params = {}, preferredKeyIndex = 0) {
 
     try {
       const data = await fetchJsonWithTimeout(url.toString());
-      return Array.isArray(data) ? data : [];
+      const rows = Array.isArray(data) ? data : [];
+      providerDiagnostics.theOdds.push({ path, ok: true, count: rows.length, key: `${String(apiKey).slice(0, 4)}...` });
+      return rows;
     } catch (e) {
       lastError = e;
+      providerDiagnostics.theOdds.push({ path, ok: false, error: e.message, key: `${String(apiKey).slice(0, 4)}...` });
       console.log("Erro The Odds API:", path, e.message);
     }
   }
@@ -1518,28 +1537,65 @@ async function theOddsApiGet(path, params = {}, preferredKeyIndex = 0) {
   return [];
 }
 
+async function getTheOddsSports() {
+  if (!ODDS_API_KEYS.length || !ODDS_ENABLED) return [];
+
+  const rows = await theOddsApiGet("/sports", {}, 0);
+  const soccer = rows
+    .filter((sport) => String(sport?.key || "").startsWith("soccer_"))
+    .filter((sport) => sport?.active !== false)
+    .map((sport) => sport.key);
+
+  const configured = THE_ODDS_SPORT_KEYS.filter((key) => String(key || "").startsWith("soccer_"));
+  return uniqueText([...soccer, ...configured]);
+}
+
+async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
+  const baseParams = {
+    regions: THE_ODDS_REGIONS,
+    oddsFormat: "decimal",
+    dateFormat: "iso"
+  };
+
+  // O endpoint principal aceita h2h, spreads e totals. Se qualquer mercado configurado falhar,
+  // reduzimos para h2h para ainda puxar os jogos reais e não zerar o painel.
+  const marketAttempts = uniqueText([
+    THE_ODDS_MARKETS,
+    "h2h,totals,spreads",
+    "h2h,totals",
+    "h2h"
+  ]);
+
+  for (const markets of marketAttempts) {
+    const rows = await theOddsApiGet(`/sports/${sportKey}/odds`, {
+      ...baseParams,
+      markets
+    }, preferredKeyIndex);
+
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
+
 async function getTheOddsFixtures() {
   if (!ODDS_API_KEYS.length || !ODDS_ENABLED) return [];
 
   const output = [];
-  const sportKeys = THE_ODDS_SPORT_KEYS.slice(0, Number(process.env.ODDS_MAX_SPORTS || 12));
+  const sportKeys = (await getTheOddsSports()).slice(0, Number(process.env.ODDS_MAX_SPORTS || 80));
 
   for (let i = 0; i < sportKeys.length && output.length < MAX_PRELIVE_GAMES; i += 1) {
     const sportKey = sportKeys[i];
 
     try {
-      const rows = await theOddsApiGet(`/sports/${sportKey}/odds`, {
-        regions: THE_ODDS_REGIONS,
-        markets: THE_ODDS_MARKETS,
-        oddsFormat: "decimal",
-        dateFormat: "iso"
-      }, i % Math.max(1, ODDS_API_KEYS.length));
+      const rows = await getTheOddsRowsForSport(sportKey, i % Math.max(1, ODDS_API_KEYS.length));
 
       rows.forEach((event) => {
         const fixture = transformTheOddsFixture(event, event?.sport_title || sportKey.replace(/^soccer_/, "Soccer "));
         if (isFutureFixture(fixture) && isWithinNextHours(fixture, PRELIVE_HOURS)) output.push(fixture);
       });
     } catch (e) {
+      providerDiagnostics.theOdds.push({ path: sportKey, ok: false, error: e.message });
       console.log("Erro odds sport:", sportKey, e.message);
     }
   }
@@ -1740,6 +1796,7 @@ async function getOddsForFixture(fixture, mode) {
 
 async function getSignalsPayload() {
   const now = Date.now();
+  providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
 
   if (cache.payload && now - cache.timestamp < CACHE_TTL_MS) {
     return { ...cache.payload, cache: true };
@@ -1831,6 +1888,7 @@ async function getSignalsPayload() {
           : realStatsGames > 0 || realEventsGames > 0 || realOddsGames > 0
             ? "Dados reais carregados dos provedores disponíveis."
             : "Jogos reais carregados, mas estatísticas/odds detalhadas ainda não disponíveis para estes fixtures.",
+    diagnostics: DEBUG_API ? providerDiagnostics : undefined,
     updatedAt: new Date().toISOString()
   };
 
@@ -1870,6 +1928,34 @@ const server = http.createServer(async (req, res) => {
 
     if (requestUrl.pathname === "/api/signals") {
       sendJson(res, 200, await getSignalsPayload());
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/debug-providers") {
+      providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
+      const result = await getFixtures();
+      sendJson(res, 200, {
+        ok: true,
+        mode: result.mode,
+        totalFixtures: result.fixtures.length,
+        liveFixtures: result.fixtures.filter((f) => isLive(f?.fixture?.status?.short || "")).length,
+        preliveFixtures: result.fixtures.filter((f) => !isLive(f?.fixture?.status?.short || "")).length,
+        providers: {
+          apiFootballKeys: API_KEYS.length,
+          sportmonks: Boolean(SPORTMONKS_TOKEN),
+          theOddsApiKeys: ODDS_API_KEYS.length
+        },
+        diagnostics: providerDiagnostics,
+        sample: result.fixtures.slice(0, 5).map((f) => ({
+          source: f?._externalSource || "api-football",
+          id: f?.fixture?.id,
+          status: f?.fixture?.status?.short,
+          date: f?.fixture?.date,
+          league: f?.league?.name,
+          match: `${f?.teams?.home?.name || "Casa"} vs ${f?.teams?.away?.name || "Fora"}`
+        })),
+        updatedAt: new Date().toISOString()
+      });
       return;
     }
 
