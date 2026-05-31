@@ -341,7 +341,8 @@ export default function App() {
     oddsMode: "",
     realOddsGames: 0,
     oddsEnabled: false,
-    apiStatus: ""
+    apiStatus: "",
+    message: ""
   });
 
   async function carregar() {
@@ -361,7 +362,8 @@ export default function App() {
         oddsMode: data?.oddsMode || "",
         realOddsGames: Number(data?.realOddsGames || 0),
         oddsEnabled: Boolean(data?.oddsEnabled),
-        apiStatus: data?.apiStatus || ""
+        apiStatus: data?.apiStatus || "",
+        message: data?.message || ""
       });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
@@ -377,7 +379,8 @@ export default function App() {
         oddsMode: "erro",
         realOddsGames: 0,
         oddsEnabled: false,
-        apiStatus: "error"
+        apiStatus: "error",
+        message: "Erro ao buscar dados da API."
       });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
@@ -1380,8 +1383,16 @@ export default function App() {
         </div>
       </header>
 
-      {apiInfo.mode === "fallback-ia" && (
-        <div className="notice">⚠️ API sem jogos reais agora. Mostrando base IA/fallback enquanto monitora automaticamente.</div>
+      {(apiInfo.mode === "fallback-ia" || apiInfo.mode === "empty" || apiInfo.mode === "no-api-key") && (
+        <div className="notice">
+          {apiInfo.mode === "no-api-key"
+            ? "⚠️ API key ausente no Render. Configure API_FOOTBALL_KEY para carregar jogos reais."
+            : "📊 Nenhum jogo real encontrado agora. O fallback/demo foi removido para não mostrar partidas falsas."}
+        </div>
+      )}
+
+      {apiInfo.message && apiInfo.mode !== "fallback-ia" && apiInfo.mode !== "empty" && apiInfo.mode !== "no-api-key" && (
+        <div className="notice infoNotice">{apiInfo.message}</div>
       )}
 
       {apiInfo.mode !== "fallback-ia" && liveCount > 0 && apiInfo.statsMode !== "real" && (
@@ -1411,6 +1422,21 @@ export default function App() {
 
       {loading ? (
         <div className="empty">Carregando sinais...</div>
+      ) : sinaisFiltrados.length === 0 ? (
+        <div className="empty emptyState">
+          <b>
+            {filtro === "HISTORICO"
+              ? "Nenhum pré-live VIP real nas próximas 24h."
+              : filtro === "LIVE" || filtro === "TODOS"
+                ? "Nenhum jogo ao vivo real disponível agora."
+                : "Nenhum jogo encontrado nesse filtro."}
+          </b>
+          <span>
+            {apiInfo.mode === "fallback-ia" || apiInfo.mode === "empty"
+              ? "Sem jogos demo/fallback. Quando a API-Football entregar jogos reais, eles aparecem automaticamente."
+              : "Tente outro filtro ou aguarde a próxima atualização automática."}
+          </span>
+        </div>
       ) : (
         <main className="grid">
           {sinaisFiltrados.map((item, index) => {
@@ -3878,5 +3904,31 @@ h1{
   .livePulse span{max-width:50%!important}
   .field3d.liveField{height:58px!important}
 }
+
+
+/* ===== CORRECAO MAKINE: SEM DEMO/FALLBACK E ESTADO VAZIO ===== */
+.emptyState{
+  min-height:210px!important;
+  display:grid!important;
+  place-items:center!important;
+  align-content:center!important;
+  gap:10px!important;
+  text-align:center!important;
+  background:linear-gradient(180deg,rgba(7,20,28,.7),rgba(0,0,0,.2))!important;
+}
+.emptyState b{
+  color:#58f5a5!important;
+  font-size:18px!important;
+}
+.emptyState span{
+  color:#d1d5db!important;
+  font-weight:800!important;
+  max-width:780px!important;
+}
+.infoNotice{
+  background:#082f49!important;
+  border-color:#0ea5e9!important;
+}
+
 
 `;
