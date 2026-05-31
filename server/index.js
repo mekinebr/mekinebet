@@ -15,6 +15,8 @@ const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
 const MAX_GAMES = Number(process.env.MAX_LIVE_GAMES || 9);
 const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
+const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !== "false";
+const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
 
 let cache = { timestamp: 0, payload: null };
 
@@ -388,6 +390,258 @@ function buildRealEvents(fixtureRow, eventsRows = []) {
   };
 }
 
+function formatOdd(v) {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(String(v).replace(",", "."));
+  if (!Number.isFinite(n) || n <= 1) return "";
+  return n.toFixed(2).replace(/\.00$/, "");
+}
+
+function numberFromText(v = "") {
+  const match = String(v).replace(",", ".").match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : null;
+}
+
+function emptyOddsPack() {
+  return {
+    hasRealOdds: false,
+    oddsMode: "none",
+    bookmaker: "",
+    oddsUpdatedAt: "",
+    entries: [],
+    byCategory: {}
+  };
+}
+
+function pushOddsEntriesFromBookmakers(entries, bookmakers = [], source = "api-football", updatedAt = "") {
+  if (!Array.isArray(bookmakers)) return;
+
+  bookmakers.forEach((bookmaker) => {
+    const bookmakerName = bookmaker?.name || "";
+    const bookmakerId = bookmaker?.id || null;
+    const bets = Array.isArray(bookmaker?.bets) ? bookmaker.bets : [];
+
+    bets.forEach((bet) => {
+      const betName = bet?.name || "";
+      const betId = bet?.id || null;
+      const values = Array.isArray(bet?.values) ? bet.values : [];
+
+      values.forEach((value) => {
+        const odd = formatOdd(value?.odd);
+        if (!odd) return;
+
+        entries.push({
+          source,
+          updatedAt,
+          bookmaker: bookmakerName,
+          bookmakerId,
+          bet: betName,
+          betId,
+          value: value?.value || "",
+          odd,
+          suspended: Boolean(value?.suspended),
+          line: numberFromText(value?.value || ""),
+          raw: value
+        });
+      });
+    });
+  });
+}
+
+function flattenOddsResponse(rows = [], source = "api-football") {
+  const entries = [];
+
+  if (!Array.isArray(rows)) return entries;
+
+  rows.forEach((row) => {
+    const updatedAt = row?.update || row?.updated || row?.fixture?.date || "";
+    pushOddsEntriesFromBookmakers(entries, row?.bookmakers, source, updatedAt);
+
+    if (Array.isArray(row?.odds)) {
+      row.odds.forEach((oddRow) => {
+        pushOddsEntriesFromBookmakers(entries, oddRow?.bookmakers, source, oddRow?.update || updatedAt);
+      });
+    }
+  });
+
+  return entries;
+}
+
+function bookmakerScore(entry = {}) {
+  const name = normalizeName(entry.bookmaker || "");
+  const preferred = normalizeName(ODDS_BOOKMAKER || "");
+
+  if (preferred && name.includes(preferred)) return 1000;
+  if (name.includes("bet365")) return 900;
+  if (name.includes("betano")) return 850;
+  if (name.includes("pinnacle")) return 820;
+  if (name.includes("1xbet")) return 780;
+  if (name.includes("betfair")) return 760;
+  return 500;
+}
+
+function pickBestOdd(candidates = [], targetLine = null) {
+  if (!candidates.length) return null;
+
+  const sorted = candidates
+    .filter((entry) => !entry.suspended)
+    .slice()
+    .sort((a, b) => {
+      const aLine = Number.isFinite(a.line) ? a.line : targetLine;
+      const bLine = Number.isFinite(b.line) ? b.line : targetLine;
+      const aDistance = targetLine === null || targetLine === undefined ? 0 : Math.abs(Number(aLine || 0) - targetLine);
+      const bDistance = targetLine === null || targetLine === undefined ? 0 : Math.abs(Number(bLine || 0) - targetLine);
+      const aScore = bookmakerScore(a) - aDistance * 40;
+      const bScore = bookmakerScore(b) - bDistance * 40;
+      return bScore - aScore;
+    });
+
+  const best = sorted[0] || candidates[0];
+  if (!best) return null;
+
+  return {
+    odd: best.odd,
+    bookmaker: best.bookmaker || "",
+    market: best.bet || "",
+    line: best.value || "",
+    oddsUpdatedAt: best.updatedAt || "",
+    oddsProvider: best.source || "api-football"
+  };
+}
+
+function findOddForCategory(entries = [], category = "") {
+  const cat = String(category || "").toUpperCase();
+
+  if (!entries.length) return null;
+
+  const goalOverMarket = (entry) => {
+    const bet = normalizeName(entry.bet || "");
+    const value = normalizeName(entry.value || "");
+
+    return (
+      value.includes("over") &&
+      (
+        bet.includes("goals over") ||
+        bet.includes("over under") ||
+        bet.includes("goals") ||
+        bet.includes("total goals") ||
+        bet.includes("match goals")
+      )
+    );
+  };
+
+  if (cat === "OVER05") {
+    return pickBestOdd(
+      entries.filter((entry) => goalOverMarket(entry) && Math.abs(Number(entry.line || 0) - 0.5) < 0.05),
+      0.5
+    );
+  }
+
+  if (cat === "OVER15") {
+    return pickBestOdd(
+      entries.filter((entry) => goalOverMarket(entry) && Math.abs(Number(entry.line || 0) - 1.5) < 0.05),
+      1.5
+    );
+  }
+
+  if (cat === "OVER25") {
+    return pickBestOdd(
+      entries.filter((entry) => goalOverMarket(entry) && Math.abs(Number(entry.line || 0) - 2.5) < 0.05),
+      2.5
+    );
+  }
+
+  if (cat === "OVER35") {
+    return pickBestOdd(
+      entries.filter((entry) => goalOverMarket(entry) && Math.abs(Number(entry.line || 0) - 3.5) < 0.05),
+      3.5
+    );
+  }
+
+  if (cat === "BTTS") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        const value = normalizeName(entry.value || "");
+        return (
+          (bet.includes("both teams") || bet.includes("btts") || bet.includes("teams score")) &&
+          (value === "yes" || value.includes("yes") || value.includes("sim"))
+        );
+      }),
+      null
+    );
+  }
+
+  if (cat === "CANTOS_FT") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        const value = normalizeName(entry.value || "");
+        return (
+          (bet.includes("corner") || bet.includes("corners") || bet.includes("escanteio") || bet.includes("cantos")) &&
+          value.includes("over")
+        );
+      }),
+      8.5
+    );
+  }
+
+  if (cat === "CARTOES_FT") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        const value = normalizeName(entry.value || "");
+        return (
+          (bet.includes("card") || bet.includes("booking") || bet.includes("cartao") || bet.includes("cartoes")) &&
+          value.includes("over")
+        );
+      }),
+      3.5
+    );
+  }
+
+  return null;
+}
+
+function buildOddsPack(preOddsRows = [], liveOddsRows = []) {
+  const preEntries = flattenOddsResponse(preOddsRows, "api-football-pre");
+  const liveEntries = flattenOddsResponse(liveOddsRows, "api-football-live");
+
+  const entries = [...liveEntries, ...preEntries];
+
+  if (!entries.length) return emptyOddsPack();
+
+  const byCategory = {};
+  [
+    "OVER05",
+    "OVER15",
+    "OVER25",
+    "OVER35",
+    "BTTS",
+    "CANTOS_FT",
+    "CARTOES_FT"
+  ].forEach((category) => {
+    const oddInfo = findOddForCategory(entries, category);
+    if (oddInfo?.odd) byCategory[category] = oddInfo;
+  });
+
+  const firstRealOdd = Object.values(byCategory)[0] || null;
+
+  return {
+    hasRealOdds: Boolean(firstRealOdd),
+    oddsMode: firstRealOdd ? "real" : "none",
+    bookmaker: firstRealOdd?.bookmaker || "",
+    oddsUpdatedAt: firstRealOdd?.oddsUpdatedAt || "",
+    entries,
+    byCategory
+  };
+}
+
+function getOddInfo(oddsPack = null, category = "") {
+  if (!oddsPack?.byCategory) return null;
+  return oddsPack.byCategory[category] || null;
+}
+
 function calcPressure(home, away, goals, minute, type) {
   let pressure =
     30 +
@@ -477,7 +731,8 @@ function buildSignals(
   index = 0,
   forcedType = null,
   realStatsPack = null,
-  eventsPack = null
+  eventsPack = null,
+  oddsPack = null
 ) {
   const fixture = fixtureRow?.fixture || {};
   const league = fixtureRow?.league || {};
@@ -501,6 +756,8 @@ function buildSignals(
     hasRealEvents: false,
     eventsMode: "none"
   };
+
+  const safeOddsPack = oddsPack || emptyOddsPack();
 
   const pressure = calcPressure(home, away, totalGoals, minute, type);
   const fixtureId = fixture?.id || `fixture-${index}`;
@@ -529,6 +786,11 @@ function buildSignals(
     hasRealEvents: Boolean(safeEventsPack.hasRealEvents),
     matchEvents: safeEventsPack.matchEvents || [],
     eventsCount: Array.isArray(safeEventsPack.matchEvents) ? safeEventsPack.matchEvents.length : 0,
+
+    oddsMode: safeOddsPack.oddsMode || "none",
+    hasRealOdds: Boolean(safeOddsPack.hasRealOdds),
+    bookmaker: safeOddsPack.bookmaker || "",
+    oddsUpdatedAt: safeOddsPack.oddsUpdatedAt || "",
 
     possession: home.posse,
     possessionAway: away.posse,
@@ -576,6 +838,7 @@ function buildSignals(
 
   let signals = markets.map(([category, market, label]) => {
     const conf = confidence(category, ctx);
+    const oddInfo = getOddInfo(safeOddsPack, category);
 
     return {
       ...base,
@@ -590,7 +853,13 @@ function buildSignals(
       confianca: conf,
       pressure,
       pressao: pressure,
-      odd: "—",
+      odd: oddInfo?.odd || "—",
+      realOdd: Boolean(oddInfo?.odd),
+      bookmaker: oddInfo?.bookmaker || base.bookmaker || "",
+      oddsMarket: oddInfo?.market || "",
+      oddsLine: oddInfo?.line || "",
+      oddsProvider: oddInfo?.oddsProvider || "",
+      oddsUpdatedAt: oddInfo?.oddsUpdatedAt || base.oddsUpdatedAt || "",
       alert: alertText(category, conf, ctx)
     };
   });
@@ -613,6 +882,12 @@ function buildSignals(
     pressure,
     pressao: pressure,
     odd: "—",
+    realOdd: false,
+    bookmaker: base.bookmaker || "",
+    oddsMarket: "",
+    oddsLine: "",
+    oddsProvider: "",
+    oddsUpdatedAt: base.oddsUpdatedAt || "",
     alert: topConfidence >= 85 ? "🚨 TOP IA" : "🧠 ANÁLISE IA"
   });
 
@@ -736,6 +1011,31 @@ async function getEventsForFixture(fixture, mode) {
   }
 }
 
+async function getOddsForFixture(fixture, mode) {
+  const fixtureId = fixture?.fixture?.id;
+
+  if (!ODDS_ENABLED || !fixtureId || mode === "fallback-ia") {
+    return emptyOddsPack();
+  }
+
+  let preOddsRows = [];
+  let liveOddsRows = [];
+
+  try {
+    liveOddsRows = await apiFootballGet(`/odds/live?fixture=${fixtureId}`);
+  } catch (e) {
+    if (DEBUG_API) console.log("Erro live odds fixture:", fixtureId, e.message);
+  }
+
+  try {
+    preOddsRows = await apiFootballGet(`/odds?fixture=${fixtureId}`);
+  } catch (e) {
+    if (DEBUG_API) console.log("Erro odds fixture:", fixtureId, e.message);
+  }
+
+  return buildOddsPack(preOddsRows, liveOddsRows);
+}
+
 async function getSignalsPayload() {
   const now = Date.now();
 
@@ -748,23 +1048,25 @@ async function getSignalsPayload() {
 
   const selectedWithData = await Promise.all(
     selected.map(async (fixture) => {
-      const [realStatsPack, eventsPack] = await Promise.all([
+      const [realStatsPack, eventsPack, oddsPack] = await Promise.all([
         getStatsForFixture(fixture, mode),
-        getEventsForFixture(fixture, mode)
+        getEventsForFixture(fixture, mode),
+        getOddsForFixture(fixture, mode)
       ]);
 
-      return { fixture, realStatsPack, eventsPack };
+      return { fixture, realStatsPack, eventsPack, oddsPack };
     })
   );
 
   const activeSignals = selectedWithData.flatMap(
-    ({ fixture, realStatsPack, eventsPack }, index) =>
+    ({ fixture, realStatsPack, eventsPack, oddsPack }, index) =>
       buildSignals(
         fixture,
         index,
         mode === "fallback-ia" ? "prelive" : null,
         realStatsPack,
-        eventsPack
+        eventsPack,
+        oddsPack
       )
   );
 
@@ -786,8 +1088,13 @@ async function getSignalsPayload() {
     activeSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)
   ).size;
 
+  const realOddsGames = new Set(
+    activeSignals.filter((s) => s.hasRealOdds || s.realOdd).map((s) => s.fixtureId)
+  ).size;
+
   const estimatedStatsGames = Math.max(0, totalGames - realStatsGames);
   const noEventsGames = Math.max(0, totalGames - realEventsGames);
+  const noOddsGames = Math.max(0, totalGames - realOddsGames);
 
   const payload = {
     ok: true,
@@ -795,10 +1102,15 @@ async function getSignalsPayload() {
     mode,
     statsMode: realStatsGames > 0 ? "real" : "estimated",
     eventsMode: realEventsGames > 0 ? "real" : "none",
+    oddsMode: realOddsGames > 0 ? "real" : "none",
+    oddsEnabled: ODDS_ENABLED,
+    oddsBookmakerPreference: ODDS_BOOKMAKER || "",
     realStatsGames,
     estimatedStatsGames,
     realEventsGames,
     noEventsGames,
+    realOddsGames,
+    noOddsGames,
     activeSignals,
     liveGames,
     preliveGames,
@@ -807,9 +1119,9 @@ async function getSignalsPayload() {
     message:
       mode === "fallback-ia"
         ? "Sem dados reais disponíveis agora. Exibindo base IA."
-        : realStatsGames > 0
+        : realStatsGames > 0 || realEventsGames > 0 || realOddsGames > 0
           ? "Dados reais carregados da API-Football."
-          : "Jogos reais carregados, mas estatísticas detalhadas ainda não disponíveis para estes fixtures.",
+          : "Jogos reais carregados, mas estatísticas/odds detalhadas ainda não disponíveis para estes fixtures.",
     updatedAt: new Date().toISOString()
   };
 
@@ -837,6 +1149,8 @@ const server = http.createServer(async (req, res) => {
         hasApiKey: Boolean(API_KEY),
         cacheTtlMs: CACHE_TTL_MS,
         maxGames: MAX_GAMES,
+        oddsEnabled: ODDS_ENABLED,
+        oddsBookmakerPreference: ODDS_BOOKMAKER || "",
         updatedAt: new Date().toISOString()
       });
       return;
