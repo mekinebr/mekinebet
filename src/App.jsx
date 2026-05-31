@@ -1318,17 +1318,7 @@ export default function App() {
       .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
   }
 
-
-  /* ===== PADRAO MEKINEBET V8: FILTROS EXATOS, HT/FT E SINAIS SEM EXPIRADO ===== */
-  function contextoTempoSinal(item) {
-    const min = minuto(item);
-    if (!jogoAoVivo(item)) return "PRÉ-LIVE";
-    if (min <= 45) return "HT";
-    if (min <= 90) return "FT";
-    return "FT";
-  }
-
-  function categoriaDoFiltro(value) {
+  function categoriaFiltroAtual() {
     const map = {
       OVER05: "OVER 0,5",
       OVER15: "OVER 1,5",
@@ -1339,237 +1329,34 @@ export default function App() {
       CANTOS: "CANTOS",
       CARTÕES: "CARTÕES",
       VITORIA: "VITÓRIA",
-      HANDICAP: "HANDICAP",
-      ODDS: "ODDS",
-      REAL: "REAL",
-      EVENTOS: "EVENTOS"
+      HANDICAP: "HANDICAP"
     };
-    return map[value] || value;
+    return map[filtro] || "";
   }
 
-  function golsNecessariosParaCategoria(cat, item) {
-    const gols = totalGols(item);
-    if (cat === "OVER 0,5") return Math.max(0, 1 - gols);
-    if (cat === "OVER 1,5") return Math.max(0, 2 - gols);
-    if (cat === "OVER 2,5") return Math.max(0, 3 - gols);
-    if (cat === "OVER 3,5") return Math.max(0, 4 - gols);
-    if (cat === "MAIS GOL" || cat === "GOLS") return 1;
-    return 0;
+  function mercadosVisiveisNoFiltro(item) {
+    const catFiltro = categoriaFiltroAtual();
+    const lista = mercadosOrdenados(item);
+
+    if (!catFiltro) return lista;
+
+    const filtrados = lista.filter((m) => categoriaMercado(m) === catFiltro);
+
+    // Se o usuário clicou em OVER 1,5, por exemplo, o card mostra apenas OVER 1,5.
+    // Isso evita aparecer TOP IA, Mais Gol ou outro mercado misturado dentro do filtro.
+    return filtrados;
   }
 
-  function mercadoPossivelNoTempo(cat, item) {
-    if (!jogoAoVivo(item)) return true;
-
-    const min = minuto(item);
-    const { homeGoals, awayGoals } = placarPartes(item);
-    const total = homeGoals + awayGoals;
-    const falta = golsNecessariosParaCategoria(cat, item);
-
-    if (cat === "OVER 0,5" || cat === "OVER 1,5" || cat === "OVER 2,5" || cat === "OVER 3,5") {
-      if (falta <= 0) return false;
-      if (cat === "OVER 0,5") return min <= 82;
-      if (cat === "OVER 1,5") {
-        if (total === 0 && min > 63) return false;
-        if (total === 1 && min > 84) return false;
-        return min <= 84;
-      }
-      if (cat === "OVER 2,5") {
-        if (total === 0 && min > 42) return false;
-        if (total === 1 && min > 68) return false;
-        if (total === 2 && min > 85) return false;
-        return min <= 85;
-      }
-      if (cat === "OVER 3,5") {
-        if (total <= 1 && min > 45) return false;
-        if (total === 2 && min > 72) return false;
-        if (total === 3 && min > 86) return false;
-        return min <= 86;
-      }
+  function melhorMercadoDoFiltro(item) {
+    const lista = mercadosVisiveisNoFiltro(item);
+    if (lista.length) {
+      return lista
+        .slice()
+        .sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0];
     }
-
-    if (cat === "BTTS") {
-      if (homeGoals > 0 && awayGoals > 0) return false;
-      if (total === 0 && min > 65) return false;
-      return min <= 84;
-    }
-
-    if (cat === "MAIS GOL" || cat === "GOLS") return min <= 86;
-    if (cat === "CANTOS") return min <= 88;
-    if (cat === "CARTÕES") return min <= 89;
-    if (cat === "VITÓRIA" || cat === "HANDICAP") return min <= 82;
-
-    return true;
+    return jogoAoVivo(item) ? melhorMercado(item) : melhorSinalPreLiveVip(item);
   }
 
-  function mercadoCumprido(m, item) {
-    const gols = totalGols(item);
-    const status = String(m.alert || "").toLowerCase();
-    const cat = categoriaMercado(m);
-    if (status.includes("green")) return true;
-    if (cat === "OVER 0,5" && gols >= 1) return true;
-    if (cat === "OVER 1,5" && gols >= 2) return true;
-    if (cat === "OVER 2,5" && gols >= 3) return true;
-    if (cat === "OVER 3,5" && gols >= 4) return true;
-    const { homeGoals, awayGoals } = placarPartes(item);
-    if (cat === "BTTS" && homeGoals > 0 && awayGoals > 0) return true;
-    return false;
-  }
-
-  function mercadoElegivelNoMomento(m, item) {
-    const cat = categoriaMercado(m);
-    if (!jogoAoVivo(item)) return true;
-    if (mercadoCumprido(m, item)) return false;
-    return mercadoPossivelNoTempo(cat, item);
-  }
-
-  function mercadoStatus(item) {
-    const cat = categoriaMercado(item);
-    const pressure = Number(item.pressure || 0);
-    const confidence = Number(item.confidence || 0);
-    const original = String(item.alert ?? item.alerta ?? "").trim();
-    const stage = contextoTempoSinal(item);
-
-    if (jogoAoVivo(item) && !mercadoPossivelNoTempo(cat, item)) return "⏸ SINAL EXPIRADO";
-    if (mercadoCumprido(item, item)) return "✅ GREEN";
-
-    if (original && original !== "true" && original !== "false" && !original.toLowerCase().includes("green")) {
-      if (jogoAoVivo(item)) return `${stage} • ${original.replace(/^🔥\s*/,"").replace(/^🚨\s*/,"")}`;
-      return original;
-    }
-
-    if (cat === "OVER 0,5") return `${stage} • 1º gol possível`;
-    if (cat === "OVER 1,5") return `${stage} • precisa de ${Math.max(1, golsNecessariosParaCategoria(cat, item))} gol`;
-    if (cat === "OVER 2,5") return `${stage} • precisa de ${Math.max(1, golsNecessariosParaCategoria(cat, item))} gol`;
-    if (cat === "OVER 3,5") return `${stage} • precisa de ${Math.max(1, golsNecessariosParaCategoria(cat, item))} gol`;
-    if (cat === "BTTS") return `${stage} • falta uma equipe marcar`;
-    if (cat === "MAIS GOL" || cat === "GOLS") return `${stage} • mais um gol`;
-    if (cat === "CANTOS") return `${stage} • pressão para cantos`;
-    if (cat === "CARTÕES") return `${stage} • tendência de cartões`;
-    if (cat === "VITÓRIA") return `${stage} • tendência de vitória`;
-    if (cat === "HANDICAP") return `${stage} • tendência handicap`;
-    if (pressure >= 80 || confidence >= 85) return `${stage} • entrada forte`;
-    return `${stage} • monitorando`;
-  }
-
-  function mercadoPesoAoVivo(m, item) {
-    const cat = categoriaMercado(m);
-    if (!mercadoElegivelNoMomento(m, item)) return -9999;
-
-    const min = minuto(item);
-    const stats = statsDoJogo(item);
-    const falta = golsNecessariosParaCategoria(cat, item);
-    const press = Number(m.pressure || item.pressure || 0);
-    const conf = Number(m.confidence || item.confidence || 0);
-    const shots = Number(stats.home.finalizacoes || 0) + Number(stats.away.finalizacoes || 0);
-    const onGoal = Number(stats.home.noGol || 0) + Number(stats.away.noGol || 0);
-    const danger = Number(stats.home.perigosos || 0) + Number(stats.away.perigosos || 0);
-    const corners = Number(stats.home.cantos || 0) + Number(stats.away.cantos || 0);
-    const cards = Number(stats.home.cartoes || 0) + Number(stats.away.cartoes || 0);
-    const remaining = Math.max(0, 90 - min);
-
-    const catBoost = {
-      "MAIS GOL": 18,
-      "OVER 0,5": 13,
-      "OVER 1,5": 14,
-      "OVER 2,5": 10,
-      "OVER 3,5": 6,
-      "BTTS": 12,
-      "CANTOS": 8,
-      "CARTÕES": 8,
-      "VITÓRIA": 5,
-      "HANDICAP": 5,
-      "TOP IA": 2
-    }[cat] || 4;
-
-    const timePenalty = falta > 0 ? Math.max(0, falta * 14 - remaining * 0.7) : 0;
-    const latePenalty = min >= 75 ? (min - 74) * 2.2 : 0;
-    const statBoost = shots * 0.6 + onGoal * 2.6 + danger * 0.28 + corners * 0.7 + cards * 0.25;
-    const oddsBoost = mercadoOddReal(m) ? 4 : 0;
-
-    return conf * 0.72 + press * 0.34 + statBoost + catBoost + oddsBoost - timePenalty - latePenalty;
-  }
-
-  function criarCandidatoLive(item, market, category, baseScore, alert) {
-    return mercadoSynthetic(item, market, category, baseScore, alert, {
-      type: "live",
-      status: "AO VIVO",
-      nextSignal: true,
-      vipPrelive: false
-    });
-  }
-
-  function proximoSinalAoVivo(item) {
-    const stage = contextoTempoSinal(item);
-    const stats = statsDoJogo(item);
-    const total = totalGols(item);
-    const { homeGoals, awayGoals } = placarPartes(item);
-    const base = mercadosBaseDoItem(item).filter((m) => mercadoElegivelNoMomento(m, item));
-
-    const press = Number(item.pressure || melhorMercadoBase(item).pressure || 70);
-    const conf = Number(item.confidence || melhorMercadoBase(item).confidence || 70);
-    const shots = Number(stats.home.finalizacoes || 0) + Number(stats.away.finalizacoes || 0);
-    const onGoal = Number(stats.home.noGol || 0) + Number(stats.away.noGol || 0);
-    const danger = Number(stats.home.perigosos || 0) + Number(stats.away.perigosos || 0);
-    const corners = Number(stats.home.cantos || 0) + Number(stats.away.cantos || 0);
-    const cards = Number(stats.home.cartoes || 0) + Number(stats.away.cartoes || 0);
-    const basePressure = conf * 0.45 + press * 0.45 + shots * 0.45 + onGoal * 2.2 + danger * 0.25;
-    const candidates = [];
-
-    if (mercadoPossivelNoTempo("OVER 0,5", item)) candidates.push(criarCandidatoLive(item, `${stage} • Próximo gol / Over 0.5`, "OVER05", basePressure + 7, `🔥 ${stage} • 1º GOL`));
-    if (mercadoPossivelNoTempo("OVER 1,5", item)) candidates.push(criarCandidatoLive(item, `${stage} • Próximo gol / Over 1.5`, "OVER15", basePressure + (total === 1 ? 10 : 1), `🔥 ${stage} • OVER 1,5`));
-    if (mercadoPossivelNoTempo("OVER 2,5", item)) candidates.push(criarCandidatoLive(item, `${stage} • Próximo gol / Over 2.5`, "OVER25", basePressure + (total === 2 ? 11 : total === 1 ? 3 : -10), `🔥 ${stage} • OVER 2,5`));
-    if (mercadoPossivelNoTempo("OVER 3,5", item)) candidates.push(criarCandidatoLive(item, `${stage} • Próximo gol / Over 3.5`, "OVER35", basePressure + (total === 3 ? 12 : total === 2 ? 2 : -16), `🔥 ${stage} • OVER 3,5`));
-    if (mercadoPossivelNoTempo("BTTS", item) && !(homeGoals > 0 && awayGoals > 0)) {
-      const bttsScore = conf + Math.min(stats.home.perigosos || 0, stats.away.perigosos || 0) * 0.55 + Math.min(stats.home.noGol || 0, stats.away.noGol || 0) * 3.5 - (minuto(item) > 70 ? 12 : 0);
-      candidates.push(criarCandidatoLive(item, `${stage} • Ambas marcam`, "BTTS", bttsScore, `🔥 ${stage} • BTTS`));
-    }
-    if (mercadoPossivelNoTempo("MAIS GOL", item)) candidates.push(criarCandidatoLive(item, `${stage} • Mais gol`, "MAIS_GOL", basePressure + 5, `⚽ ${stage} • MAIS GOL`));
-    if (mercadoPossivelNoTempo("CANTOS", item)) candidates.push(criarCandidatoLive(item, `${stage} • Cantos`, "CANTOS_FT", 42 + corners * 5 + press * 0.25 + (minuto(item) > 70 ? -6 : 0), `🚩 ${stage} • CANTOS`));
-    if (mercadoPossivelNoTempo("CARTÕES", item)) candidates.push(criarCandidatoLive(item, `${stage} • Cartões`, "CARTOES_FT", 38 + cards * 8 + press * 0.18 + (minuto(item) >= 55 ? 7 : 0), `🟨 ${stage} • CARTÕES`));
-
-    const finalistas = [...base, ...candidates]
-      .filter((m) => mercadoElegivelNoMomento(m, item))
-      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"));
-
-    const best = finalistas.slice().sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0];
-    if (best && mercadoPesoAoVivo(best, item) >= 48) return best;
-
-    return criarCandidatoLive(item, `${stage} • Sem entrada clara`, "SEM_ENTRADA", 55, `⏸ ${stage} • AGUARDANDO NOVA PRESSÃO`);
-  }
-
-  function mercadosOrdenados(item) {
-    const ordem = { "MAIS GOL": 0, "OVER 0,5": 1, "OVER 1,5": 2, "OVER 2,5": 3, "OVER 3,5": 4, "BTTS": 5, "CANTOS": 6, "CARTÕES": 7, "VITÓRIA": 8, "HANDICAP": 9, "TOP IA": 10 };
-    const base = jogoAoVivo(item)
-      ? [proximoSinalAoVivo(item), ...mercadosBaseDoItem(item).filter((m) => mercadoElegivelNoMomento(m, item))]
-      : mercadosDoItem(item);
-
-    const seen = new Set();
-    return base
-      .filter(Boolean)
-      .filter((m) => {
-        const cat = categoriaMercado(m);
-        if (cat === "BASE" || cat === "SEM_ENTRADA") return false;
-        const key = `${cat}-${m.market || m.category || ""}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
-  }
-
-  function mercadosValidosParaCategoria(item, categoria) {
-    if (!categoria) return [];
-    return mercadosOrdenados(item).filter((m) => {
-      const cat = categoriaMercado(m);
-      if (cat !== categoria) return false;
-      if (jogoAoVivo(item)) return mercadoElegivelNoMomento(m, item);
-      return true;
-    });
-  }
-
-  function jogoTemCategoria(item, categoria) {
-    return mercadosValidosParaCategoria(item, categoria).length > 0;
-  }
 
   const sinaisFiltrados = useMemo(() => {
     return signals
@@ -1586,22 +1373,25 @@ export default function App() {
           const temLiveAgora = signals.some((s) => jogoAoVivo(s));
           return temLiveAgora ? jogoAoVivo(item) : jogoPreLiveVip(item);
         }
-
         if (filtro === "LIVE") return jogoAoVivo(item);
-        if (filtro === "HISTORICO") return preLiveVip;
-
-        // Pré-live fica somente no menu VIP. Os demais filtros são ao vivo e exatos.
-        if (preLive) return false;
-
+        if (preLive && filtro !== "HISTORICO") return false;
         if (filtro === "ALERTA") return jogoTemAlerta(item);
-        if (["OVER15","OVER25","OVER35","BTTS","MAISGOL","CANTOS","CARTÕES","VITORIA","HANDICAP"].includes(filtro)) {
-          return jogoTemCategoria(item, categoriaDoFiltro(filtro));
-        }
-        if (filtro === "VIP") return jogoAoVivo(item) && mercadosOrdenados(item).some((m) => isVip(m));
+        if (filtro === "OVER05") return jogoTemCategoria(item, "OVER 0,5");
+        if (filtro === "OVER15") return jogoTemCategoria(item, "OVER 1,5");
+        if (filtro === "OVER25") return jogoTemCategoria(item, "OVER 2,5");
+        if (filtro === "OVER35") return jogoTemCategoria(item, "OVER 3,5");
+        if (filtro === "CARTÕES") return jogoTemCategoria(item, "CARTÕES");
+        if (filtro === "MAISGOL") return jogoTemCategoria(item, "MAIS GOL");
+        if (filtro === "CANTOS") return jogoTemCategoria(item, "CANTOS");
+        if (filtro === "BTTS") return jogoTemCategoria(item, "BTTS");
+        if (filtro === "VITORIA") return jogoTemCategoria(item, "VITÓRIA");
+        if (filtro === "HANDICAP") return jogoTemCategoria(item, "HANDICAP");
+        if (filtro === "TOP IA") return jogoTemCategoria(item, "TOP IA") || mercadosDoItem(item).some((m) => (m.confidence || 0) >= 82);
+        if (filtro === "VIP") return jogoAoVivo(item) && mercadosDoItem(item).some((m) => isVip(m));
         if (filtro === "REAL") return jogoStatsReal(item);
         if (filtro === "EVENTOS") return jogoEventosReal(item);
         if (filtro === "ODDS") return jogoOddReal(item);
-
+        if (filtro === "HISTORICO") return preLiveVip;
         return true;
       })
       .sort((a, b) => {
@@ -1652,7 +1442,7 @@ export default function App() {
       )}
 
       {apiInfo.mode !== "fallback-ia" && liveCount > 0 && apiInfo.statsMode !== "real" && (
-        <div className="notice">📊 Jogos reais carregados. Quando a API não entrega estatísticas confiáveis, os números ficam ocultos para não confundir.</div>
+        <div className="notice">📊 Jogos reais carregados. Algumas partidas ainda estão sem estatísticas detalhadas da API, então o painel calcula uma estimativa temporária.</div>
       )}
 
       {liveCount === 0 && apiInfo.mode !== "fallback-ia" && (
@@ -1722,7 +1512,7 @@ export default function App() {
             const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const hasOdds = jogoOddReal(item);
-            const strongest = liveReal ? melhorMercado(item) : melhorSinalPreLiveVip(item);
+            const strongest = melhorMercadoDoFiltro(item);
             const liveMap = buildLiveMapState(item, index);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const statsReal = jogoStatsReal(item);
@@ -1758,7 +1548,7 @@ export default function App() {
                 <div className="badges">
                   <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE VIP"}</span>
                   <span className={jogoStatsReal(item) ? "realStatsBadge" : "estimatedStatsBadge"}>
-                    {jogoStatsReal(item) ? "STATS REAL" : "SEM STATS"}
+                    {jogoStatsReal(item) ? "STATS REAL" : "ESTIMADO"}
                   </span>
                   <span className={jogoEventosReal(item) ? "realEventsBadge" : "noEventsBadge"}>
                     {jogoEventosReal(item) ? "EVENTOS REAL" : "SEM EVENTOS"}
@@ -1768,7 +1558,7 @@ export default function App() {
                   </span>
                   {vip && <span className="vip">VIP</span>}
                   <div className="marketBadges">
-                    {mercadosOrdenados(item).slice(0, 5).map((m, i) => (
+                    {mercadosVisiveisNoFiltro(item).slice(0, 5).map((m, i) => (
                       <span key={i} className="market">{categoriaMercado(m)}</span>
                     ))}
                   </div>
@@ -1985,7 +1775,7 @@ export default function App() {
                 </div>
 
                 <div className="marketsPanel">
-                  {mercadosOrdenados(item).map((m, i) => (
+                  {mercadosVisiveisNoFiltro(item).map((m, i) => (
                     <div key={i} className={`signalChip ${alertaForte(m) ? "strong" : ""} ${mercadoOddReal(m) ? "oddRealChip" : ""}`}>
                       <b>{categoriaMercado(m)}</b>
                       <span>{m.alert || mercadoStatus(m)}</span>
@@ -4277,17 +4067,31 @@ h1{
 }
 
 
-/* ===== V8: MENU EXATO, STATS CONFIAVEIS E SINAL HT/FT ===== */
-.filters{grid-template-columns:repeat(16,minmax(0,1fr))!important}
-.filters button{border-color:rgba(0,214,111,.28)!important}
-.highlightSignalText small{color:#facc15!important}
-.highlightSignalText b{text-transform:none!important}
-.estimatedStatsBadge{background:#374151!important;color:#d1d5db!important}
-.statsOverlayNotice{position:absolute!important;inset:0!important;z-index:8!important;display:grid!important;place-items:center!important;text-align:center!important;background:rgba(2,8,12,.70)!important;color:#facc15!important;font-size:12px!important;font-weight:900!important;letter-spacing:.2px!important;border-radius:7px!important}
-.statsOverlayNotice small{display:block!important;color:#cbd5e1!important;font-size:8px!important;margin-top:2px!important}
-.statsEstimatedBox .metricNumbers b,.statsEstimatedBox .shotBoxPro strong,.statsEstimatedBox .sideCounters b{color:#94a3b8!important}
-.signalChip span{color:#e5e7eb!important}.signalChip b{color:#fff!important}.signalChip strong{color:#22c55e!important}
-@media(max-width:1100px){.filters{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
-@media(max-width:520px){.filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+/* ===== V9 RESTORE ESTAVEL: FILTROS EXATOS SEM ZERAR SINAIS ===== */
+.filters .activeBtn{
+  background:#19d56b!important;
+  color:#001b0b!important;
+  border-color:#22c55e!important;
+  box-shadow:0 0 10px rgba(34,197,94,.20)!important;
+}
+.signalChip{
+  border-color:rgba(250,204,21,.34)!important;
+}
+.signalChip b{
+  color:#fff!important;
+}
+.signalChip span{
+  color:#e5e7eb!important;
+}
+.estimatedStatsBadge{
+  background:#374151!important;
+  color:#e5e7eb!important;
+}
+.statsEstimatedBox{
+  position:relative!important;
+}
+.statsOverlayNotice{
+  background:rgba(4,10,14,.76)!important;
+}
 
 `;
