@@ -31,6 +31,8 @@ const ODDS_API_KEYS = uniqueText([
 const SPORTMONKS_TOKEN = String(process.env.SPORTMONKS_TOKEN || "").trim();
 const APIFOOTBALLCOM_BASE = String(process.env.APIFOOTBALLCOM_BASE_URL || process.env.API_FOOTBALL_COM_BASE_URL || "https://apiv3.apifootball.com").replace(/\/$/, "");
 const APIFOOTBALLCOM_TOKEN = String(process.env.APIFOOTBALLCOM_TOKEN || process.env.API_FOOTBALL_COM_TOKEN || "").trim();
+const INCLUDE_WOMEN_YOUTH = ["1","true","yes","sim"].includes(String(process.env.INCLUDE_WOMEN_YOUTH || "false").toLowerCase());
+const HIDE_UNSUPPORTED_COMPETITIONS = !["0","false","no"].includes(String(process.env.HIDE_UNSUPPORTED_COMPETITIONS || "true").toLowerCase());
 
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
@@ -175,6 +177,33 @@ function leaguePriority(row = {}) {
   if (league.includes("u20") || league.includes("u19") || league.includes("reserve") || league.includes("youth")) return 20;
   if (league.includes("women") || league.includes("w league")) return 35;
   return 45;
+}
+
+
+function isSupportedFixtureForSignals(row = {}) {
+  if (!HIDE_UNSUPPORTED_COMPETITIONS || INCLUDE_WOMEN_YOUTH) return true;
+
+  const text = normalizeName([
+    row?.league?.name,
+    row?.league?.country,
+    row?.teams?.home?.name,
+    row?.teams?.away?.name
+  ].filter(Boolean).join(" "));
+
+  const blockedTerms = [
+    "women", "woman", "feminino", "femenino", "feminina", "feminine",
+    "u17", "u18", "u19", "u20", "u21", "u23",
+    "youth", "junior", "juniors", "reserve", "reserves", "development",
+    "amateur", "esoccer", "e-soccer", "virtual", "simulation", "cyber"
+  ];
+
+  if (blockedTerms.some((term) => text.includes(term))) return false;
+
+  // Evita partidas claramente encerradas vindas de provedores alternativos como live.
+  const short = String(row?.fixture?.status?.short || "").toUpperCase();
+  if (["FT", "AET", "PEN", "CANC", "PST", "ABD"].includes(short)) return false;
+
+  return true;
 }
 
 function fixtureSortScore(row = {}, kind = "live") {
@@ -1644,11 +1673,17 @@ function apiFootballComStatus(statusRaw = "") {
 
   if (!raw || normalized === "not started" || normalized === "ns") return { short: "NS", elapsed: 0 };
   if (normalized.includes("postpon") || normalized.includes("canceled") || normalized.includes("cancelled")) return { short: "PST", elapsed: 0 };
-  if (normalized.includes("finished") || normalized === "ft" || normalized.includes("after")) return { short: "FT", elapsed: 90 };
+  if (normalized.includes("finished") || normalized === "ft" || normalized.includes("after") || normalized.includes("ended")) return { short: "FT", elapsed: 90 };
   if (normalized.includes("half time") || normalized === "ht") return { short: "HT", elapsed: 45 };
 
   const minute = parseInt(raw.replace(/[^0-9]/g, ""), 10);
-  if (Number.isFinite(minute) && minute > 0) return { short: minute <= 45 ? "1H" : "2H", elapsed: Math.min(120, minute) };
+  if (Number.isFinite(minute) && minute > 0) {
+    // APIFootball.com às vezes retorna apenas "90" para partidas encerradas.
+    // Se não houver indicação explícita de live/acréscimos, tratamos 90+ como finalizado para não gerar sinal morto.
+    const looksLive = normalized.includes("live") || raw.includes("+") || normalized.includes("1st") || normalized.includes("2nd");
+    if (minute >= 90 && !looksLive) return { short: "FT", elapsed: 90 };
+    return { short: minute <= 45 ? "1H" : "2H", elapsed: Math.min(120, minute) };
+  }
 
   if (normalized.includes("live") || normalized.includes("1st") || normalized.includes("2nd")) return { short: "LIVE", elapsed: 0 };
   return { short: "NS", elapsed: 0 };
@@ -1682,7 +1717,8 @@ function normalizeApiFootballComFixture(row = {}) {
     },
     goals: { home: homeGoals, away: awayGoals },
     _externalSource: "apifootballcom",
-    _externalStatsPack: null,
+    _externalRawId: rawId,
+    _externalStatsPack: buildApiFootballComStats(null, row.statistics || row.stats || []),
     _externalEventsPack: {
       matchEvents: [],
       hasRealEvents: false,
@@ -1711,6 +1747,168 @@ async function apiFootballComGet(params = {}, label = "get_events") {
   }
 }
 
+
+function flattenApiFootballComStats(rows = []) {
+  const out = [];
+
+  const pushRow = (type, home, away) => {
+    if (!type) return;
+    if (home === undefined && away === undefined) return;
+    out.push({ type: String(type), home, away });
+  };
+
+  const visit = (item) => {
+    if (!item || typeof item !== "object") return;
+
+    if (Array.isArray(item)) {
+      item.forEach(visit);
+      return;
+    }
+
+    const type =
+      item.type ||
+      item.stat_name ||
+      item.statistic ||
+      item.stat ||
+      item.name ||
+      item.label ||
+      item.title;
+
+    const home =
+      item.home ??
+      item.home_value ??
+      item.value_home ??
+      item.match_hometeam_value ??
+      item.home_stat ??
+      item.homeTeam ??
+      item.home_team;
+
+    const away =
+      item.away ??
+      item.away_value ??
+      item.value_away ??
+      item.match_awayteam_value ??
+      item.away_stat ??
+      item.awayTeam ??
+      item.away_team;
+
+    pushRow(type, home, away);
+
+    ["statistics", "stats", "data", "values"].forEach((key) => {
+      if (Array.isArray(item[key])) item[key].forEach(visit);
+    });
+  };
+
+  rows.forEach(visit);
+  return out;
+}
+
+function pickApiFootballComStat(flatRows = [], names = [], side = "home", fallback = 0) {
+  const wanted = names.map(normalizeName);
+  const row =
+    flatRows.find((r) => wanted.includes(normalizeName(r.type || ""))) ||
+    flatRows.find((r) => wanted.some((w) => normalizeName(r.type || "").includes(w)));
+
+  if (!row) return fallback;
+  return toNumber(side === "home" ? row.home : row.away, fallback);
+}
+
+function buildApiFootballComStats(fixtureRow, statsRows = []) {
+  const flat = flattenApiFootballComStats(Array.isArray(statsRows) ? statsRows : []);
+  if (!flat.length) return null;
+
+  const homePossession = pickApiFootballComStat(flat, ["Ball Possession", "Possession"], "home", 50);
+  const awayPossession = pickApiFootballComStat(flat, ["Ball Possession", "Possession"], "away", 100 - homePossession);
+
+  const homeShots = pickApiFootballComStat(flat, ["Total Shots", "Shots Total", "Goal Attempts", "Total attempts"], "home", 0);
+  const awayShots = pickApiFootballComStat(flat, ["Total Shots", "Shots Total", "Goal Attempts", "Total attempts"], "away", 0);
+
+  const homeOnGoal = pickApiFootballComStat(flat, ["Shots on Goal", "Shots on Target", "On Target"], "home", 0);
+  const awayOnGoal = pickApiFootballComStat(flat, ["Shots on Goal", "Shots on Target", "On Target"], "away", 0);
+
+  const homeInside = pickApiFootballComStat(flat, ["Shots insidebox", "Shots inside box", "Inside box"], "home", 0);
+  const awayInside = pickApiFootballComStat(flat, ["Shots insidebox", "Shots inside box", "Inside box"], "away", 0);
+
+  const homeBlocked = pickApiFootballComStat(flat, ["Blocked Shots", "Blocked"], "home", 0);
+  const awayBlocked = pickApiFootballComStat(flat, ["Blocked Shots", "Blocked"], "away", 0);
+
+  const homeCorners = pickApiFootballComStat(flat, ["Corner Kicks", "Corners", "Corner"], "home", 0);
+  const awayCorners = pickApiFootballComStat(flat, ["Corner Kicks", "Corners", "Corner"], "away", 0);
+
+  const homeYellow = pickApiFootballComStat(flat, ["Yellow Cards", "Yellow Card"], "home", 0);
+  const awayYellow = pickApiFootballComStat(flat, ["Yellow Cards", "Yellow Card"], "away", 0);
+
+  const homeRed = pickApiFootballComStat(flat, ["Red Cards", "Red Card"], "home", 0);
+  const awayRed = pickApiFootballComStat(flat, ["Red Cards", "Red Card"], "away", 0);
+
+  const homeFouls = pickApiFootballComStat(flat, ["Fouls", "Foul"], "home", 0);
+  const awayFouls = pickApiFootballComStat(flat, ["Fouls", "Foul"], "away", 0);
+
+  // Só marca como real se vier pelo menos uma estatística forte que dá para conferir.
+  const meaningful =
+    homeShots + awayShots > 0 ||
+    homeOnGoal + awayOnGoal > 0 ||
+    homeCorners + awayCorners > 0 ||
+    homePossession + awayPossession > 0;
+
+  if (!meaningful) return null;
+
+  const home = {
+    posse: clamp(homePossession, 0, 100),
+    finalizacoes: homeShots,
+    noGol: homeOnGoal,
+    ataques: derivedAttacks({
+      shots: homeShots,
+      corners: homeCorners,
+      possession: homePossession,
+      fouls: homeFouls
+    }),
+    perigosos: derivedDangerous({
+      onGoal: homeOnGoal,
+      insideBox: homeInside,
+      corners: homeCorners,
+      blockedShots: homeBlocked,
+      shots: homeShots
+    }),
+    cantos: homeCorners,
+    cartoes: homeYellow + homeRed,
+    amarelos: homeYellow,
+    vermelhos: homeRed,
+    faltas: homeFouls
+  };
+
+  const away = {
+    posse: clamp(awayPossession, 0, 100),
+    finalizacoes: awayShots,
+    noGol: awayOnGoal,
+    ataques: derivedAttacks({
+      shots: awayShots,
+      corners: awayCorners,
+      possession: awayPossession,
+      fouls: awayFouls
+    }),
+    perigosos: derivedDangerous({
+      onGoal: awayOnGoal,
+      insideBox: awayInside,
+      corners: awayCorners,
+      blockedShots: awayBlocked,
+      shots: awayShots
+    }),
+    cantos: awayCorners,
+    cartoes: awayYellow + awayRed,
+    amarelos: awayYellow,
+    vermelhos: awayRed,
+    faltas: awayFouls
+  };
+
+  return {
+    home,
+    away,
+    source: "real-apifootballcom",
+    hasRealStats: true
+  };
+}
+
 async function getApiFootballComFixtures() {
   if (!APIFOOTBALLCOM_TOKEN) return { live: [], prelive: [] };
 
@@ -1718,7 +1916,8 @@ async function getApiFootballComFixtures() {
   const from = todayISO(0);
   const to = todayISO(days);
   const rows = await apiFootballComGet({ action: "get_events", from, to }, `get_events/${from}/${to}`);
-  const fixtures = uniqueFixtures(rows.map(normalizeApiFootballComFixture));
+  const fixtures = uniqueFixtures(rows.map(normalizeApiFootballComFixture))
+    .filter(isSupportedFixtureForSignals);
 
   const live = fixtures.filter((row) => isLive(row?.fixture?.status?.short || ""));
   const prelive = fixtures.filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
@@ -1835,11 +2034,13 @@ async function getFixtures() {
   }
 
   liveFixtures = uniqueFixtures(liveFixtures)
+    .filter(isSupportedFixtureForSignals)
     .filter((row) => isLive(row?.fixture?.status?.short || ""))
     .sort((a, b) => fixtureSortScore(b, "live") - fixtureSortScore(a, "live"))
     .slice(0, MAX_GAMES);
 
   preliveFixtures = uniqueFixtures(preliveFixtures)
+    .filter(isSupportedFixtureForSignals)
     .filter((row) => !liveFixtures.some((live) => fixtureKey(live) === fixtureKey(row)))
     .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS))
     .sort((a, b) => fixtureSortScore(b, "prelive") - fixtureSortScore(a, "prelive"))
@@ -1858,9 +2059,24 @@ async function getFixtures() {
 async function getStatsForFixture(fixture, mode) {
   const fixtureId = fixture?.fixture?.id;
 
-  if (fixture?._externalStatsPack) return fixture._externalStatsPack;
+  if (fixture?._externalStatsPack?.hasRealStats) return fixture._externalStatsPack;
 
-  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-") || String(fixtureId).startsWith("apifootballcom-")) {
+  if (!fixtureId) return null;
+
+  if (String(fixtureId).startsWith("apifootballcom-")) {
+    const rawId = fixture?._externalRawId || String(fixtureId).replace(/^apifootballcom-/, "");
+    try {
+      const rows = await apiFootballComGet({ action: "get_statistics", match_id: rawId }, `get_statistics/${rawId}`);
+      const pack = buildApiFootballComStats(fixture, rows);
+      providerDiagnostics.apiFootballCom.push({ label: `stats/${rawId}`, ok: Boolean(pack), count: Array.isArray(rows) ? rows.length : 0 });
+      return pack;
+    } catch (e) {
+      providerDiagnostics.apiFootballCom.push({ label: `stats/${rawId}`, ok: false, error: e.message });
+      return null;
+    }
+  }
+
+  if (String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
     return null;
   }
 
@@ -2055,6 +2271,8 @@ const server = http.createServer(async (req, res) => {
         maxGames: MAX_GAMES,
         preliveHours: PRELIVE_HOURS,
         preliveFallbackHours: PRELIVE_FALLBACK_HOURS,
+        hideUnsupportedCompetitions: HIDE_UNSUPPORTED_COMPETITIONS,
+        includeWomenYouth: INCLUDE_WOMEN_YOUTH,
         oddsEnabled: ODDS_ENABLED,
         oddsBookmakerPreference: ODDS_BOOKMAKER || "",
         updatedAt: new Date().toISOString()
