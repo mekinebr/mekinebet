@@ -522,7 +522,9 @@ function buildRealStats(fixtureRow, statsRows = []) {
     home,
     away,
     source: "real",
-    hasRealStats: true
+    hasRealStats: true,
+    attacksEstimated: true,
+    dangerousAttacksEstimated: true
   };
 }
 
@@ -1904,8 +1906,8 @@ function buildApiFootballComStats(fixtureRow, statsRows = []) {
   return {
     home,
     away,
-    source: "real-apifootballcom",
-    hasRealStats: true
+    source: "apifootballcom-unverified",
+    hasRealStats: false
   };
 }
 
