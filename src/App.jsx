@@ -505,8 +505,11 @@ export default function App() {
         live: false,
         side: "neutral",
         intensity: "idle",
-        label: "Pré-live",
-        detail: "Aguardando início",
+        label: "Projeção VIP pré-live",
+        detail: "Jogo ainda não começou",
+        possessionTeam: "Pré-live",
+        ballOwner: "Sem posse ao vivo",
+        playType: "Projeção de mercado",
         ballX: 50,
         ballY: 50,
         trailFrom: 49,
@@ -592,12 +595,23 @@ export default function App() {
             { x: limitar(ballX - 8, 8, 90), y: limitar(ballY + 2, 18, 82), team: "home" }
           ];
 
+    const possessionTeam = side === "home" ? times.casa : times.fora;
+    const playType =
+      intensity === "high"
+        ? "Chance clara / perto do gol"
+        : intensity === "medium"
+          ? "Ataque perigoso"
+          : "Passou do meio-campo";
+
     return {
       live: true,
       side,
       intensity,
       label,
       detail: lastEvent?.detail || lastEvent?.type || "Ataque em andamento",
+      possessionTeam,
+      ballOwner: possessionTeam,
+      playType,
       ballX,
       ballY,
       trailFrom,
@@ -937,6 +951,18 @@ export default function App() {
     return mercadoOddReal(item) || mercadosDoItem(item).some((m) => mercadoOddReal(m));
   }
 
+  function jogoAoVivo(item) {
+    return item.type === "live" || mercadosDoItem(item).some((m) => m.type === "live");
+  }
+
+  function jogoPreLive(item) {
+    return !jogoAoVivo(item);
+  }
+
+  function jogoPreLiveVip(item) {
+    return jogoPreLive(item) && mercadosDoItem(item).some((m) => isVip(m));
+  }
+
   function formatOdd(m) {
     if (!oddValida(m?.odd)) return "—";
     return String(m.odd).replace(".", ",");
@@ -972,8 +998,15 @@ export default function App() {
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${mercadosDoItem(item).map((m) => `${m.market} ${m.category} ${m.alert}`).join(" ")}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
-        if (filtro === "TODOS") return true;
-        if (filtro === "LIVE") return item.type === "live" || mercadosDoItem(item).some((m) => m.type === "live");
+
+        // Pré-live são sinais de jogos que ainda vão acontecer.
+        // Ficam reservados para VIP: não entram nos filtros públicos.
+        const preLive = jogoPreLive(item);
+        const preLiveVip = jogoPreLiveVip(item);
+
+        if (filtro === "TODOS") return jogoAoVivo(item);
+        if (filtro === "LIVE") return jogoAoVivo(item);
+        if (preLive && !["VIP", "HISTORICO"].includes(filtro)) return false;
         if (filtro === "ALERTA") return jogoTemAlerta(item);
         if (filtro === "OVER05") return jogoTemCategoria(item, "OVER 0,5");
         if (filtro === "OVER15") return jogoTemCategoria(item, "OVER 1,5");
@@ -983,11 +1016,11 @@ export default function App() {
         if (filtro === "CANTOS") return jogoTemCategoria(item, "CANTOS");
         if (filtro === "BTTS") return jogoTemCategoria(item, "BTTS");
         if (filtro === "TOP IA") return jogoTemCategoria(item, "TOP IA") || mercadosDoItem(item).some((m) => (m.confidence || 0) >= 82);
-        if (filtro === "VIP") return mercadosDoItem(item).some((m) => isVip(m));
+        if (filtro === "VIP") return preLiveVip || (jogoAoVivo(item) && mercadosDoItem(item).some((m) => isVip(m)));
         if (filtro === "REAL") return jogoStatsReal(item);
         if (filtro === "EVENTOS") return jogoEventosReal(item);
         if (filtro === "ODDS") return jogoOddReal(item);
-        if (filtro === "HISTORICO") return item.type !== "live";
+        if (filtro === "HISTORICO") return preLiveVip;
         return true;
       })
       .sort((a, b) => (melhorMercado(b).confidence || 70) + (melhorMercado(b).pressure || 70) - ((melhorMercado(a).confidence || 70) + (melhorMercado(a).pressure || 70)));
@@ -1041,7 +1074,7 @@ export default function App() {
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
           ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🕘 HISTÓRICO"]
+          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -1094,7 +1127,7 @@ export default function App() {
                 </div>
 
                 <div className="badges">
-                  <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE"}</span>
+                  <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE VIP"}</span>
                   <span className={jogoStatsReal(item) ? "realStatsBadge" : "estimatedStatsBadge"}>
                     {jogoStatsReal(item) ? "STATS REAL" : "ESTIMADO"}
                   </span>
@@ -1206,8 +1239,12 @@ export default function App() {
 
                 <div className={`miniMap weather-${weather.cls}`}>
                   <div className={`livePulse ${liveMap.intensity} ${liveMap.side}`}>
-                    <b>{liveMap.live ? "JOGO AO VIVO" : "PRÉ-LIVE"}</b>
-                    <span>{liveMap.label}</span>
+                    <b>
+                      {liveMap.live
+                        ? `${sigla(liveMap.possessionTeam || (liveMap.side === "home" ? times.casa : times.fora))} COM A BOLA`
+                        : "PRÉ-LIVE VIP"}
+                    </b>
+                    <span>{liveMap.playType || liveMap.label}</span>
                   </div>
 
                   <div className="weatherBadge">
@@ -1273,19 +1310,15 @@ export default function App() {
                   </div>
 
                   <div className="mapStats compact">
-                    <span>
-                      {liveMap.live
-                        ? `${sigla(liveMap.side === "home" ? times.casa : times.fora)} no ataque`
-                        : "Pré-live"}
-                    </span>
+                    <span>{liveMap.live ? `Bola: ${sigla(liveMap.possessionTeam)}` : "VIP pré-live"}</span>
                     <span>{liveMap.label}</span>
-                    <span>{liveMap.live ? `${currentMinute}'` : item.status || "Próximo jogo"}</span>
+                    <span>{liveMap.live ? `${currentMinute}'` : "Próximo jogo"}</span>
                   </div>
                 </div>
 
                 <div className="flowCard">
                   <h3>
-                    {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO PRÉ-LIVE"}
+                    {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO VIP PRÉ-LIVE"}
                     {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}
                     {!liveReal && <span className="flowPreliveTag">PROJEÇÃO IA</span>}
                   </h3>
@@ -2782,6 +2815,433 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 
 @media(max-width:430px){
   .filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+/* ===== MAKINE FINAL 2: TELA UNICA, PRÉ-LIVE VIP E MINIMAPA COM POSSE ===== */
+.page{
+  padding:5px!important;
+}
+.topBar{
+  margin-bottom:4px!important;
+  align-items:flex-start!important;
+}
+h1{
+  font-size:32px!important;
+}
+.subTitle{
+  font-size:10px!important;
+  margin-top:2px!important;
+}
+.statusWrap{
+  gap:5px!important;
+  justify-content:flex-end!important;
+}
+.pill{
+  padding:5px 9px!important;
+  font-size:11px!important;
+  border-radius:7px!important;
+}
+.notice{
+  display:none!important;
+}
+.filters{
+  grid-template-columns:repeat(16,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin-bottom:5px!important;
+}
+.filters button{
+  height:27px!important;
+  padding:3px 2px!important;
+  font-size:8px!important;
+  border-radius:6px!important;
+}
+.search{
+  height:30px!important;
+  padding:6px 9px!important;
+  font-size:11px!important;
+  margin-bottom:6px!important;
+}
+.grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+  align-items:start!important;
+}
+.card{
+  min-height:0!important;
+  height:auto!important;
+  padding:6px!important;
+  border-radius:9px!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+.matchHero{
+  grid-template-columns:44px minmax(0,1fr) 44px!important;
+  height:52px!important;
+  min-height:52px!important;
+  gap:4px!important;
+}
+.heroLogo{
+  width:31px!important;
+  height:31px!important;
+  max-width:31px!important;
+  max-height:31px!important;
+}
+.teamSide small{
+  font-size:6.6px!important;
+  max-width:40px!important;
+}
+.heroCenter h2{
+  font-size:11px!important;
+  line-height:1!important;
+}
+.heroCenter p{
+  font-size:7px!important;
+  margin:1px 0!important;
+}
+.heroCenter b{
+  font-size:21px!important;
+  line-height:.9!important;
+  margin-top:1px!important;
+}
+.heroCenter strong.gameMinute{
+  display:inline-grid!important;
+  place-items:center!important;
+  width:32px!important;
+  height:15px!important;
+  margin:2px auto 0!important;
+  transform:none!important;
+  position:relative!important;
+  top:0!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  color:#fff!important;
+  font-size:9px!important;
+  line-height:1!important;
+}
+.heroCenter strong.preliveMinute{
+  margin:2px auto 0!important;
+  transform:none!important;
+  padding:2px 6px!important;
+  font-size:7px!important;
+  background:#4a1c08!important;
+  color:#facc15!important;
+}
+.badges{
+  margin-top:2px!important;
+  margin-bottom:4px!important;
+  min-height:16px!important;
+  gap:3px!important;
+  justify-content:flex-start!important;
+}
+.badges span{
+  font-size:6.7px!important;
+  padding:2px 5px!important;
+}
+.marketBadges{
+  margin-left:auto!important;
+  max-width:48%!important;
+  justify-content:flex-end!important;
+}
+
+.highlightSignal{
+  min-height:32px!important;
+  padding:4px 6px!important;
+  margin-bottom:5px!important;
+  border-color:rgba(250,204,21,.70)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.13),rgba(0,0,0,.26))!important;
+}
+.highlightSignalText small{
+  font-size:6.5px!important;
+}
+.highlightSignalText b{
+  font-size:11px!important;
+}
+.highlightSignalText span{
+  font-size:8px!important;
+}
+.highlightSignalMeta strong{
+  font-size:16px!important;
+  color:#22ff86!important;
+}
+.highlightSignalMeta em{
+  font-size:8px!important;
+}
+
+.proStats{
+  min-height:70px!important;
+  padding:4px!important;
+  gap:3px!important;
+  margin-bottom:4px!important;
+}
+.statsTopGrid{
+  gap:3px!important;
+}
+.metricPair{
+  min-height:36px!important;
+  padding:2px 3px!important;
+}
+.metricPair small{
+  font-size:5.9px!important;
+  height:10px!important;
+}
+.metricNumbers{
+  min-height:18px!important;
+  grid-template-columns:1fr 17px 1fr!important;
+}
+.metricNumbers b{
+  font-size:12px!important;
+}
+.metricVs{
+  width:17px!important;
+  height:17px!important;
+}
+.metricVs:before{
+  inset:4px!important;
+}
+.metricVs:after{
+  left:5.6px!important;
+  top:2.3px!important;
+  font-size:7px!important;
+}
+.metricVs.danger:after{
+  left:5.2px!important;
+}
+.metricVs.ball:after{
+  left:6.2px!important;
+  top:3px!important;
+  font-size:5.8px!important;
+}
+.statsMiddleRow{
+  grid-template-columns:36px minmax(0,1fr) 36px!important;
+  gap:4px!important;
+}
+.sideCounters{
+  min-height:30px!important;
+  padding:2px!important;
+}
+.sideCounters strong{
+  font-size:5.7px!important;
+  max-width:31px!important;
+}
+.sideCounters span{
+  font-size:7px!important;
+}
+.sideCounters b{
+  font-size:6.8px!important;
+}
+.shotBoxPro{
+  min-height:30px!important;
+  grid-template-columns:28px minmax(0,1fr) 28px!important;
+  padding:3px 4px!important;
+  gap:3px!important;
+}
+.shotBoxPro small{
+  font-size:5.7px!important;
+  height:7px!important;
+}
+.shotBoxPro strong{
+  font-size:10.5px!important;
+}
+.splitBar{
+  height:3px!important;
+}
+
+.miniMap{
+  margin:0 auto 4px!important;
+  padding:0 2px!important;
+}
+.livePulse{
+  height:18px!important;
+  padding:2px 7px!important;
+  margin:0 2px 2px!important;
+}
+.livePulse b{
+  font-size:7px!important;
+}
+.livePulse span{
+  font-size:7px!important;
+}
+.weatherBadge{
+  top:21px!important;
+  right:7px!important;
+  padding:2px 5px!important;
+  font-size:6.5px!important;
+}
+.weatherBadge span{
+  font-size:9px!important;
+}
+.stadiumLights{
+  top:18px!important;
+  height:10px!important;
+}
+.stadiumLights i{
+  width:18px!important;
+  height:8px!important;
+}
+.field3d.liveField{
+  height:48px!important;
+  margin-top:3px!important;
+  border-radius:10px!important;
+  transform:perspective(290px) rotateX(29deg) scale(1.01)!important;
+}
+.playerDot{
+  width:5px!important;
+  height:5px!important;
+}
+.liveBall{
+  width:7px!important;
+  height:7px!important;
+}
+.attackTrail{
+  height:2px!important;
+}
+.mapStats.compact{
+  font-size:6.8px!important;
+  margin-top:1px!important;
+}
+
+.flowCard{
+  min-height:91px!important;
+  padding:4px!important;
+  margin-top:4px!important;
+}
+.flowCard h3{
+  font-size:8px!important;
+  height:11px!important;
+  line-height:11px!important;
+  margin-bottom:1px!important;
+}
+.flowRealTag,
+.flowPreliveTag{
+  font-size:5.6px!important;
+  padding:1px 4px!important;
+}
+.flowMinuteScale{
+  font-size:6px!important;
+  padding:0 7px 1px 36px!important;
+}
+.flowWrap{
+  height:54px!important;
+  padding-left:36px!important;
+  padding-right:7px!important;
+}
+.flowWrap:before{
+  left:36px!important;
+  right:7px!important;
+}
+.flowWrap:after{
+  left:36px!important;
+  right:7px!important;
+}
+.middleLine{
+  left:36px!important;
+  right:7px!important;
+}
+.teamMini{
+  width:32px!important;
+  font-size:6px!important;
+}
+.teamMini img{
+  width:14px!important;
+  height:14px!important;
+}
+.homeMini{
+  top:4px!important;
+}
+.awayMini{
+  bottom:4px!important;
+}
+.nowLine b{
+  font-size:6px!important;
+  padding:1px 3px!important;
+}
+.flowSpike{
+  width:1.3px!important;
+}
+.flowSpike.level-3{
+  width:2px!important;
+}
+.flowIcon{
+  font-size:8px!important;
+}
+.flowIcon.home,
+.realEventIcon.home{
+  bottom:calc(50% + 18px)!important;
+}
+.flowIcon.away,
+.realEventIcon.away{
+  top:calc(50% + 18px)!important;
+}
+.flowLegend{
+  display:none!important;
+}
+
+.marketsPanel{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin-top:4px!important;
+  padding:4px!important;
+}
+.signalChip{
+  min-height:30px!important;
+  padding:3px 5px!important;
+  border-radius:6px!important;
+}
+.signalChip b{
+  font-size:8px!important;
+}
+.signalChip span{
+  font-size:6.8px!important;
+}
+.signalChip strong{
+  font-size:10px!important;
+}
+.signalChip em{
+  font-size:6.8px!important;
+}
+.bookies{
+  display:none!important;
+}
+
+.noOddsBadge{
+  background:#1f2937!important;
+}
+.realOddsBadge{
+  background:#ca8a04!important;
+}
+.base{
+  background:#243141!important;
+}
+.preliveVipLock{
+  background:#7c2d12!important;
+}
+
+@media(max-width:1100px){
+  .grid{
+    grid-template-columns:1fr!important;
+  }
+  .card{
+    min-height:auto!important;
+  }
+  .filters{
+    grid-template-columns:repeat(4,1fr)!important;
+  }
+  .marketBadges{
+    max-width:100%!important;
+    justify-content:center!important;
+  }
+}
+
+@media(min-width:1101px){
+  .page{
+    height:100vh!important;
+    overflow:hidden!important;
+  }
+  .grid{
+    height:calc(100vh - 128px)!important;
+    overflow-y:auto!important;
+    padding-bottom:8px!important;
+  }
 }
 
 `;
