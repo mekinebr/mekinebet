@@ -40,6 +40,9 @@ const MAX_GAMES = Number(process.env.MAX_LIVE_GAMES || 9);
 const MAX_PRELIVE_GAMES = Number(process.env.MAX_PRELIVE_GAMES || 18);
 const PRELIVE_HOURS = Number(process.env.PRELIVE_HOURS || 24);
 const PRELIVE_FALLBACK_HOURS = Number(process.env.PRELIVE_FALLBACK_HOURS || 168);
+const INCLUDE_NEXT_DAYS = Number(process.env.INCLUDE_NEXT_DAYS || Math.max(10, Math.ceil(PRELIVE_FALLBACK_HOURS / 24)));
+const TIMEZONE = String(process.env.TIMEZONE || "America/Sao_Paulo");
+const ALWAYS_INCLUDE_PRELIVE = String(process.env.ALWAYS_INCLUDE_PRELIVE || "true").toLowerCase() !== "false";
 const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
 const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !== "false";
 const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
@@ -1667,9 +1670,15 @@ async function getTheOddsFixtures() {
 }
 
 
-function apiFootballComStatus(statusRaw = "") {
+function apiFootballComStatus(statusRaw = "", row = {}) {
   const raw = String(statusRaw || "").trim();
   const normalized = normalizeName(raw);
+  const liveFlag = String(row?.match_live ?? row?.is_live ?? row?.live ?? "").trim().toLowerCase();
+  const isFlagLive = ["1", "true", "yes", "y", "live"].includes(liveFlag);
+
+  if (isFlagLive && (!raw || normalized === "not started" || normalized === "ns")) {
+    return { short: "LIVE", elapsed: 0 };
+  }
 
   if (!raw || normalized === "not started" || normalized === "ns") return { short: "NS", elapsed: 0 };
   if (normalized.includes("postpon") || normalized.includes("canceled") || normalized.includes("cancelled")) return { short: "PST", elapsed: 0 };
@@ -1678,27 +1687,51 @@ function apiFootballComStatus(statusRaw = "") {
 
   const minute = parseInt(raw.replace(/[^0-9]/g, ""), 10);
   if (Number.isFinite(minute) && minute > 0) {
-    // APIFootball.com às vezes retorna apenas "90" para partidas encerradas.
-    // Se não houver indicação explícita de live/acréscimos, tratamos 90+ como finalizado para não gerar sinal morto.
-    const looksLive = normalized.includes("live") || raw.includes("+") || normalized.includes("1st") || normalized.includes("2nd");
+    const looksLive =
+      isFlagLive ||
+      normalized.includes("live") ||
+      raw.includes("+") ||
+      normalized.includes("1st") ||
+      normalized.includes("2nd") ||
+      normalized.includes("half");
+
     if (minute >= 90 && !looksLive) return { short: "FT", elapsed: 90 };
     return { short: minute <= 45 ? "1H" : "2H", elapsed: Math.min(120, minute) };
   }
 
-  if (normalized.includes("live") || normalized.includes("1st") || normalized.includes("2nd")) return { short: "LIVE", elapsed: 0 };
+  if (normalized.includes("live") || normalized.includes("1st") || normalized.includes("2nd") || isFlagLive) {
+    return { short: "LIVE", elapsed: 0 };
+  }
+
   return { short: "NS", elapsed: 0 };
 }
 
 function normalizeApiFootballComFixture(row = {}) {
-  const rawId = row.match_id || row.event_key || row.match_key || `${row.match_date || ""}-${row.match_time || ""}-${row.match_hometeam_name || "Casa"}-${row.match_awayteam_name || "Fora"}`;
+  const rawId =
+    row.match_id ||
+    row.event_key ||
+    row.match_key ||
+    row.fixture_id ||
+    `${row.match_date || ""}-${row.match_time || ""}-${row.match_hometeam_name || "Casa"}-${row.match_awayteam_name || "Fora"}`;
+
   const dateRaw = `${row.match_date || todayISO(0)}T${String(row.match_time || "00:00").slice(0, 5)}:00-03:00`;
   const d = new Date(dateRaw);
-  const status = apiFootballComStatus(row.match_status || row.status || "");
+  const status = apiFootballComStatus(row.match_status || row.status || "", row);
 
-  const homeGoals = row.match_hometeam_score === "" || row.match_hometeam_score == null ? 0 : toNumber(row.match_hometeam_score, 0);
-  const awayGoals = row.match_awayteam_score === "" || row.match_awayteam_score == null ? 0 : toNumber(row.match_awayteam_score, 0);
+  const homeGoals =
+    row.match_hometeam_score === "" ||
+    row.match_hometeam_score == null
+      ? 0
+      : toNumber(row.match_hometeam_score, 0);
+
+  const awayGoals =
+    row.match_awayteam_score === "" ||
+    row.match_awayteam_score == null
+      ? 0
+      : toNumber(row.match_awayteam_score, 0);
 
   const fixtureId = `apifootballcom-${rawId}`;
+
   return {
     fixture: {
       id: fixtureId,
@@ -1712,8 +1745,16 @@ function normalizeApiFootballComFixture(row = {}) {
       country: row.country_name || row.country || "Mundo"
     },
     teams: {
-      home: { id: row.match_hometeam_id || null, name: row.match_hometeam_name || "Casa", logo: row.team_home_badge || "" },
-      away: { id: row.match_awayteam_id || null, name: row.match_awayteam_name || "Fora", logo: row.team_away_badge || "" }
+      home: {
+        id: row.match_hometeam_id || row.home_team_key || null,
+        name: row.match_hometeam_name || "Casa",
+        logo: row.team_home_badge || row.home_team_logo || ""
+      },
+      away: {
+        id: row.match_awayteam_id || row.away_team_key || null,
+        name: row.match_awayteam_name || "Fora",
+        logo: row.team_away_badge || row.away_team_logo || ""
+      }
     },
     goals: { home: homeGoals, away: awayGoals },
     _externalSource: "apifootballcom",
@@ -1904,25 +1945,36 @@ function buildApiFootballComStats(fixtureRow, statsRows = []) {
   return {
     home,
     away,
-    source: "apifootballcom-unverified",
-    hasRealStats: false
+    source: "real-apifootballcom",
+    hasRealStats: true
   };
 }
 
 async function getApiFootballComFixtures() {
   if (!APIFOOTBALLCOM_TOKEN) return { live: [], prelive: [] };
 
-  const days = Math.max(1, Math.ceil(PRELIVE_FALLBACK_HOURS / 24));
-  const from = todayISO(0);
-  const to = todayISO(days);
+  // A extensão buscava um range maior. Aqui usamos ontem até INCLUDE_NEXT_DAYS,
+  // assim não ficamos sem sinais quando a API principal esgota.
+  const from = todayISO(-1);
+  const to = todayISO(Math.max(1, INCLUDE_NEXT_DAYS));
   const rows = await apiFootballComGet({ action: "get_events", from, to }, `get_events/${from}/${to}`);
+
   const fixtures = uniqueFixtures(rows.map(normalizeApiFootballComFixture))
+    .filter((row) => row?.fixture?.id)
     .filter(isSupportedFixtureForSignals);
 
   const live = fixtures.filter((row) => isLive(row?.fixture?.status?.short || ""));
   const prelive = fixtures.filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
 
-  providerDiagnostics.apiFootballCom.push({ label: "summary", ok: true, live: live.length, prelive: prelive.length });
+  providerDiagnostics.apiFootballCom.push({
+    label: "summary",
+    ok: true,
+    rows: rows.length,
+    fixtures: fixtures.length,
+    live: live.length,
+    prelive: prelive.length
+  });
+
   return { live, prelive };
 }
 
@@ -1978,82 +2030,96 @@ async function getFixtures() {
   let preliveFixtures = [];
   let mode = API_KEYS.length || SPORTMONKS_TOKEN || APIFOOTBALLCOM_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
 
+  // 1) Todas as chaves API-Football/API-Sports trabalham em sequência.
+  // 2) APIFootball.com, Sportmonks e The Odds API trabalham em paralelo como fontes reais.
+  // 3) Não existe demo/fake aqui.
+  const dateOffsets = Array.from({ length: Math.max(2, INCLUDE_NEXT_DAYS) }, (_, i) => i);
+
   if (API_KEYS.length) {
-    const fetchByDate = async (offset) => {
-      try {
-        return await apiFootballGet(
-          `/fixtures?date=${todayISO(offset)}&timezone=America/Sao_Paulo`
-        );
-      } catch (e) {
-        console.log(`Erro fixtures date ${offset}:`, e.message);
-        return [];
-      }
-    };
-
-    let todayRows = [];
-    let tomorrowRows = [];
-
     try {
-      liveFixtures = await apiFootballGet("/fixtures?live=all");
+      const liveRows = await apiFootballGet(`/fixtures?live=all&timezone=${encodeURIComponent(TIMEZONE)}`);
+      liveFixtures = uniqueFixtures([...liveFixtures, ...liveRows]);
     } catch (e) {
       console.log("Erro live API-Football:", e.message);
     }
 
-    [todayRows, tomorrowRows] = await Promise.all([fetchByDate(0), fetchByDate(1)]);
+    const dateResults = await Promise.allSettled(
+      dateOffsets.map((offset) =>
+        apiFootballGet(`/fixtures?date=${todayISO(offset)}&timezone=${encodeURIComponent(TIMEZONE)}`)
+      )
+    );
 
-    const liveFromDates = uniqueFixtures([...todayRows, ...tomorrowRows])
-      .filter((row) => isLive(row?.fixture?.status?.short || ""));
+    const dateRows = dateResults.flatMap((result, index) => {
+      if (result.status === "fulfilled") return result.value || [];
+      providerDiagnostics.apiFootball.push({
+        path: `/fixtures?date=${todayISO(dateOffsets[index])}`,
+        ok: false,
+        error: result.reason?.message || String(result.reason)
+      });
+      return [];
+    });
 
-    liveFixtures = uniqueFixtures([...liveFixtures, ...liveFromDates]);
+    const uniqueDateRows = uniqueFixtures(dateRows);
 
-    preliveFixtures = uniqueFixtures([...todayRows, ...tomorrowRows])
-      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
+    liveFixtures = uniqueFixtures([
+      ...liveFixtures,
+      ...uniqueDateRows.filter((row) => isLive(row?.fixture?.status?.short || ""))
+    ]);
 
-    if (!liveFixtures.length && !preliveFixtures.length) {
+    preliveFixtures = uniqueFixtures([
+      ...preliveFixtures,
+      ...uniqueDateRows.filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS))
+    ]);
+
+    // Último recurso real dentro da API-Sports: /next, nunca demo.
+    if (!liveFixtures.length && preliveFixtures.length < Math.min(6, MAX_PRELIVE_GAMES)) {
       try {
         const nextRows = await apiFootballGet(
-          `/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=America/Sao_Paulo`
+          `/fixtures?next=${Math.max(MAX_PRELIVE_GAMES, 18)}&timezone=${encodeURIComponent(TIMEZONE)}`
         );
-        preliveFixtures = uniqueFixtures(nextRows)
-          .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
+        preliveFixtures = uniqueFixtures([
+          ...preliveFixtures,
+          ...nextRows.filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS))
+        ]);
       } catch (e) {
         console.log("Erro next API-Football:", e.message);
       }
     }
   }
 
-  // Fallback real, sem demo:
-  // Sportmonks cobre livescores e fixtures; The Odds API cobre odds/pre-live.
-  // Eles entram junto quando a API-Football estiver vazia, limitada ou sem quota.
+  // Fontes alternativas reais sempre entram, mesmo se API-Football retornar algo.
   try {
-    const thirdParty = await getThirdPartyFixturesCached();
+    const thirdParty = await getThirdPartyFixturesCached(true);
     liveFixtures = uniqueFixtures([...liveFixtures, ...(thirdParty.live || [])]);
     preliveFixtures = uniqueFixtures([...preliveFixtures, ...(thirdParty.prelive || [])]);
   } catch (e) {
-    console.log("Erro providers externos:", e.message);
+    console.log("Erro fontes alternativas:", e.message);
+    providerDiagnostics.apiFootballCom.push({ label: "third-party", ok: false, error: e.message });
   }
 
   liveFixtures = uniqueFixtures(liveFixtures)
     .filter(isSupportedFixtureForSignals)
     .filter((row) => isLive(row?.fixture?.status?.short || ""))
-    .sort((a, b) => fixtureSortScore(b, "live") - fixtureSortScore(a, "live"))
-    .slice(0, MAX_GAMES);
+    .sort((a, b) => fixtureSortScore(b, "live") - fixtureSortScore(a, "live"));
 
   preliveFixtures = uniqueFixtures(preliveFixtures)
     .filter(isSupportedFixtureForSignals)
-    .filter((row) => !liveFixtures.some((live) => fixtureKey(live) === fixtureKey(row)))
     .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS))
-    .sort((a, b) => fixtureSortScore(b, "prelive") - fixtureSortScore(a, "prelive"))
-    .slice(0, MAX_PRELIVE_GAMES);
-
-  const fixtures = uniqueFixtures([...liveFixtures, ...preliveFixtures]);
+    .sort((a, b) => fixtureSortScore(b, "prelive") - fixtureSortScore(a, "prelive"));
 
   if (liveFixtures.length && preliveFixtures.length) mode = "live+prelive24";
   else if (liveFixtures.length) mode = "live";
   else if (preliveFixtures.length) mode = "prelive24";
-  else mode = API_KEYS.length || SPORTMONKS_TOKEN || APIFOOTBALLCOM_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
+  else if (API_KEYS.length || SPORTMONKS_TOKEN || APIFOOTBALLCOM_TOKEN || ODDS_API_KEYS.length) mode = "empty";
 
-  return { fixtures, mode };
+  const liveSelected = liveFixtures.slice(0, MAX_GAMES);
+  const preliveLimit = ALWAYS_INCLUDE_PRELIVE || !liveSelected.length ? MAX_PRELIVE_GAMES : Math.max(6, Math.floor(MAX_PRELIVE_GAMES / 2));
+  const preliveSelected = preliveFixtures.slice(0, preliveLimit);
+
+  return {
+    fixtures: uniqueFixtures([...liveSelected, ...preliveSelected]),
+    mode
+  };
 }
 
 async function getStatsForFixture(fixture, mode) {
