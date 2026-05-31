@@ -9,8 +9,14 @@ const uniqueText = (arr = []) => Array.from(new Set(arr.map((v) => String(v || "
 const API_KEYS = uniqueText([
   ...(process.env.API_FOOTBALL_KEYS || "").split(","),
   process.env.API_FOOTBALL_KEY,
+  process.env.API_FOOTBALL_KEY_2,
+  process.env.API_FOOTBALL_KEY_3,
+  process.env.API_FOOTBALL_KEY_4,
   process.env.APISPORTS_KEY,
+  process.env.APISPORTS_KEY_2,
+  process.env.APISPORTS_KEY_3,
   process.env.API_SPORTS_KEY,
+  process.env.API_SPORTS_KEY_2,
   process.env.RAPIDAPI_KEY
 ]);
 
@@ -23,6 +29,8 @@ const ODDS_API_KEYS = uniqueText([
 ]);
 
 const SPORTMONKS_TOKEN = String(process.env.SPORTMONKS_TOKEN || "").trim();
+const APIFOOTBALLCOM_BASE = String(process.env.APIFOOTBALLCOM_BASE_URL || process.env.API_FOOTBALL_COM_BASE_URL || "https://apiv3.apifootball.com").replace(/\/$/, "");
+const APIFOOTBALLCOM_TOKEN = String(process.env.APIFOOTBALLCOM_TOKEN || process.env.API_FOOTBALL_COM_TOKEN || "").trim();
 
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
@@ -44,7 +52,7 @@ const THE_ODDS_SPORT_KEYS = uniqueText(
 
 let cache = { timestamp: 0, payload: null };
 let thirdPartyCache = { timestamp: 0, data: null };
-let providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
+let providerDiagnostics = { apiFootball: [], apiFootballCom: [], sportmonks: [], theOdds: [] };
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, Number(v || 0)));
 
@@ -1629,26 +1637,118 @@ async function getTheOddsFixtures() {
   return uniqueFixtures(output);
 }
 
+
+function apiFootballComStatus(statusRaw = "") {
+  const raw = String(statusRaw || "").trim();
+  const normalized = normalizeName(raw);
+
+  if (!raw || normalized === "not started" || normalized === "ns") return { short: "NS", elapsed: 0 };
+  if (normalized.includes("postpon") || normalized.includes("canceled") || normalized.includes("cancelled")) return { short: "PST", elapsed: 0 };
+  if (normalized.includes("finished") || normalized === "ft" || normalized.includes("after")) return { short: "FT", elapsed: 90 };
+  if (normalized.includes("half time") || normalized === "ht") return { short: "HT", elapsed: 45 };
+
+  const minute = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+  if (Number.isFinite(minute) && minute > 0) return { short: minute <= 45 ? "1H" : "2H", elapsed: Math.min(120, minute) };
+
+  if (normalized.includes("live") || normalized.includes("1st") || normalized.includes("2nd")) return { short: "LIVE", elapsed: 0 };
+  return { short: "NS", elapsed: 0 };
+}
+
+function normalizeApiFootballComFixture(row = {}) {
+  const rawId = row.match_id || row.event_key || row.match_key || `${row.match_date || ""}-${row.match_time || ""}-${row.match_hometeam_name || "Casa"}-${row.match_awayteam_name || "Fora"}`;
+  const dateRaw = `${row.match_date || todayISO(0)}T${String(row.match_time || "00:00").slice(0, 5)}:00-03:00`;
+  const d = new Date(dateRaw);
+  const status = apiFootballComStatus(row.match_status || row.status || "");
+
+  const homeGoals = row.match_hometeam_score === "" || row.match_hometeam_score == null ? 0 : toNumber(row.match_hometeam_score, 0);
+  const awayGoals = row.match_awayteam_score === "" || row.match_awayteam_score == null ? 0 : toNumber(row.match_awayteam_score, 0);
+
+  const fixtureId = `apifootballcom-${rawId}`;
+  return {
+    fixture: {
+      id: fixtureId,
+      date: Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString(),
+      timestamp: Number.isNaN(d.getTime()) ? Math.floor(Date.now() / 1000) : Math.floor(d.getTime() / 1000),
+      status
+    },
+    league: {
+      id: row.league_id || row.league_key || null,
+      name: row.league_name || "APIFootball.com",
+      country: row.country_name || row.country || "Mundo"
+    },
+    teams: {
+      home: { id: row.match_hometeam_id || null, name: row.match_hometeam_name || "Casa", logo: row.team_home_badge || "" },
+      away: { id: row.match_awayteam_id || null, name: row.match_awayteam_name || "Fora", logo: row.team_away_badge || "" }
+    },
+    goals: { home: homeGoals, away: awayGoals },
+    _externalSource: "apifootballcom",
+    _externalStatsPack: null,
+    _externalEventsPack: {
+      matchEvents: [],
+      hasRealEvents: false,
+      eventsMode: "none"
+    }
+  };
+}
+
+async function apiFootballComGet(params = {}, label = "get_events") {
+  if (!APIFOOTBALLCOM_TOKEN) return [];
+
+  const url = new URL(APIFOOTBALLCOM_BASE + "/");
+  Object.entries({ ...params, APIkey: APIFOOTBALLCOM_TOKEN }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+  });
+
+  try {
+    const data = await fetchJsonWithTimeout(url.toString(), { headers: { Accept: "application/json" } });
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.response) ? data.response : [];
+    providerDiagnostics.apiFootballCom.push({ label, ok: true, count: rows.length });
+    return rows;
+  } catch (e) {
+    providerDiagnostics.apiFootballCom.push({ label, ok: false, error: e.message });
+    console.log("Erro APIFootball.com:", e.message);
+    return [];
+  }
+}
+
+async function getApiFootballComFixtures() {
+  if (!APIFOOTBALLCOM_TOKEN) return { live: [], prelive: [] };
+
+  const days = Math.max(1, Math.ceil(PRELIVE_FALLBACK_HOURS / 24));
+  const from = todayISO(0);
+  const to = todayISO(days);
+  const rows = await apiFootballComGet({ action: "get_events", from, to }, `get_events/${from}/${to}`);
+  const fixtures = uniqueFixtures(rows.map(normalizeApiFootballComFixture));
+
+  const live = fixtures.filter((row) => isLive(row?.fixture?.status?.short || ""));
+  const prelive = fixtures.filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
+
+  providerDiagnostics.apiFootballCom.push({ label: "summary", ok: true, live: live.length, prelive: prelive.length });
+  return { live, prelive };
+}
+
 async function getThirdPartyFixturesCached(force = false) {
   const now = Date.now();
 
   if (!force && thirdPartyCache.data && now - thirdPartyCache.timestamp < THIRD_PARTY_CACHE_TTL_MS) {
     providerDiagnostics.sportmonks.push({ label: "cache", ok: true, count: (thirdPartyCache.data.live || []).length + (thirdPartyCache.data.prelive || []).length });
+    providerDiagnostics.apiFootballCom.push({ label: "cache", ok: true, count: (thirdPartyCache.data.live || []).filter((f) => String(f?.fixture?.id || "").startsWith("apifootballcom-")).length + (thirdPartyCache.data.prelive || []).filter((f) => String(f?.fixture?.id || "").startsWith("apifootballcom-")).length });
     providerDiagnostics.theOdds.push({ path: "cache", ok: true, count: (thirdPartyCache.data.prelive || []).filter((f) => String(f?.fixture?.id || "").startsWith("oddsapi-")).length });
     return thirdPartyCache.data;
   }
 
-  const [sportmonks, theOdds] = await Promise.all([
+  const [sportmonks, apiFootballCom, theOdds] = await Promise.all([
     getSportmonksFixtures(),
+    getApiFootballComFixtures(),
     getTheOddsFixtures()
   ]);
 
   const data = {
-    live: uniqueFixtures([...(sportmonks.live || [])]),
-    prelive: uniqueFixtures([...(sportmonks.prelive || []), ...(theOdds || [])])
+    live: uniqueFixtures([...(sportmonks.live || []), ...(apiFootballCom.live || [])]),
+    prelive: uniqueFixtures([...(sportmonks.prelive || []), ...(apiFootballCom.prelive || []), ...(theOdds || [])])
   };
 
-  providerDiagnostics.sportmonks.push({ label: "summary", ok: true, live: data.live.length, preliveFromSportmonks: (sportmonks.prelive || []).length });
+  providerDiagnostics.sportmonks.push({ label: "summary", ok: true, live: (sportmonks.live || []).length, preliveFromSportmonks: (sportmonks.prelive || []).length });
   providerDiagnostics.theOdds.push({ path: "summary", ok: true, preliveFromTheOdds: (theOdds || []).length });
 
   thirdPartyCache = { timestamp: now, data };
@@ -1677,7 +1777,7 @@ function fallbackFixtures() {
 async function getFixtures() {
   let liveFixtures = [];
   let preliveFixtures = [];
-  let mode = API_KEYS.length || SPORTMONKS_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
+  let mode = API_KEYS.length || SPORTMONKS_TOKEN || APIFOOTBALLCOM_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
 
   if (API_KEYS.length) {
     const fetchByDate = async (offset) => {
@@ -1750,7 +1850,7 @@ async function getFixtures() {
   if (liveFixtures.length && preliveFixtures.length) mode = "live+prelive24";
   else if (liveFixtures.length) mode = "live";
   else if (preliveFixtures.length) mode = "prelive24";
-  else mode = API_KEYS.length || SPORTMONKS_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
+  else mode = API_KEYS.length || SPORTMONKS_TOKEN || APIFOOTBALLCOM_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
 
   return { fixtures, mode };
 }
@@ -1760,7 +1860,7 @@ async function getStatsForFixture(fixture, mode) {
 
   if (fixture?._externalStatsPack) return fixture._externalStatsPack;
 
-  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
+  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-") || String(fixtureId).startsWith("apifootballcom-")) {
     return null;
   }
 
@@ -1778,7 +1878,7 @@ async function getEventsForFixture(fixture, mode) {
 
   if (fixture?._externalEventsPack) return fixture._externalEventsPack;
 
-  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
+  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-") || String(fixtureId).startsWith("apifootballcom-")) {
     return {
       matchEvents: [],
       hasRealEvents: false,
@@ -1804,7 +1904,7 @@ async function getOddsForFixture(fixture, mode) {
 
   if (fixture?._externalOddsPack) return fixture._externalOddsPack;
 
-  if (!ODDS_ENABLED || !fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
+  if (!ODDS_ENABLED || !fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-") || String(fixtureId).startsWith("apifootballcom-")) {
     return emptyOddsPack();
   }
 
@@ -1828,7 +1928,7 @@ async function getOddsForFixture(fixture, mode) {
 
 async function getSignalsPayload() {
   const now = Date.now();
-  providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
+  providerDiagnostics = { apiFootball: [], apiFootballCom: [], sportmonks: [], theOdds: [] };
 
   if (cache.payload && now - cache.timestamp < CACHE_TTL_MS) {
     return { ...cache.payload, cache: true };
@@ -1892,6 +1992,7 @@ async function getSignalsPayload() {
     source: fixtures.some((f) => f?._externalSource) ? "multi-api" : API_KEYS.length ? "api-football" : "no-api-key",
     providers: {
       apiFootballKeys: API_KEYS.length,
+      apiFootballCom: Boolean(APIFOOTBALLCOM_TOKEN),
       sportmonks: Boolean(SPORTMONKS_TOKEN),
       theOddsApiKeys: ODDS_API_KEYS.length
     },
@@ -1916,7 +2017,7 @@ async function getSignalsPayload() {
       mode === "empty"
         ? "Nenhum jogo real encontrado agora. Sem fallback/demo."
         : mode === "no-api-key"
-          ? "Nenhuma API configurada no Render. Configure API_FOOTBALL_KEY, SPORTMONKS_TOKEN ou ODDS_API_KEY."
+          ? "Nenhuma API configurada no Render. Configure API_FOOTBALL_KEY, APIFOOTBALLCOM_TOKEN, SPORTMONKS_TOKEN ou ODDS_API_KEY."
           : realStatsGames > 0 || realEventsGames > 0 || realOddsGames > 0
             ? "Dados reais carregados dos provedores disponíveis."
             : "Jogos reais carregados, mas estatísticas/odds detalhadas ainda não disponíveis para estes fixtures.",
@@ -1948,6 +2049,7 @@ const server = http.createServer(async (req, res) => {
         hasApiKey: Boolean(API_KEY),
         apiFootballKeys: API_KEYS.length,
         hasSportmonks: Boolean(SPORTMONKS_TOKEN),
+        hasApiFootballCom: Boolean(APIFOOTBALLCOM_TOKEN),
         oddsApiKeys: ODDS_API_KEYS.length,
         cacheTtlMs: CACHE_TTL_MS,
         maxGames: MAX_GAMES,
@@ -1966,7 +2068,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (requestUrl.pathname === "/api/debug-providers") {
-      providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
+      providerDiagnostics = { apiFootball: [], apiFootballCom: [], sportmonks: [], theOdds: [] };
       thirdPartyCache = { timestamp: 0, data: null };
       cache = { timestamp: 0, payload: null };
       const result = await getFixtures();
