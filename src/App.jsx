@@ -1327,7 +1327,10 @@ export default function App() {
         const preLive = jogoPreLive(item);
         const preLiveVip = jogoPreLiveVip(item);
 
-        if (filtro === "TODOS") return jogoAoVivo(item);
+        if (filtro === "TODOS") {
+          const temLiveAgora = signals.some((s) => jogoAoVivo(s));
+          return temLiveAgora ? jogoAoVivo(item) : jogoPreLiveVip(item);
+        }
         if (filtro === "LIVE") return jogoAoVivo(item);
         if (preLive && filtro !== "HISTORICO") return false;
         if (filtro === "ALERTA") return jogoTemAlerta(item);
@@ -1426,7 +1429,7 @@ export default function App() {
         <div className="empty emptyState">
           <b>
             {filtro === "HISTORICO"
-              ? "Nenhum pré-live VIP real encontrado nas próximas 24h."
+              ? "Nenhum pré-live VIP real encontrado agora."
               : filtro === "LIVE" || filtro === "TODOS"
                 ? "Nenhum jogo ao vivo real disponível agora."
                 : "Nenhum jogo encontrado nesse filtro."}
