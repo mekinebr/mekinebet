@@ -1432,16 +1432,20 @@ async function getSportmonksFixtures() {
   const includeCore = "scores;participants;events;league;state";
   const includeLight = "scores;participants;league;state";
 
-  const [liveInplay, liveAll, fixtures24] = await Promise.all([
+  const futureDate = todayISO(Math.max(1, Math.ceil(PRELIVE_FALLBACK_HOURS / 24)));
+
+  const [liveInplay, liveAll, fixturesRange, fixturesToday, fixturesTomorrow] = await Promise.all([
     safeSportmonks("/livescores/inplay", { include: includeCore }, "livescores/inplay"),
     safeSportmonks("/livescores/latest", { include: includeCore }, "livescores/latest"),
-    safeSportmonks(`/fixtures/between/${todayISO(0)}/${todayISO(1)}`, { include: includeLight }, "fixtures/between/24h")
+    safeSportmonks(`/fixtures/between/${todayISO(0)}/${futureDate}`, { include: includeLight }, `fixtures/between/${PRELIVE_FALLBACK_HOURS}h`),
+    safeSportmonks(`/fixtures/date/${todayISO(0)}`, { include: includeLight }, "fixtures/date/today"),
+    safeSportmonks(`/fixtures/date/${todayISO(1)}`, { include: includeLight }, "fixtures/date/tomorrow")
   ]);
 
-  const live = uniqueFixtures([...liveInplay, ...liveAll].map(transformSportmonksFixture))
+  const live = uniqueFixtures([...liveInplay, ...liveAll, ...fixturesToday].map(transformSportmonksFixture))
     .filter((row) => isLive(row?.fixture?.status?.short || ""));
 
-  const prelive = uniqueFixtures(fixtures24.map(transformSportmonksFixture))
+  const prelive = uniqueFixtures([...fixturesRange, ...fixturesToday, ...fixturesTomorrow].map(transformSportmonksFixture))
     .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
 
   return { live, prelive };
@@ -1552,10 +1556,15 @@ async function getTheOddsSports() {
 }
 
 async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
+  const now = new Date();
+  const future = new Date(Date.now() + PRELIVE_FALLBACK_HOURS * 36e5);
+
   const baseParams = {
     regions: THE_ODDS_REGIONS,
     oddsFormat: "decimal",
-    dateFormat: "iso"
+    dateFormat: "iso",
+    commenceTimeFrom: now.toISOString(),
+    commenceTimeTo: future.toISOString()
   };
 
   const regionAttempts = uniqueText([
@@ -1605,7 +1614,7 @@ async function getTheOddsFixtures() {
 
       rows.forEach((event) => {
         const fixture = transformTheOddsFixture(event, event?.sport_title || sportKey.replace(/^soccer_/, "Soccer "));
-        if (isFutureFixture(fixture) && isWithinNextHours(fixture, PRELIVE_HOURS)) output.push(fixture);
+        if (isFutureFixture(fixture) && isWithinNextHours(fixture, PRELIVE_FALLBACK_HOURS)) output.push(fixture);
       });
     } catch (e) {
       providerDiagnostics.theOdds.push({ path: sportKey, ok: false, error: e.message });
@@ -1616,9 +1625,12 @@ async function getTheOddsFixtures() {
   return uniqueFixtures(output);
 }
 
-async function getThirdPartyFixturesCached() {
+async function getThirdPartyFixturesCached(force = false) {
   const now = Date.now();
-  if (thirdPartyCache.data && now - thirdPartyCache.timestamp < THIRD_PARTY_CACHE_TTL_MS) {
+
+  if (!force && thirdPartyCache.data && now - thirdPartyCache.timestamp < THIRD_PARTY_CACHE_TTL_MS) {
+    providerDiagnostics.sportmonks.push({ label: "cache", ok: true, count: (thirdPartyCache.data.live || []).length + (thirdPartyCache.data.prelive || []).length });
+    providerDiagnostics.theOdds.push({ path: "cache", ok: true, count: (thirdPartyCache.data.prelive || []).filter((f) => String(f?.fixture?.id || "").startsWith("oddsapi-")).length });
     return thirdPartyCache.data;
   }
 
@@ -1631,6 +1643,9 @@ async function getThirdPartyFixturesCached() {
     live: uniqueFixtures([...(sportmonks.live || [])]),
     prelive: uniqueFixtures([...(sportmonks.prelive || []), ...(theOdds || [])])
   };
+
+  providerDiagnostics.sportmonks.push({ label: "summary", ok: true, live: data.live.length, preliveFromSportmonks: (sportmonks.prelive || []).length });
+  providerDiagnostics.theOdds.push({ path: "summary", ok: true, preliveFromTheOdds: (theOdds || []).length });
 
   thirdPartyCache = { timestamp: now, data };
   return data;
@@ -1948,6 +1963,8 @@ const server = http.createServer(async (req, res) => {
 
     if (requestUrl.pathname === "/api/debug-providers") {
       providerDiagnostics = { apiFootball: [], sportmonks: [], theOdds: [] };
+      thirdPartyCache = { timestamp: 0, data: null };
+      cache = { timestamp: 0, payload: null };
       const result = await getFixtures();
       sendJson(res, 200, {
         ok: true,
