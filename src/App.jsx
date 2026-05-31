@@ -663,10 +663,12 @@ export default function App() {
     const conf = Number(item.confidence || 70);
     const press = Number(item.pressure || 70);
     const gols = totalGols(item);
+    const real = jogoStatsReal(item);
 
+    const estimatedHomePossession = Math.min(72, Math.max(42, conf - 18));
     const homePossession = usarValor(
       numero(item.possession, item.posse, item.ballPossession),
-      Math.min(72, Math.max(42, conf - 18))
+      estimatedHomePossession
     );
 
     const awayPossessionRaw = numero(item.possessionAway, item.posseAway, item.posseFora);
@@ -697,7 +699,7 @@ export default function App() {
       away.posse = Math.max(20, 100 - home.posse);
     }
 
-    return { home, away };
+    return { home, away, real, display: real };
   }
 
 
@@ -1339,6 +1341,7 @@ export default function App() {
         if (filtro === "OVER25") return jogoTemCategoria(item, "OVER 2,5");
         if (filtro === "OVER35") return jogoTemCategoria(item, "OVER 3,5");
         if (filtro === "CARTÕES") return jogoTemCategoria(item, "CARTÕES");
+        if (filtro === "MAISGOL") return jogoTemCategoria(item, "MAIS GOL");
         if (filtro === "CANTOS") return jogoTemCategoria(item, "CANTOS");
         if (filtro === "BTTS") return jogoTemCategoria(item, "BTTS");
         if (filtro === "VITORIA") return jogoTemCategoria(item, "VITÓRIA");
@@ -1412,10 +1415,23 @@ export default function App() {
 
       <div className="filters">
         {[
-          ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
-          ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
-          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
+          ["TODOS", "▣ TODOS"],
+          ["LIVE", "◉ AO VIVO"],
+          ["HISTORICO", "🔐 PRÉ-LIVE VIP"],
+          ["ALERTA", "⚠️ ALERTA"],
+          ["OVER15", "↗ OVER 1,5"],
+          ["OVER25", "↗ OVER 2,5"],
+          ["OVER35", "↗ OVER 3,5"],
+          ["BTTS", "👥 AMBAS"],
+          ["MAISGOL", "⚽ MAIS GOL"],
+          ["CANTOS", "🚩 CANTOS"],
+          ["CARTÕES", "🟨 CARTÕES"],
+          ["VITORIA", "🏆 VITÓRIA"],
+          ["HANDICAP", "🔵 HANDICAP"],
+          ["ODDS", "💰 ODDS"],
+          ["REAL", "📊 STATS REAL"],
+          ["EVENTOS", "🎬 EVENTOS"]
+        ]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -1430,8 +1446,10 @@ export default function App() {
           <b>
             {filtro === "HISTORICO"
               ? "Nenhum pré-live VIP real encontrado agora."
-              : filtro === "LIVE" || filtro === "TODOS"
+              : filtro === "LIVE"
                 ? "Nenhum jogo ao vivo real disponível agora."
+                : filtro === "TODOS"
+                  ? "Nenhum jogo real disponível agora."
                 : "Nenhum jogo encontrado nesse filtro."}
           </b>
           <span>
@@ -1457,6 +1475,11 @@ export default function App() {
             const strongest = liveReal ? melhorMercado(item) : melhorSinalPreLiveVip(item);
             const liveMap = buildLiveMapState(item, index);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
+            const statsReal = jogoStatsReal(item);
+            const statText = (v, suffix = "") => statsReal ? `${v}${suffix}` : "—";
+            const statPair = (a, b) => statsReal ? `${a}/${b}` : "—";
+            const statPct = (v) => statsReal ? v : 50;
+
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
             const dangerHomePct = pctValue(stats.home.perigosos, stats.away.perigosos);
             const posseHomePct = pctValue(stats.home.posse, stats.away.posse);
@@ -1518,44 +1541,51 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
+                <div className={`betStats proStats ${statsReal ? "statsRealBox" : "statsEstimatedBox"}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                  {!statsReal && (
+                    <div className="statsOverlayNotice">
+                      SEM STATS REAIS
+                      <small>números ocultos para não confundir</small>
+                    </div>
+                  )}
+
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
                       <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.ataques}</b>
-                        <span className="metricVs" style={{ "--pct": `${atkHomePct}%` }}></span>
-                        <b style={{ color: awayColor }}>{stats.away.ataques}</b>
+                        <b style={{ color: homeColor }}>{statText(stats.home.ataques)}</b>
+                        <span className="metricVs" style={{ "--pct": `${statPct(atkHomePct)}%` }}></span>
+                        <b style={{ color: awayColor }}>{statText(stats.away.ataques)}</b>
                       </div>
                       <div className="dualMiniBar">
-                        <i style={{ width: `${Math.min(100, (stats.home.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: homeColor }}></i>
-                        <em style={{ width: `${Math.min(100, (stats.away.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: awayColor }}></em>
+                        <i style={{ width: `${statPct(Math.min(100, (stats.home.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100))}%`, background: homeColor }}></i>
+                        <em style={{ width: `${statPct(Math.min(100, (stats.away.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100))}%`, background: awayColor }}></em>
                       </div>
                     </div>
 
                     <div className="metricPair">
                       <small>ATAQUES PERIGOSOS</small>
                       <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
-                        <span className="metricVs danger" style={{ "--pct": `${dangerHomePct}%` }}></span>
-                        <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
+                        <b style={{ color: homeColor }}>{statText(stats.home.perigosos)}</b>
+                        <span className="metricVs danger" style={{ "--pct": `${statPct(dangerHomePct)}%` }}></span>
+                        <b style={{ color: awayColor }}>{statText(stats.away.perigosos)}</b>
                       </div>
                       <div className="dualMiniBar">
-                        <i style={{ width: `${Math.min(100, (stats.home.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: homeColor }}></i>
-                        <em style={{ width: `${Math.min(100, (stats.away.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: awayColor }}></em>
+                        <i style={{ width: `${statPct(Math.min(100, (stats.home.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100))}%`, background: homeColor }}></i>
+                        <em style={{ width: `${statPct(Math.min(100, (stats.away.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100))}%`, background: awayColor }}></em>
                       </div>
                     </div>
 
                     <div className="metricPair posseMetric">
                       <small>% POSSE</small>
                       <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.posse}%</b>
-                        <span className="metricVs ball" style={{ "--pct": `${posseHomePct}%` }}></span>
-                        <b style={{ color: awayColor }}>{stats.away.posse}%</b>
+                        <b style={{ color: homeColor }}>{statText(stats.home.posse, "%")}</b>
+                        <span className="metricVs ball" style={{ "--pct": `${statPct(posseHomePct)}%` }}></span>
+                        <b style={{ color: awayColor }}>{statText(stats.away.posse, "%")}</b>
                       </div>
                       <div className="dualMiniBar">
-                        <i style={{ width: `${stats.home.posse}%`, background: homeColor }}></i>
-                        <em style={{ width: `${stats.away.posse}%`, background: awayColor }}></em>
+                        <i style={{ width: `${statPct(stats.home.posse)}%`, background: homeColor }}></i>
+                        <em style={{ width: `${statPct(stats.away.posse)}%`, background: awayColor }}></em>
                       </div>
                     </div>
                   </div>
@@ -1563,32 +1593,32 @@ export default function App() {
                   <div className="statsMiddleRow">
                     <div className="sideCounters sideHome">
                       <strong style={{ color: homeColor }}>{sigla(times.casa)}</strong>
-                      <span>🚩 <b>{stats.home.cantos}</b></span>
-                      <span>🟨 <b>{stats.home.cartoes}</b></span>
-                      <span>🟥 <b>{stats.home.vermelhos}</b></span>
+                      <span>🚩 <b>{statText(stats.home.cantos)}</b></span>
+                      <span>🟨 <b>{statText(stats.home.cartoes)}</b></span>
+                      <span>🟥 <b>{statText(stats.home.vermelhos)}</b></span>
                     </div>
 
                     <div className="shotBox shotBoxPro">
                       <small>FINALIZAÇÕES / CHUTES AO GOL</small>
-                      <strong style={{ color: homeColor }}>{stats.home.finalizacoes}/{stats.home.noGol}</strong>
+                      <strong style={{ color: homeColor }}>{statPair(stats.home.finalizacoes, stats.home.noGol)}</strong>
                       <div className="shotBars shotSplitBars">
                         <div className="splitBar" title="Finalizações">
-                          <i style={{ width: `${shotsHomePct}%`, background: homeColor }}></i>
-                          <em style={{ width: `${100 - shotsHomePct}%`, background: awayColor }}></em>
+                          <i style={{ width: `${statPct(shotsHomePct)}%`, background: homeColor }}></i>
+                          <em style={{ width: `${100 - statPct(shotsHomePct)}%`, background: awayColor }}></em>
                         </div>
                         <div className="splitBar" title="Chutes ao gol">
-                          <i style={{ width: `${onGoalHomePct}%`, background: homeColor }}></i>
-                          <em style={{ width: `${100 - onGoalHomePct}%`, background: awayColor }}></em>
+                          <i style={{ width: `${statPct(onGoalHomePct)}%`, background: homeColor }}></i>
+                          <em style={{ width: `${100 - statPct(onGoalHomePct)}%`, background: awayColor }}></em>
                         </div>
                       </div>
-                      <strong style={{ color: awayColor }}>{stats.away.finalizacoes}/{stats.away.noGol}</strong>
+                      <strong style={{ color: awayColor }}>{statPair(stats.away.finalizacoes, stats.away.noGol)}</strong>
                     </div>
 
                     <div className="sideCounters sideAway">
                       <strong style={{ color: awayColor }}>{sigla(times.fora)}</strong>
-                      <span>🚩 <b>{stats.away.cantos}</b></span>
-                      <span>🟨 <b>{stats.away.cartoes}</b></span>
-                      <span>🟥 <b>{stats.away.vermelhos}</b></span>
+                      <span>🚩 <b>{statText(stats.away.cantos)}</b></span>
+                      <span>🟨 <b>{statText(stats.away.cartoes)}</b></span>
+                      <span>🟥 <b>{statText(stats.away.vermelhos)}</b></span>
                     </div>
                   </div>
                 </div>
@@ -3933,5 +3963,67 @@ h1{
   border-color:#0ea5e9!important;
 }
 
+
+
+/* ===== V7: MENU LIMPO + STATS EXATAS ===== */
+.filters{
+  display:grid!important;
+  grid-template-columns:repeat(8,minmax(0,1fr))!important;
+  gap:5px!important;
+  align-items:center!important;
+}
+.filters button{
+  min-height:30px!important;
+  height:auto!important;
+  font-size:9px!important;
+  padding:6px 5px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.statsEstimatedBox{
+  position:relative!important;
+  opacity:.92!important;
+}
+.statsEstimatedBox .metricNumbers b,
+.statsEstimatedBox .sideCounters b,
+.statsEstimatedBox .shotBoxPro strong{
+  color:#9ca3af!important;
+}
+.statsEstimatedBox .dualMiniBar,
+.statsEstimatedBox .shotSplitBars{
+  opacity:.38!important;
+}
+.statsOverlayNotice{
+  position:absolute!important;
+  right:6px!important;
+  top:-12px!important;
+  z-index:12!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  border:1px solid rgba(250,204,21,.55)!important;
+  background:rgba(36,18,4,.88)!important;
+  color:#facc15!important;
+  border-radius:999px!important;
+  padding:2px 7px!important;
+  font-size:7px!important;
+  font-weight:900!important;
+  pointer-events:none!important;
+}
+.statsOverlayNotice small{
+  color:#e5e7eb!important;
+  font-size:6px!important;
+  font-weight:800!important;
+}
+.realStatsBadge{background:#16a34a!important}
+.estimatedStatsBadge{background:#4b5563!important;color:#e5e7eb!important}
+@media(max-width:1100px){
+  .filters{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(max-width:520px){
+  .filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .statsOverlayNotice small{display:none!important}
+}
 
 `;
