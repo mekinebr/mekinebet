@@ -522,9 +522,7 @@ function buildRealStats(fixtureRow, statsRows = []) {
     home,
     away,
     source: "real",
-    hasRealStats: true,
-    attacksEstimated: true,
-    dangerousAttacksEstimated: true
+    hasRealStats: true
   };
 }
 
