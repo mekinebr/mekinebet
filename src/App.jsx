@@ -962,7 +962,11 @@ export default function App() {
   }
 
   function jogoPreLive24h(item) {
-    if (jogoAoVivo(item)) return false;
+    const base = mercadosBaseDoItem(item);
+    const isLiveGame = item.type === "live" || base.some((m) => m.type === "live");
+
+    if (isLiveGame) return false;
+
     const horas = horasAteInicio(item);
     // Se a API não mandou data, mantém no VIP para não esconder jogos úteis.
     if (horas === null) return true;
@@ -1027,6 +1031,8 @@ export default function App() {
   }
 
   function preliveVipMarkets(item) {
+    if (item?.vipPrelive) return [];
+
     const base = mercadosBaseDoItem(item);
     const isLiveGame = item.type === "live" || base.some((m) => m.type === "live");
     if (isLiveGame || !jogoPreLive24h(item)) return [];
@@ -1169,7 +1175,8 @@ export default function App() {
   }
 
   function jogoAoVivo(item) {
-    return item.type === "live" || mercadosDoItem(item).some((m) => m.type === "live");
+    const base = mercadosBaseDoItem(item);
+    return item.type === "live" || base.some((m) => m.type === "live");
   }
 
   function jogoPreLive(item) {
@@ -1330,7 +1337,10 @@ export default function App() {
       });
   }, [signals, busca, filtro]);
 
-  const liveCount = signals.filter((s) => s.type === "live" || mercadosDoItem(s).some((m) => m.type === "live")).length;
+  const liveCount = signals.filter((s) => {
+    const base = mercadosBaseDoItem(s);
+    return s.type === "live" || base.some((m) => m.type === "live");
+  }).length;
   const alertCount = signals.filter((s) => jogoTemAlerta(s)).length;
   const realCount = signals.filter((s) => jogoStatsReal(s)).length;
   const eventosCount = signals.filter((s) => jogoEventosReal(s)).length;
