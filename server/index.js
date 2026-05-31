@@ -14,7 +14,6 @@ const API_KEY =
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
 const MAX_GAMES = Number(process.env.MAX_LIVE_GAMES || 9);
-const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
 
 let cache = { timestamp: 0, payload: null };
 
@@ -22,14 +21,12 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, Number(v || 0)));
 
 const toNumber = (v, fallback = 0) => {
   if (v === null || v === undefined || v === "") return fallback;
-
   const n = Number(
     String(v)
       .replace("%", "")
       .replace(",", ".")
       .replace(/[^0-9.-]/g, "")
   );
-
   return Number.isFinite(n) ? n : fallback;
 };
 
@@ -57,13 +54,6 @@ function isLive(short = "") {
   );
 }
 
-function hasApiErrors(errors) {
-  if (!errors) return false;
-  if (Array.isArray(errors)) return errors.length > 0;
-  if (typeof errors === "object") return Object.keys(errors).length > 0;
-  return Boolean(errors);
-}
-
 async function apiFootballGet(path) {
   if (!API_KEY) throw new Error("API_FOOTBALL_KEY ausente");
 
@@ -81,29 +71,26 @@ async function apiFootballGet(path) {
     });
 
     const data = await response.json().catch(() => ({}));
-
-    if (DEBUG_API) {
-      console.log("API-FOOTBALL DEBUG:", {
-        path,
-        status: response.status,
-        errors: data?.errors,
-        results: data?.results,
-        responseLength: Array.isArray(data?.response) ? data.response.length : 0
-      });
-    }
-
-    if (!response.ok) {
-      throw new Error(`API status ${response.status}: ${JSON.stringify(data?.errors || data)}`);
-    }
-
-    if (hasApiErrors(data?.errors)) {
-      throw new Error(`API errors: ${JSON.stringify(data.errors)}`);
-    }
-
     return Array.isArray(data?.response) ? data.response : [];
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function getStat(row, names = [], fallback = 0) {
+  const list = Array.isArray(row?.statistics) ? row.statistics : [];
+
+  for (const name of names) {
+    const found = list.find((s) =>
+      String(s?.type || "").toLowerCase().includes(String(name).toLowerCase())
+    );
+
+    if (found && found.value !== null && found.value !== undefined) {
+      return toNumber(found.value, fallback);
+    }
+  }
+
+  return fallback;
 }
 
 function fakeStats(i = 0, type = "prelive") {
@@ -115,6 +102,7 @@ function fakeStats(i = 0, type = "prelive") {
     perigosos: type === "live" ? 20 + i * 2 : 12 + i,
     cantos: type === "live" ? 3 + (i % 4) : 2 + (i % 2),
     cartoes: 1,
+    amarelos: 1,
     vermelhos: 0,
     faltas: 8 + i
   };
@@ -127,173 +115,81 @@ function fakeStats(i = 0, type = "prelive") {
     perigosos: type === "live" ? 15 + i : 9 + i,
     cantos: type === "live" ? 2 + (i % 3) : 1 + (i % 2),
     cartoes: 1,
+    amarelos: 1,
     vermelhos: 0,
     faltas: 7 + i
   };
 
-  return {
-    home,
-    away,
-    source: "estimated",
-    hasRealStats: false
-  };
+  return { home, away };
 }
 
-function normalizeName(v = "") {
-  return String(v)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
+function extractRealStats(realStats = [], teams = {}, index = 0, type = "prelive") {
+  const homeTeamId = Number(teams?.home?.id);
+  const awayTeamId = Number(teams?.away?.id);
 
-function pickStat(row, names, fallback = 0) {
-  const wanted = names.map(normalizeName);
-  const stats = Array.isArray(row?.statistics) ? row.statistics : [];
+  const homeRow =
+    realStats.find((s) => Number(s?.team?.id) === homeTeamId) ||
+    realStats[0];
 
-  const exact = stats.find((s) => wanted.includes(normalizeName(s?.type || "")));
-  if (exact) return toNumber(exact.value, fallback);
+  const awayRow =
+    realStats.find((s) => Number(s?.team?.id) === awayTeamId) ||
+    realStats[1];
 
-  const partial = stats.find((s) =>
-    wanted.some((w) => normalizeName(s?.type || "").includes(w))
-  );
+  if (!homeRow || !awayRow) {
+    return fakeStats(index, type);
+  }
 
-  if (partial) return toNumber(partial.value, fallback);
-
-  return fallback;
-}
-
-function totalShots(row) {
-  const total = pickStat(row, ["Total Shots"], null);
-
-  if (Number.isFinite(total)) return total;
-
-  return (
-    pickStat(row, ["Shots on Goal"], 0) +
-    pickStat(row, ["Shots off Goal"], 0) +
-    pickStat(row, ["Blocked Shots"], 0)
-  );
-}
-
-function derivedAttacks({ shots, corners, possession, fouls }) {
-  return Math.round(
-    clamp(
-      shots * 3.2 +
-        corners * 4.5 +
-        possession * 0.55 +
-        fouls * 0.25,
-      0,
-      180
-    )
-  );
-}
-
-function derivedDangerous({ onGoal, insideBox, corners, blockedShots, shots }) {
-  return Math.round(
-    clamp(
-      onGoal * 6 +
-        insideBox * 2.6 +
-        corners * 4 +
-        blockedShots * 1.4 +
-        shots * 0.35,
-      0,
-      130
-    )
-  );
-}
-
-function buildRealStats(fixtureRow, statsRows = []) {
-  if (!Array.isArray(statsRows) || statsRows.length < 2) return null;
-
-  const homeId = fixtureRow?.teams?.home?.id;
-  const awayId = fixtureRow?.teams?.away?.id;
-
-  const homeRow = statsRows.find((r) => r?.team?.id === homeId) || statsRows[0];
-  const awayRow = statsRows.find((r) => r?.team?.id === awayId) || statsRows[1];
-
-  if (!homeRow || !awayRow) return null;
-
-  const homePossession = pickStat(homeRow, ["Ball Possession"], 50);
-  const awayPossession = pickStat(awayRow, ["Ball Possession"], 100 - homePossession);
-
-  const homeShots = totalShots(homeRow);
-  const awayShots = totalShots(awayRow);
-
-  const homeOnGoal = pickStat(homeRow, ["Shots on Goal"], 0);
-  const awayOnGoal = pickStat(awayRow, ["Shots on Goal"], 0);
-
-  const homeInside = pickStat(homeRow, ["Shots insidebox", "Shots inside box"], 0);
-  const awayInside = pickStat(awayRow, ["Shots insidebox", "Shots inside box"], 0);
-
-  const homeBlocked = pickStat(homeRow, ["Blocked Shots"], 0);
-  const awayBlocked = pickStat(awayRow, ["Blocked Shots"], 0);
-
-  const homeCorners = pickStat(homeRow, ["Corner Kicks"], 0);
-  const awayCorners = pickStat(awayRow, ["Corner Kicks"], 0);
-
-  const homeYellow = pickStat(homeRow, ["Yellow Cards"], 0);
-  const awayYellow = pickStat(awayRow, ["Yellow Cards"], 0);
-
-  const homeRed = pickStat(homeRow, ["Red Cards"], 0);
-  const awayRed = pickStat(awayRow, ["Red Cards"], 0);
-
-  const homeFouls = pickStat(homeRow, ["Fouls"], 0);
-  const awayFouls = pickStat(awayRow, ["Fouls"], 0);
+  const homeYellow = getStat(homeRow, ["Yellow Cards"], 0);
+  const homeRed = getStat(homeRow, ["Red Cards"], 0);
+  const awayYellow = getStat(awayRow, ["Yellow Cards"], 0);
+  const awayRed = getStat(awayRow, ["Red Cards"], 0);
 
   const home = {
-    posse: homePossession,
-    finalizacoes: homeShots,
-    noGol: homeOnGoal,
-    ataques: derivedAttacks({
-      shots: homeShots,
-      corners: homeCorners,
-      possession: homePossession,
-      fouls: homeFouls
-    }),
-    perigosos: derivedDangerous({
-      onGoal: homeOnGoal,
-      insideBox: homeInside,
-      corners: homeCorners,
-      blockedShots: homeBlocked,
-      shots: homeShots
-    }),
-    cantos: homeCorners,
-    cartoes: homeYellow + homeRed,
+    posse: getStat(homeRow, ["Ball Possession"], 50),
+    finalizacoes: getStat(homeRow, ["Total Shots"], 0),
+    noGol: getStat(homeRow, ["Shots on Goal"], 0),
+    ataques: getStat(homeRow, ["Attacks"], 0),
+    perigosos: getStat(homeRow, ["Dangerous Attacks"], 0),
+    cantos: getStat(homeRow, ["Corner Kicks"], 0),
     amarelos: homeYellow,
     vermelhos: homeRed,
-    faltas: homeFouls
+    cartoes: homeYellow + homeRed,
+    faltas: getStat(homeRow, ["Fouls"], 0)
   };
 
   const away = {
-    posse: awayPossession,
-    finalizacoes: awayShots,
-    noGol: awayOnGoal,
-    ataques: derivedAttacks({
-      shots: awayShots,
-      corners: awayCorners,
-      possession: awayPossession,
-      fouls: awayFouls
-    }),
-    perigosos: derivedDangerous({
-      onGoal: awayOnGoal,
-      insideBox: awayInside,
-      corners: awayCorners,
-      blockedShots: awayBlocked,
-      shots: awayShots
-    }),
-    cantos: awayCorners,
-    cartoes: awayYellow + awayRed,
+    posse: getStat(awayRow, ["Ball Possession"], 50),
+    finalizacoes: getStat(awayRow, ["Total Shots"], 0),
+    noGol: getStat(awayRow, ["Shots on Goal"], 0),
+    ataques: getStat(awayRow, ["Attacks"], 0),
+    perigosos: getStat(awayRow, ["Dangerous Attacks"], 0),
+    cantos: getStat(awayRow, ["Corner Kicks"], 0),
     amarelos: awayYellow,
     vermelhos: awayRed,
-    faltas: awayFouls
+    cartoes: awayYellow + awayRed,
+    faltas: getStat(awayRow, ["Fouls"], 0)
   };
 
-  return {
-    home,
-    away,
-    source: "real",
-    hasRealStats: true
-  };
+  const hasUsefulStats =
+    home.finalizacoes ||
+    away.finalizacoes ||
+    home.ataques ||
+    away.ataques ||
+    home.perigosos ||
+    away.perigosos ||
+    home.cantos ||
+    away.cantos;
+
+  if (!hasUsefulStats) {
+    return fakeStats(index, type);
+  }
+
+  if (!home.posse && !away.posse) {
+    home.posse = 50;
+    away.posse = 50;
+  }
+
+  return { home, away };
 }
 
 function calcPressure(home, away, goals, minute, type) {
@@ -368,19 +264,19 @@ function alertText(category, conf, ctx) {
     return "👀 PRÉ-LIVE MONITORANDO";
   }
 
+  if (conf >= 88) return "🚨 SINAL MUITO FORTE";
+  if (conf >= 78) return "🔥 SINAL FORTE";
+
   if (category === "OVER05" && ctx.totalGoals >= 1) return "✅ GREEN";
   if (category === "OVER15" && ctx.totalGoals >= 2) return "✅ GREEN";
   if (category === "OVER25" && ctx.totalGoals >= 3) return "✅ GREEN";
   if (category === "OVER35" && ctx.totalGoals >= 4) return "✅ GREEN";
   if (category === "BTTS" && ctx.homeGoals > 0 && ctx.awayGoals > 0) return "✅ GREEN";
 
-  if (conf >= 88) return "🚨 SINAL MUITO FORTE";
-  if (conf >= 78) return "🔥 SINAL FORTE";
-
   return "📊 MONITORANDO";
 }
 
-function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = null) {
+function buildSignals(fixtureRow, index = 0, forcedType = null, realStats = []) {
   const fixture = fixtureRow?.fixture || {};
   const league = fixtureRow?.league || {};
   const teams = fixtureRow?.teams || {};
@@ -395,8 +291,10 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = 
   const awayGoals = type === "live" ? toNumber(goals?.away, 0) : 0;
   const totalGoals = homeGoals + awayGoals;
 
-  const statsPack = realStatsPack || fakeStats(index, type);
-  const { home, away } = statsPack;
+  const { home, away } =
+    type === "live"
+      ? extractRealStats(realStats, teams, index, type)
+      : fakeStats(index, type);
 
   const pressure = calcPressure(home, away, totalGoals, minute, type);
   const fixtureId = fixture?.id || `fixture-${index}`;
@@ -417,9 +315,7 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = 
     minute,
     status: type === "live" ? "AO VIVO" : "PRÉ-LIVE",
     type,
-    source: fixtureId && String(fixtureId).startsWith("fallback") ? "fallback" : "api-football",
-    statsMode: statsPack.hasRealStats ? "real" : "estimated",
-    realStats: Boolean(statsPack.hasRealStats),
+    source: "api-football",
 
     possession: home.posse,
     possessionAway: away.posse,
@@ -435,10 +331,10 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = 
     cornersAway: away.cantos,
     cards: home.cartoes,
     cardsAway: away.cartoes,
-    yellowCards: home.amarelos ?? home.cartoes,
-    yellowCardsAway: away.amarelos ?? away.cartoes,
-    redCards: home.vermelhos ?? 0,
-    redCardsAway: away.vermelhos ?? 0,
+    yellowCards: home.amarelos,
+    yellowCardsAway: away.amarelos,
+    redCards: home.vermelhos,
+    redCardsAway: away.vermelhos,
     fouls: home.faltas,
     foulsAway: away.faltas,
     stats: { home, away }
@@ -534,7 +430,13 @@ function fallbackFixtures() {
   }));
 }
 
-async function getFixtures() {
+async function getSignalsPayload() {
+  const now = Date.now();
+
+  if (cache.payload && now - cache.timestamp < CACHE_TTL_MS) {
+    return { ...cache.payload, cache: true };
+  }
+
   let fixtures = [];
   let mode = "live";
 
@@ -584,50 +486,32 @@ async function getFixtures() {
     fixtures = fallbackFixtures();
   }
 
-  return { fixtures, mode };
-}
-
-async function getStatsForFixture(fixture, mode) {
-  const fixtureId = fixture?.fixture?.id;
-
-  if (!fixtureId || mode === "fallback-ia") {
-    return null;
-  }
-
-  try {
-    const statsRows = await apiFootballGet(`/fixtures/statistics?fixture=${fixtureId}`);
-    return buildRealStats(fixture, statsRows);
-  } catch (e) {
-    console.log("Erro stats fixture:", fixtureId, e.message);
-    return null;
-  }
-}
-
-async function getSignalsPayload() {
-  const now = Date.now();
-
-  if (cache.payload && now - cache.timestamp < CACHE_TTL_MS) {
-    return { ...cache.payload, cache: true };
-  }
-
-  const { fixtures, mode } = await getFixtures();
   const selected = fixtures.slice(0, MAX_GAMES);
+  const activeSignals = [];
 
-  const selectedWithStats = await Promise.all(
-    selected.map(async (fixture) => {
-      const realStatsPack = await getStatsForFixture(fixture, mode);
-      return { fixture, realStatsPack };
-    })
-  );
+  for (let index = 0; index < selected.length; index++) {
+    const fixture = selected[index];
+    const fixtureId = fixture?.fixture?.id;
+    const short = fixture?.fixture?.status?.short;
+    let realStats = [];
 
-  const activeSignals = selectedWithStats.flatMap(({ fixture, realStatsPack }, index) =>
-    buildSignals(
-      fixture,
-      index,
-      mode === "fallback-ia" ? "prelive" : null,
-      realStatsPack
-    )
-  );
+    if (fixtureId && isLive(short)) {
+      try {
+        realStats = await apiFootballGet(`/fixtures/statistics?fixture=${fixtureId}`);
+      } catch (e) {
+        console.log(`Sem estatísticas reais para ${fixtureId}:`, e.message);
+      }
+    }
+
+    activeSignals.push(
+      ...buildSignals(
+        fixture,
+        index,
+        mode === "fallback-ia" ? "prelive" : null,
+        realStats
+      )
+    );
+  }
 
   const liveGames = new Set(
     activeSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)
@@ -637,32 +521,15 @@ async function getSignalsPayload() {
     activeSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)
   ).size;
 
-  const totalGames = new Set(activeSignals.map((s) => s.fixtureId)).size;
-
-  const realStatsGames = new Set(
-    activeSignals.filter((s) => s.realStats).map((s) => s.fixtureId)
-  ).size;
-
-  const estimatedStatsGames = Math.max(0, totalGames - realStatsGames);
-
   const payload = {
     ok: true,
-    source: mode === "fallback-ia" ? "fallback" : "api-football",
+    source: API_KEY ? "api-football" : "fallback",
     mode,
-    statsMode: realStatsGames > 0 ? "real" : "estimated",
-    realStatsGames,
-    estimatedStatsGames,
     activeSignals,
     liveGames,
     preliveGames,
-    totalGames,
+    totalGames: new Set(activeSignals.map((s) => s.fixtureId)).size,
     totalSignals: activeSignals.length,
-    message:
-      mode === "fallback-ia"
-        ? "Sem dados reais disponíveis agora. Exibindo base IA."
-        : realStatsGames > 0
-          ? "Dados reais carregados da API-Football."
-          : "Jogos reais carregados, mas estatísticas detalhadas ainda não disponíveis para estes fixtures.",
     updatedAt: new Date().toISOString()
   };
 
@@ -688,8 +555,6 @@ const server = http.createServer(async (req, res) => {
         service: "mekinebet-api",
         routes: ["/api/signals", "/health"],
         hasApiKey: Boolean(API_KEY),
-        cacheTtlMs: CACHE_TTL_MS,
-        maxGames: MAX_GAMES,
         updatedAt: new Date().toISOString()
       });
       return;
