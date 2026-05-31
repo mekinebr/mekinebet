@@ -296,6 +296,98 @@ function buildRealStats(fixtureRow, statsRows = []) {
   };
 }
 
+function eventIcon(type = "", detail = "") {
+  const t = normalizeName(type);
+  const d = normalizeName(detail);
+
+  if (t.includes("goal")) return "⚽";
+  if (t.includes("card") && d.includes("red")) return "🟥";
+  if (t.includes("card")) return "🟨";
+  if (t.includes("subst")) return "🔁";
+  if (t.includes("var")) return "📺";
+  if (t.includes("penalty")) return "🥅";
+
+  return "•";
+}
+
+function eventCategory(type = "", detail = "") {
+  const t = normalizeName(type);
+  const d = normalizeName(detail);
+
+  if (t.includes("goal")) return "GOAL";
+  if (t.includes("card") && d.includes("red")) return "RED_CARD";
+  if (t.includes("card")) return "YELLOW_CARD";
+  if (t.includes("subst")) return "SUBSTITUTION";
+  if (t.includes("var")) return "VAR";
+  if (t.includes("penalty")) return "PENALTY";
+
+  return "EVENT";
+}
+
+function normalizeEvent(event = {}, fixtureRow = {}) {
+  const elapsed = toNumber(event?.time?.elapsed, 0);
+  const extra = toNumber(event?.time?.extra, 0);
+  const minute = Math.max(0, elapsed + extra);
+
+  const homeId = fixtureRow?.teams?.home?.id;
+  const awayId = fixtureRow?.teams?.away?.id;
+  const teamId = event?.team?.id;
+
+  const side =
+    teamId && homeId && teamId === homeId
+      ? "home"
+      : teamId && awayId && teamId === awayId
+        ? "away"
+        : "neutral";
+
+  const type = String(event?.type || "");
+  const detail = String(event?.detail || "");
+  const comments = String(event?.comments || "");
+
+  return {
+    minute,
+    elapsed,
+    extra,
+    teamId: teamId || null,
+    teamName: event?.team?.name || "",
+    side,
+    type,
+    detail,
+    comments,
+    category: eventCategory(type, detail),
+    icon: eventIcon(type, detail),
+    player: event?.player?.name || "",
+    assist: event?.assist?.name || "",
+    raw: {
+      time: event?.time || null,
+      team: event?.team || null,
+      player: event?.player || null,
+      assist: event?.assist || null
+    }
+  };
+}
+
+function buildRealEvents(fixtureRow, eventsRows = []) {
+  if (!Array.isArray(eventsRows) || !eventsRows.length) {
+    return {
+      matchEvents: [],
+      hasRealEvents: false,
+      eventsMode: "none"
+    };
+  }
+
+  const matchEvents = eventsRows
+    .map((event) => normalizeEvent(event, fixtureRow))
+    .filter((event) => event.minute >= 0)
+    .sort((a, b) => a.minute - b.minute);
+
+  return {
+    matchEvents,
+    hasRealEvents: matchEvents.length > 0,
+    eventsMode: matchEvents.length > 0 ? "real" : "none"
+  };
+}
+
 function calcPressure(home, away, goals, minute, type) {
   let pressure =
     30 +
@@ -380,7 +472,13 @@ function alertText(category, conf, ctx) {
   return "📊 MONITORANDO";
 }
 
-function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = null) {
+function buildSignals(
+  fixtureRow,
+  index = 0,
+  forcedType = null,
+  realStatsPack = null,
+  eventsPack = null
+) {
   const fixture = fixtureRow?.fixture || {};
   const league = fixtureRow?.league || {};
   const teams = fixtureRow?.teams || {};
@@ -397,6 +495,12 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = 
 
   const statsPack = realStatsPack || fakeStats(index, type);
   const { home, away } = statsPack;
+
+  const safeEventsPack = eventsPack || {
+    matchEvents: [],
+    hasRealEvents: false,
+    eventsMode: "none"
+  };
 
   const pressure = calcPressure(home, away, totalGoals, minute, type);
   const fixtureId = fixture?.id || `fixture-${index}`;
@@ -420,6 +524,11 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, realStatsPack = 
     source: fixtureId && String(fixtureId).startsWith("fallback") ? "fallback" : "api-football",
     statsMode: statsPack.hasRealStats ? "real" : "estimated",
     realStats: Boolean(statsPack.hasRealStats),
+
+    eventsMode: safeEventsPack.eventsMode || "none",
+    hasRealEvents: Boolean(safeEventsPack.hasRealEvents),
+    matchEvents: safeEventsPack.matchEvents || [],
+    eventsCount: Array.isArray(safeEventsPack.matchEvents) ? safeEventsPack.matchEvents.length : 0,
 
     possession: home.posse,
     possessionAway: away.posse,
@@ -603,6 +712,30 @@ async function getStatsForFixture(fixture, mode) {
   }
 }
 
+async function getEventsForFixture(fixture, mode) {
+  const fixtureId = fixture?.fixture?.id;
+
+  if (!fixtureId || mode === "fallback-ia") {
+    return {
+      matchEvents: [],
+      hasRealEvents: false,
+      eventsMode: "none"
+    };
+  }
+
+  try {
+    const eventsRows = await apiFootballGet(`/fixtures/events?fixture=${fixtureId}`);
+    return buildRealEvents(fixture, eventsRows);
+  } catch (e) {
+    console.log("Erro events fixture:", fixtureId, e.message);
+    return {
+      matchEvents: [],
+      hasRealEvents: false,
+      eventsMode: "none"
+    };
+  }
+}
+
 async function getSignalsPayload() {
   const now = Date.now();
 
@@ -613,20 +746,26 @@ async function getSignalsPayload() {
   const { fixtures, mode } = await getFixtures();
   const selected = fixtures.slice(0, MAX_GAMES);
 
-  const selectedWithStats = await Promise.all(
+  const selectedWithData = await Promise.all(
     selected.map(async (fixture) => {
-      const realStatsPack = await getStatsForFixture(fixture, mode);
-      return { fixture, realStatsPack };
+      const [realStatsPack, eventsPack] = await Promise.all([
+        getStatsForFixture(fixture, mode),
+        getEventsForFixture(fixture, mode)
+      ]);
+
+      return { fixture, realStatsPack, eventsPack };
     })
   );
 
-  const activeSignals = selectedWithStats.flatMap(({ fixture, realStatsPack }, index) =>
-    buildSignals(
-      fixture,
-      index,
-      mode === "fallback-ia" ? "prelive" : null,
-      realStatsPack
-    )
+  const activeSignals = selectedWithData.flatMap(
+    ({ fixture, realStatsPack, eventsPack }, index) =>
+      buildSignals(
+        fixture,
+        index,
+        mode === "fallback-ia" ? "prelive" : null,
+        realStatsPack,
+        eventsPack
+      )
   );
 
   const liveGames = new Set(
@@ -643,15 +782,23 @@ async function getSignalsPayload() {
     activeSignals.filter((s) => s.realStats).map((s) => s.fixtureId)
   ).size;
 
+  const realEventsGames = new Set(
+    activeSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)
+  ).size;
+
   const estimatedStatsGames = Math.max(0, totalGames - realStatsGames);
+  const noEventsGames = Math.max(0, totalGames - realEventsGames);
 
   const payload = {
     ok: true,
     source: mode === "fallback-ia" ? "fallback" : "api-football",
     mode,
     statsMode: realStatsGames > 0 ? "real" : "estimated",
+    eventsMode: realEventsGames > 0 ? "real" : "none",
     realStatsGames,
     estimatedStatsGames,
+    realEventsGames,
+    noEventsGames,
     activeSignals,
     liveGames,
     preliveGames,
