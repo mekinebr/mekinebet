@@ -492,6 +492,120 @@ export default function App() {
     return { homeColor, awayColor };
   }
 
+  function limitar(v, min, max) {
+    return Math.max(min, Math.min(max, Number(v || 0)));
+  }
+
+  function buildLiveMapState(item, index = 0) {
+    const live = item.type === "live";
+    const times = timesDoJogo(item);
+
+    if (!live) {
+      return {
+        live: false,
+        side: "neutral",
+        intensity: "idle",
+        label: "Pré-live",
+        detail: "Aguardando início",
+        ballX: 50,
+        ballY: 50,
+        trailFrom: 49,
+        trailTo: 51,
+        supportDots: [
+          { x: 42, y: 45, team: "home" },
+          { x: 58, y: 55, team: "away" }
+        ]
+      };
+    }
+
+    const stats = statsDoJogo(item);
+    const current = limitar(minuto(item) || 1, 1, 90);
+    const history = eventosDoJogo(item).filter(
+      (ev) => Number(ev.minute || 0) <= current
+    );
+
+    const lastEvent = history.slice().reverse()[0] || null;
+    let side = "home";
+
+    if (lastEvent?.side === "home" || lastEvent?.side === "away") {
+      side = lastEvent.side;
+    } else if (lastEvent?.teamName) {
+      const teamName = normalizar(lastEvent.teamName);
+      if (teamName === normalizar(times.fora)) side = "away";
+      if (teamName === normalizar(times.casa)) side = "home";
+    } else {
+      const homeForce =
+        stats.home.ataques +
+        stats.home.perigosos * 1.4 +
+        stats.home.noGol * 8 +
+        stats.home.finalizacoes * 2;
+
+      const awayForce =
+        stats.away.ataques +
+        stats.away.perigosos * 1.4 +
+        stats.away.noGol * 8 +
+        stats.away.finalizacoes * 2;
+
+      side = homeForce >= awayForce ? "home" : "away";
+    }
+
+    const teamStats = side === "home" ? stats.home : stats.away;
+    const evtText = `${lastEvent?.type || ""} ${lastEvent?.detail || ""} ${lastEvent?.category || ""}`.toLowerCase();
+
+    let depth = limitar(
+      40 +
+        teamStats.finalizacoes * 1.35 +
+        teamStats.noGol * 4.8 +
+        teamStats.perigosos * 0.65 +
+        teamStats.cantos * 1.2,
+      54,
+      90
+    );
+
+    if (/goal|gol/.test(evtText)) depth = 92;
+    else if (/corner|canto/.test(evtText)) depth = Math.max(depth, 84);
+    else if (/shot|chute|penalty|penal|danger|perig/.test(evtText)) depth = Math.max(depth, 78);
+    else if (/attack|ataque/.test(evtText)) depth = Math.max(depth, 67);
+
+    const ballX = side === "home" ? depth : 100 - depth;
+    const ballY = limitar(50 + Math.sin((current + index * 7) / 4) * 18, 24, 76);
+    const intensity = depth >= 86 ? "high" : depth >= 72 ? "medium" : "low";
+    const trailFrom = side === "home" ? 50 : ballX;
+    const trailTo = side === "home" ? ballX : 50;
+
+    let label = "Saída de jogo";
+    if (depth >= 86) label = "Pressão máxima";
+    else if (depth >= 72) label = "Ataque perigoso";
+    else if (depth >= 60) label = "Último terço";
+    if (/goal|gol/.test(evtText)) label = "Finalização decisiva";
+
+    const supportDots =
+      side === "home"
+        ? [
+            { x: limitar(ballX - 13, 10, 92), y: limitar(ballY - 10, 18, 82), team: "home" },
+            { x: limitar(ballX - 19, 10, 92), y: limitar(ballY + 10, 18, 82), team: "home" },
+            { x: limitar(ballX + 8, 10, 92), y: limitar(ballY + 2, 18, 82), team: "away" }
+          ]
+        : [
+            { x: limitar(ballX + 13, 8, 90), y: limitar(ballY - 10, 18, 82), team: "away" },
+            { x: limitar(ballX + 19, 8, 90), y: limitar(ballY + 10, 18, 82), team: "away" },
+            { x: limitar(ballX - 8, 8, 90), y: limitar(ballY + 2, 18, 82), team: "home" }
+          ];
+
+    return {
+      live: true,
+      side,
+      intensity,
+      label,
+      detail: lastEvent?.detail || lastEvent?.type || "Ataque em andamento",
+      ballX,
+      ballY,
+      trailFrom,
+      trailTo,
+      supportDots
+    };
+  }
+
   function totalGols(item) {
     const nums = String(item.score || "0-0").match(/\d+/g) || [0, 0];
     return Number(nums[0] || 0) + Number(nums[1] || 0);
@@ -951,6 +1065,8 @@ export default function App() {
             const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const hasOdds = jogoOddReal(item);
+            const strongest = melhorMercado(item);
+            const liveMap = buildLiveMapState(item, index);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
             const dangerHomePct = pctValue(stats.home.perigosos, stats.away.perigosos);
@@ -993,6 +1109,23 @@ export default function App() {
                     {mercadosOrdenados(item).slice(0, 5).map((m, i) => (
                       <span key={i} className="market">{categoriaMercado(m)}</span>
                     ))}
+                  </div>
+                </div>
+
+                <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
+                  <div className="highlightSignalText">
+                    <small>SINAL MAIS FORTE AGORA</small>
+                    <b>{categoriaMercado(strongest)}</b>
+                    <span>{strongest.alert || mercadoStatus(strongest)}</span>
+                  </div>
+
+                  <div className="highlightSignalMeta">
+                    <strong>{strongest.confidence || 0}%</strong>
+                    <em>
+                      {mercadoOddReal(strongest)
+                        ? `Odd ${formatOdd(strongest)} • ${bookmakerDoMercado(strongest) || "Real"}`
+                        : "Sem odd"}
+                    </em>
                   </div>
                 </div>
 
@@ -1072,15 +1205,82 @@ export default function App() {
                 </div>
 
                 <div className={`miniMap weather-${weather.cls}`}>
-                  <div className="eventBubble"><span>⚽</span><div><b>{status.replace("🔥", "")}</b><small>{item.pressure || 70}% pressão</small></div></div>
-                  <div className="weatherBadge"><span>{weather.icon}</span><b>{weather.label}</b></div>
-                  <div className="stadiumLights"><i></i><i></i><i></i><i></i><i></i></div>
-                  <div className="field3d">
-                    <div className="grass"></div><div className="shade"></div><div className="midLine"></div><div className="centerCircle"></div><div className="boxLeft"></div><div className="boxRight"></div><div className="goalLeft"></div><div className="goalRight"></div>
-                    <div className="dot d1" style={{ background: homeColor }}></div><div className="dot d2" style={{ background: homeColor }}></div><div className="dot d3" style={{ background: awayColor }}></div><div className="dot d4" style={{ background: awayColor }}></div>
+                  <div className={`livePulse ${liveMap.intensity} ${liveMap.side}`}>
+                    <b>{liveMap.live ? "JOGO AO VIVO" : "PRÉ-LIVE"}</b>
+                    <span>{liveMap.label}</span>
+                  </div>
+
+                  <div className="weatherBadge">
+                    <span>{weather.icon}</span>
+                    <b>{weather.label}</b>
+                  </div>
+
+                  <div className="stadiumLights">
+                    <i></i><i></i><i></i><i></i><i></i>
+                  </div>
+
+                  <div className="field3d liveField">
+                    <div className="grass"></div>
+                    <div className="shade"></div>
+                    <div className="midLine"></div>
+                    <div className="centerCircle"></div>
+                    <div className="boxLeft"></div>
+                    <div className="boxRight"></div>
+                    <div className="goalLeft"></div>
+                    <div className="goalRight"></div>
+
+                    <div
+                      className={`attackTrail ${liveMap.side}`}
+                      style={{
+                        left: `${Math.min(liveMap.trailFrom, liveMap.trailTo)}%`,
+                        width: `${Math.max(2, Math.abs(liveMap.trailTo - liveMap.trailFrom))}%`,
+                        top: `${liveMap.ballY}%`,
+                        background:
+                          liveMap.side === "away"
+                            ? `linear-gradient(90deg, transparent, ${awayColor})`
+                            : `linear-gradient(90deg, ${homeColor}, transparent)`
+                      }}
+                    ></div>
+
+                    {liveMap.supportDots.map((dot, di) => (
+                      <div
+                        key={di}
+                        className={`playerDot ${dot.team}`}
+                        style={{
+                          left: `${dot.x}%`,
+                          top: `${dot.y}%`,
+                          background: dot.team === "home" ? homeColor : awayColor
+                        }}
+                      ></div>
+                    ))}
+
+                    <div
+                      className={`liveBall ${liveMap.side} ${liveMap.intensity}`}
+                      style={{
+                        left: `${liveMap.ballX}%`,
+                        top: `${liveMap.ballY}%`
+                      }}
+                    >
+                      <span
+                        className="ballAura"
+                        style={{
+                          background: liveMap.side === "home" ? homeColor : awayColor
+                        }}
+                      ></span>
+                    </div>
+
                     <div className="weatherLayer"></div>
                   </div>
-                  <div className="mapStats"><span>Posse {stats.home.posse}%</span><span>Final. {stats.home.finalizacoes}</span><span>Atq. {stats.home.ataques}</span></div>
+
+                  <div className="mapStats compact">
+                    <span>
+                      {liveMap.live
+                        ? `${sigla(liveMap.side === "home" ? times.casa : times.fora)} no ataque`
+                        : "Pré-live"}
+                    </span>
+                    <span>{liveMap.label}</span>
+                    <span>{liveMap.live ? `${currentMinute}'` : item.status || "Próximo jogo"}</span>
+                  </div>
                 </div>
 
                 <div className="flowCard">
@@ -1122,7 +1322,7 @@ export default function App() {
                       <span>{m.alert || mercadoStatus(m)}</span>
                       <strong>{m.confidence || 70}%</strong>
                       <em className={mercadoOddReal(m) ? "oddRealText" : ""}>
-                        {mercadoOddReal(m) ? `Odd ${formatOdd(m)} • ${bookmakerDoMercado(m) || "Real"}` : "Odd —"}
+                        {mercadoOddReal(m) ? `Odd ${formatOdd(m)} • ${bookmakerDoMercado(m) || "Real"}` : "Sem odd"}
                       </em>
                     </div>
                   ))}
@@ -2374,6 +2574,214 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
     font-size:6px!important;
     padding:1px 4px!important;
   }
+}
+
+/* ===== MAKINE FINAL: VISIBILIDADE LIMPA, SINAL FORTE E MINIMAPA AO VIVO ===== */
+.page{padding:6px!important}
+.topBar{margin-bottom:6px!important}
+.statusWrap{gap:6px!important}
+.pill{padding:6px 10px!important;font-size:12px!important}
+.filters{gap:4px!important;grid-template-columns:repeat(16,minmax(0,1fr))!important}
+.filters button{height:30px!important;font-size:8.5px!important;padding:4px 3px!important}
+.search{height:34px!important;font-size:12px!important;margin-bottom:6px!important}
+.grid{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))!important;gap:8px!important}
+.card{padding:6px!important;min-height:520px!important}
+.matchHero{grid-template-columns:48px 1fr 48px!important;min-height:62px!important;height:62px!important}
+.heroLogo{width:34px!important;height:34px!important;max-width:34px!important;max-height:34px!important}
+.teamSide small{font-size:7px!important;max-width:42px!important}
+.heroCenter h2{font-size:12px!important}
+.heroCenter p{font-size:8px!important;margin:2px 0!important}
+.heroCenter b{font-size:22px!important}
+.heroCenter strong{font-size:11px!important;display:block!important;position:relative!important;top:-4px!important}
+.badges{margin-top:-2px!important;margin-bottom:5px!important;gap:3px!important;align-items:center!important;flex-wrap:wrap!important}
+.badges span{font-size:7px!important;padding:2px 5px!important}
+.marketBadges{max-width:55%!important}
+
+.highlightSignal{
+  display:grid!important;
+  grid-template-columns:1fr auto!important;
+  align-items:center!important;
+  gap:6px!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.08),rgba(0,0,0,.22))!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  border-radius:8px!important;
+  padding:5px 7px!important;
+  margin-bottom:6px!important;
+}
+.highlightSignal.strong{
+  border-color:rgba(250,204,21,.72)!important;
+  box-shadow:0 0 14px rgba(250,204,21,.14)!important;
+}
+.highlightSignalText small{
+  display:block!important;
+  font-size:7px!important;
+  font-weight:900!important;
+  color:#facc15!important;
+  letter-spacing:.3px!important;
+}
+.highlightSignalText b{
+  display:block!important;
+  font-size:12px!important;
+  line-height:1.05!important;
+}
+.highlightSignalText span{
+  display:block!important;
+  font-size:9px!important;
+  color:#e5e7eb!important;
+  margin-top:1px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  max-width:210px!important;
+}
+.highlightSignalMeta{
+  display:grid!important;
+  justify-items:end!important;
+  gap:2px!important;
+}
+.highlightSignalMeta strong{
+  font-size:16px!important;
+  color:#22c55e!important;
+  line-height:1!important;
+}
+.highlightSignalMeta em{
+  font-style:normal!important;
+  font-size:9px!important;
+  color:#facc15!important;
+  font-weight:900!important;
+  white-space:nowrap!important;
+}
+
+.proStats{padding:4px!important;gap:4px!important;min-height:auto!important}
+.metricPair small{font-size:6.5px!important;height:11px!important}
+.metricNumbers b{font-size:13px!important}
+.metricVs{width:18px!important;height:18px!important}
+.metricVs:before{inset:4px!important}
+.metricVs:after{left:5.5px!important;top:2.8px!important;font-size:7px!important}
+.statsMiddleRow{grid-template-columns:40px minmax(0,1fr) 40px!important;gap:4px!important}
+.sideCounters{padding:2px!important}
+.sideCounters strong{font-size:6.5px!important;max-width:34px!important}
+.sideCounters span{font-size:8px!important}
+.shotBoxPro{grid-template-columns:30px minmax(0,1fr) 30px!important;padding:4px!important}
+.shotBoxPro small{font-size:6.3px!important}
+.shotBoxPro strong{font-size:12px!important}
+.splitBar{height:3px!important}
+
+.miniMap{margin:0 auto 6px!important;padding:0 2px!important}
+.livePulse{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  background:rgba(3,10,14,.82)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:999px!important;
+  padding:4px 8px!important;
+  margin:0 2px 4px!important;
+}
+.livePulse b{font-size:8px!important;color:#fff!important}
+.livePulse span{font-size:8px!important;color:#cbd5e1!important;font-weight:800!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.livePulse.high b{color:#facc15!important}
+.livePulse.medium b{color:#22c55e!important}
+.livePulse.low b{color:#93c5fd!important}
+.livePulse.idle b{color:#cbd5e1!important}
+
+.field3d.liveField{
+  height:66px!important;
+  margin-top:4px!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+.attackTrail{
+  position:absolute!important;
+  height:3px!important;
+  border-radius:999px!important;
+  transform:translateY(-50%)!important;
+  opacity:.92!important;
+  z-index:4!important;
+  filter:blur(.1px)!important;
+}
+.playerDot{
+  position:absolute!important;
+  width:6px!important;
+  height:6px!important;
+  border-radius:50%!important;
+  transform:translate(-50%,-50%)!important;
+  z-index:5!important;
+  box-shadow:0 0 8px currentColor!important;
+}
+.liveBall{
+  position:absolute!important;
+  width:8px!important;
+  height:8px!important;
+  border-radius:50%!important;
+  background:#fff!important;
+  transform:translate(-50%,-50%)!important;
+  z-index:7!important;
+  border:1px solid rgba(255,255,255,.9)!important;
+}
+.ballAura{
+  position:absolute!important;
+  inset:-4px!important;
+  border-radius:50%!important;
+  opacity:.28!important;
+  animation:mbPulse 1s ease-in-out infinite!important;
+}
+@keyframes mbPulse{
+  0%{transform:scale(.8);opacity:.15}
+  50%{transform:scale(1.65);opacity:.38}
+  100%{transform:scale(.8);opacity:.15}
+}
+.mapStats.compact{
+  grid-template-columns:repeat(3,1fr)!important;
+  font-size:8px!important;
+  margin-top:2px!important;
+}
+.mapStats.compact span{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+.flowCard{min-height:118px!important;padding:5px!important}
+.flowCard h3{font-size:9px!important;margin-bottom:2px!important}
+.flowMinuteScale{font-size:7px!important;padding:0 8px 2px 40px!important}
+.flowWrap{height:72px!important;padding-left:40px!important;padding-right:8px!important}
+.flowWrap:before{left:40px!important;right:8px!important}
+.flowWrap:after{left:40px!important;right:8px!important}
+.middleLine{left:40px!important;right:8px!important}
+.teamMini{width:36px!important;font-size:7px!important}
+.teamMini img{width:16px!important;height:16px!important}
+.nowLine b{font-size:7px!important;padding:1px 4px!important}
+.flowSpike{width:1.5px!important}
+.flowIcon{font-size:9px!important}
+.flowLegend{font-size:7px!important;gap:4px!important}
+
+.marketsPanel{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin-top:6px!important;
+  padding:5px!important;
+}
+.signalChip{min-height:34px!important;padding:4px 5px!important}
+.signalChip b{font-size:9px!important}
+.signalChip span,.signalChip em{font-size:7.8px!important}
+.signalChip strong{font-size:11px!important}
+.signalChip:not(.oddRealChip) em{color:#9ca3af!important}
+
+.bookies{display:none!important}
+
+@media(max-width:700px){
+  .grid{grid-template-columns:1fr!important}
+  .filters{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .marketBadges{max-width:100%!important;justify-content:center!important}
+  .highlightSignal{grid-template-columns:1fr auto!important}
+  .highlightSignalText span{max-width:170px!important}
+  .field3d.liveField{height:60px!important}
+}
+
+@media(max-width:430px){
+  .filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
 
 `;
