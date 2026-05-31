@@ -3244,4 +3244,250 @@ h1{
   }
 }
 
+
+/* ===== CORRECAO MAKINE: 3 JOGOS POR LINHA, SEM SOBREPOR, COMPACTO E ROLAGEM NORMAL ===== */
+@media(min-width:1101px){
+  .page{
+    height:auto!important;
+    min-height:100vh!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    padding:6px!important;
+  }
+
+  .grid{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:auto!important;
+    gap:10px!important;
+    align-items:start!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding-bottom:20px!important;
+  }
+
+  .card{
+    position:relative!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:hidden!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:5px!important;
+    padding:6px!important;
+    isolation:isolate!important;
+  }
+}
+
+/* Mantem as secoes em fluxo normal para uma nao invadir a outra */
+.card > *{
+  position:relative;
+  min-width:0!important;
+}
+
+.matchHero{
+  height:64px!important;
+  min-height:64px!important;
+  margin-bottom:0!important;
+}
+
+.heroCenter strong.gameMinute{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:34px!important;
+  height:18px!important;
+  margin-top:-3px!important;
+  padding:1px 8px!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  color:#fff!important;
+  font-size:10px!important;
+  line-height:1!important;
+  transform:none!important;
+  top:auto!important;
+}
+
+.heroCenter strong.preliveMinute{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  height:18px!important;
+  margin-top:-3px!important;
+  padding:1px 8px!important;
+  border-radius:999px!important;
+  background:#7c2d12!important;
+  color:#facc15!important;
+  font-size:8px!important;
+  line-height:1!important;
+  transform:none!important;
+  top:auto!important;
+}
+
+.badges{
+  margin-top:0!important;
+  margin-bottom:4px!important;
+  min-height:auto!important;
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:3px!important;
+}
+
+.marketBadges{
+  max-width:100%!important;
+  justify-content:flex-start!important;
+}
+
+.highlightSignal{
+  min-height:42px!important;
+  margin:0 0 5px!important;
+  padding:5px 7px!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+}
+
+.highlightSignalText span{
+  max-width:100%!important;
+}
+
+.proStats{
+  margin:0 0 5px!important;
+  min-height:76px!important;
+  padding:4px!important;
+}
+
+.miniMap{
+  margin:0 0 5px!important;
+  padding:0 2px!important;
+  overflow:hidden!important;
+}
+
+.livePulse{
+  height:18px!important;
+  margin:0 0 3px!important;
+}
+
+.field3d.liveField{
+  height:56px!important;
+  margin-top:3px!important;
+}
+
+.mapStats.compact{
+  min-height:12px!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+}
+
+.flowCard{
+  margin-top:0!important;
+  min-height:104px!important;
+  padding:4px!important;
+  overflow:hidden!important;
+}
+
+.flowWrap{
+  height:64px!important;
+  overflow:hidden!important;
+}
+
+.flowLegend{
+  display:none!important;
+}
+
+.marketsPanel{
+  margin-top:0!important;
+  padding:4px!important;
+  gap:4px!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+
+.signalChip{
+  min-height:32px!important;
+}
+
+.signalChip em{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+.bookies{
+  display:none!important;
+}
+
+/* Desktop menor ainda mantem 3 colunas sem quebrar */
+@media(min-width:1101px) and (max-width:1280px){
+  .grid{
+    gap:8px!important;
+  }
+
+  .card{
+    padding:5px!important;
+  }
+
+  .heroCenter h2{
+    font-size:11px!important;
+  }
+
+  .heroCenter b{
+    font-size:20px!important;
+  }
+
+  .badges span{
+    font-size:6.6px!important;
+    padding:2px 4px!important;
+  }
+
+  .highlightSignalText b{
+    font-size:10px!important;
+  }
+
+  .highlightSignalMeta strong{
+    font-size:14px!important;
+  }
+
+  .proStats{
+    min-height:70px!important;
+  }
+
+  .field3d.liveField{
+    height:50px!important;
+  }
+
+  .flowCard{
+    min-height:96px!important;
+  }
+
+  .flowWrap{
+    height:58px!important;
+  }
+
+  .signalChip{
+    min-height:30px!important;
+  }
+}
+
+/* Tablet/celular continua uma coluna limpa */
+@media(max-width:1100px){
+  .page{
+    height:auto!important;
+    overflow-y:auto!important;
+  }
+
+  .grid{
+    grid-template-columns:1fr!important;
+    height:auto!important;
+    overflow:visible!important;
+  }
+
+  .card{
+    height:auto!important;
+    overflow:hidden!important;
+  }
+}
+
+
 `;
