@@ -242,7 +242,11 @@ const normalizarSinal = (item = {}) => {
     eventsCount: usarValor(numero(item.eventsCount), Array.isArray(item.matchEvents) ? item.matchEvents.length : 0),
     logoHome: valor(item.logoHome, item.logoCasa, item.homeLogo, item.teams?.home?.logo, ""),
     logoAway: valor(item.logoAway, item.logoFora, item.awayLogo, item.teams?.away?.logo, ""),
-    weather: valor(item.weather, item.clima, item.tempoClima, "")
+    weather: valor(item.weather, item.clima, item.tempoClima, ""),
+    fixtureId: valor(item.fixtureId, item.gameId, item.fixture?.id, item.id, ""),
+    fixtureDate: valor(item.fixtureDate, item.startTime, item.date, item.data, item.fixture?.date, item.kickoff, item.kickoffTime, item.time?.date, ""),
+    startTime: valor(item.startTime, item.fixtureDate, item.date, item.data, item.fixture?.date, item.kickoff, item.kickoffTime, item.time?.date, ""),
+    timestamp: numero(item.timestamp, item.fixture?.timestamp, item.time?.timestamp)
   };
 };
 
@@ -919,6 +923,77 @@ export default function App() {
     return Array.isArray(item.mercados) && item.mercados.length ? item.mercados : [item];
   }
 
+  function inicioJogo(item) {
+    const raw = valor(
+      item.startTime,
+      item.fixtureDate,
+      item.date,
+      item.data,
+      item.kickoff,
+      item.kickoffTime,
+      item.timestamp
+    );
+
+    if (raw === undefined || raw === null || raw === "") return null;
+
+    if (typeof raw === "number" || /^\d+$/.test(String(raw))) {
+      const n = Number(raw);
+      const ms = n > 1000000000000 ? n : n * 1000;
+      const d = new Date(ms);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function horasAteInicio(item) {
+    const d = inicioJogo(item);
+    if (!d) return null;
+    return (d.getTime() - Date.now()) / 36e5;
+  }
+
+  function jogoPreLive24h(item) {
+    if (jogoAoVivo(item)) return false;
+    const horas = horasAteInicio(item);
+    // Se a API não mandou data, mantém no VIP para não esconder jogos úteis.
+    if (horas === null) return true;
+    return horas >= -0.25 && horas <= 24;
+  }
+
+  function textoInicio(item) {
+    const d = inicioJogo(item);
+    if (!d) return "Próximas 24h";
+    return d.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  function scorePreLiveVip(item) {
+    const stats = statsDoJogo(item);
+    const base = melhorMercadoBase(item);
+    const conf = Number(base.confidence || item.confidence || 70);
+    const press = Number(base.pressure || item.pressure || 70);
+    const shots = stats.home.finalizacoes + stats.away.finalizacoes;
+    const onGoal = stats.home.noGol + stats.away.noGol;
+    const danger = stats.home.perigosos + stats.away.perigosos;
+    const corners = stats.home.cantos + stats.away.cantos;
+    const balance = Math.abs((stats.home.posse || 50) - (stats.away.posse || 50));
+    const horas = horasAteInicio(item);
+    const timeBoost = horas === null ? 4 : Math.max(0, 12 - Math.abs(horas - 6)) * 0.45;
+    return conf * 0.55 + press * 0.28 + shots * 0.8 + onGoal * 2.2 + danger * 0.35 + corners * 1.2 + balance * 0.12 + timeBoost;
+  }
+
+  function melhorSinalPreLiveVip(item) {
+    return mercadosDoItem(item)
+      .filter((m) => m.vipPrelive || !jogoAoVivo(m))
+      .slice()
+      .sort((a, b) => Number(b.confidence || 0) + Number(b.pressure || 0) - (Number(a.confidence || 0) + Number(a.pressure || 0)))[0] || melhorMercado(item);
+  }
+
   function mercadoSynthetic(item, market, category, confidence, alert, extra = {}) {
     return {
       ...item,
@@ -946,30 +1021,55 @@ export default function App() {
   function preliveVipMarkets(item) {
     const base = mercadosBaseDoItem(item);
     const isLiveGame = item.type === "live" || base.some((m) => m.type === "live");
-    if (isLiveGame) return [];
+    if (isLiveGame || !jogoPreLive24h(item)) return [];
 
     const stats = statsDoJogo(item);
-    const conf = Number(item.confidence || melhorMercadoBase(item).confidence || 72);
-    const pressure = Number(item.pressure || melhorMercadoBase(item).pressure || 70);
-    const homePower = stats.home.finalizacoes * 2 + stats.home.noGol * 5 + stats.home.perigosos * 1.5 + stats.home.cantos * 2 + stats.home.ataques * 0.25;
-    const awayPower = stats.away.finalizacoes * 2 + stats.away.noGol * 5 + stats.away.perigosos * 1.5 + stats.away.cantos * 2 + stats.away.ataques * 0.25;
-    const totalPower = homePower + awayPower;
+    const bestBase = melhorMercadoBase(item);
+    const conf = Number(bestBase.confidence || item.confidence || 72);
+    const pressure = Number(bestBase.pressure || item.pressure || 70);
+
+    const homePower =
+      stats.home.finalizacoes * 2.1 +
+      stats.home.noGol * 5.2 +
+      stats.home.perigosos * 1.6 +
+      stats.home.cantos * 1.9 +
+      stats.home.ataques * 0.28 +
+      stats.home.posse * 0.16;
+
+    const awayPower =
+      stats.away.finalizacoes * 2.1 +
+      stats.away.noGol * 5.2 +
+      stats.away.perigosos * 1.6 +
+      stats.away.cantos * 1.9 +
+      stats.away.ataques * 0.28 +
+      stats.away.posse * 0.16;
+
+    const totalPower = Math.max(1, homePower + awayPower);
     const homeEdge = homePower - awayPower;
+    const balance = Math.abs(homeEdge) / totalPower;
     const times = timesDoJogo(item);
     const fav = homeEdge >= 0 ? times.casa : times.fora;
     const favShort = nomeCurto(fav);
+    const golsBase = (stats.home.finalizacoes + stats.away.finalizacoes) * 0.9 + (stats.home.noGol + stats.away.noGol) * 3.2 + pressure * 0.24;
+    const bttsBase = Math.min(stats.home.finalizacoes, stats.away.finalizacoes) * 1.8 + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.55 + Math.min(stats.home.noGol, stats.away.noGol) * 4.5 + conf * 0.48;
+    const cantosBase = (stats.home.cantos + stats.away.cantos) * 5.5 + (stats.home.ataques + stats.away.ataques) * 0.12 + pressure * 0.26;
+    const cardsBase = (stats.home.cartoes + stats.away.cartoes) * 8 + (stats.home.faltas || 0) * 0.55 + (stats.away.faltas || 0) * 0.55 + 35;
 
     const suggestions = [
-      mercadoSynthetic(item, "Gols na partida", "GOLS", conf + totalPower * 0.10 + 4, "🔐 VIP • GOLS NA PARTIDA"),
-      mercadoSynthetic(item, "Ambas marcam", "BTTS", conf + Math.min(stats.home.noGol, stats.away.noGol) * 4 + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.35, "🔐 VIP • AMBAS MARCAM"),
-      mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", conf + Math.abs(homeEdge) * 0.16, `🔐 VIP • VITÓRIA ${favShort.toUpperCase()}`),
-      mercadoSynthetic(item, "Escanteios FT", "CANTOS", conf + (stats.home.cantos + stats.away.cantos) * 3 + pressure * 0.04, "🔐 VIP • ESCANTEIOS"),
-      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", conf + (stats.home.cartoes + stats.away.cartoes) * 7, "🔐 VIP • CARTÕES"),
-      mercadoSynthetic(item, `Handicap ${favShort} +0.5`, "HANDICAP", conf + Math.abs(homeEdge) * 0.12 + 3, `🔐 VIP • HANDICAP ${favShort.toUpperCase()} +0.5`)
+      mercadoSynthetic(item, "Over 0.5 pré-live", "OVER05", golsBase + 10, "🔐 VIP 24H • OVER 0,5"),
+      mercadoSynthetic(item, "Over 1.5 pré-live", "OVER15", golsBase + 4, "🔐 VIP 24H • OVER 1,5"),
+      mercadoSynthetic(item, "Over 2.5 pré-live", "OVER25", golsBase - 5, "🔐 VIP 24H • OVER 2,5"),
+      mercadoSynthetic(item, "Ambas marcam", "BTTS", bttsBase, "🔐 VIP 24H • AMBAS MARCAM"),
+      mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", conf + balance * 40 + Math.abs(homeEdge) * 0.06, `🔐 VIP 24H • VITÓRIA ${favShort.toUpperCase()}`),
+      mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", conf + balance * 32 + 6, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`),
+      mercadoSynthetic(item, "Escanteios FT", "CANTOS", cantosBase, "🔐 VIP 24H • ESCANTEIOS"),
+      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • CARTÕES")
     ];
 
-    const existing = new Set(base.map((m) => categoriaMercado(m)));
-    return suggestions.filter((m) => !existing.has(categoriaMercado(m))).slice(0, 6);
+    return suggestions
+      .filter((m) => Number(m.confidence || 0) >= 62)
+      .sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))
+      .slice(0, 6);
   }
 
   function mercadosDoItem(item) {
@@ -1039,7 +1139,7 @@ export default function App() {
   }
 
   function jogoPreLiveVip(item) {
-    return jogoPreLive(item);
+    return jogoPreLive(item) && jogoPreLive24h(item);
   }
 
   function formatOdd(m) {
@@ -1146,7 +1246,12 @@ export default function App() {
         if (filtro === "HISTORICO") return preLiveVip;
         return true;
       })
-      .sort((a, b) => (melhorMercado(b).confidence || 70) + (melhorMercado(b).pressure || 70) - ((melhorMercado(a).confidence || 70) + (melhorMercado(a).pressure || 70)));
+      .sort((a, b) => {
+        if (filtro === "VIP" || filtro === "HISTORICO") {
+          return scorePreLiveVip(b) - scorePreLiveVip(a);
+        }
+        return (melhorMercado(b).confidence || 70) + (melhorMercado(b).pressure || 70) - ((melhorMercado(a).confidence || 70) + (melhorMercado(a).pressure || 70));
+      });
   }, [signals, busca, filtro]);
 
   const liveCount = signals.filter((s) => s.type === "live" || mercadosDoItem(s).some((m) => m.type === "live")).length;
@@ -1221,7 +1326,7 @@ export default function App() {
             const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const hasOdds = jogoOddReal(item);
-            const strongest = melhorMercado(item);
+            const strongest = liveReal ? melhorMercado(item) : melhorSinalPreLiveVip(item);
             const liveMap = buildLiveMapState(item, index);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
@@ -1241,7 +1346,7 @@ export default function App() {
                     <h2><span style={{ color: homeColor }}>{nomeCurto(times.casa)}</span> <em>vs</em> <span style={{ color: awayColor }}>{nomeCurto(times.fora)}</span></h2>
                     <p>{item.league || "Liga"}</p>
                     <b>{item.score || "0-0"}</b>
-                    <strong className={liveReal ? "gameMinute" : "preliveMinute"}>{liveReal ? `${currentMinute}'` : "PRÉ-LIVE"}</strong>
+                    <strong className={liveReal ? "gameMinute" : "preliveMinute"}>{liveReal ? `${currentMinute}'` : `VIP 24H • ${textoInicio(item)}`}</strong>
                   </div>
                   <div className="teamSide right">
                     <img className="heroLogo" src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
@@ -1270,7 +1375,7 @@ export default function App() {
 
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
-                    <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "SINAL PRÉ-LIVE VIP"}</small>
+                    <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
                     <b>{categoriaMercado(strongest)}</b>
                     <span>{strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
