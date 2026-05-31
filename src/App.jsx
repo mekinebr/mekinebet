@@ -186,7 +186,19 @@ const normalizarSinal = (item = {}) => {
     league: valor(item.league, item.liga, "Futebol"),
     score: valor(item.score, item.placar, "0 - 0"),
     market,
-    odd: valor(item.odd, item.odds, item.cotacao, item.cotação, "1.72"),
+    odd: valor(item.odd, item.odds, item.cotacao, item.cotação, "—"),
+    realOdd:
+      item.realOdd === true ||
+      item.realOdd === "true" ||
+      item.hasRealOdds === true ||
+      item.hasRealOdds === "true" ||
+      valor(item.oddsMode, item.odds_mode, "") === "real",
+    oddsMode: valor(item.oddsMode, item.odds_mode, ""),
+    bookmaker: valor(item.bookmaker, item.casaAposta, item.bookmakerName, ""),
+    oddsMarket: valor(item.oddsMarket, item.oddMarket, item.mercadoOdd, ""),
+    oddsLine: valor(item.oddsLine, item.oddLine, item.linhaOdd, ""),
+    oddsProvider: valor(item.oddsProvider, item.oddProvider, ""),
+    oddsUpdatedAt: valor(item.oddsUpdatedAt, item.oddUpdatedAt, ""),
     minute: valor(item.minute, item.minuto, item.tempo, 0),
     type: valor(item.type, item.tipo, "live"),
     category: valor(item.category, item.categoria, ""),
@@ -275,6 +287,13 @@ function agruparPorPartida(lista = []) {
         realStats: Boolean(jogo.realStats || item.realStats || melhor.realStats),
         statsMode: melhor.statsMode || item.statsMode || jogo.statsMode,
         statsSource: melhor.statsSource || item.statsSource || jogo.statsSource,
+        realOdd: Boolean(jogo.realOdd || item.realOdd || melhor.realOdd),
+        oddsMode: melhor.oddsMode || item.oddsMode || jogo.oddsMode,
+        bookmaker: melhor.bookmaker || item.bookmaker || jogo.bookmaker,
+        oddsMarket: melhor.oddsMarket || item.oddsMarket || jogo.oddsMarket,
+        oddsLine: melhor.oddsLine || item.oddsLine || jogo.oddsLine,
+        oddsProvider: melhor.oddsProvider || item.oddsProvider || jogo.oddsProvider,
+        oddsUpdatedAt: melhor.oddsUpdatedAt || item.oddsUpdatedAt || jogo.oddsUpdatedAt,
         matchEvents: limparEventos([
           ...(jogo.matchEvents || []),
           ...(item.matchEvents || []),
@@ -315,6 +334,9 @@ export default function App() {
     realStatsGames: 0,
     eventsMode: "",
     realEventsGames: 0,
+    oddsMode: "",
+    realOddsGames: 0,
+    oddsEnabled: false,
     apiStatus: ""
   });
 
@@ -332,13 +354,27 @@ export default function App() {
         realStatsGames: Number(data?.realStatsGames || 0),
         eventsMode: data?.eventsMode || "",
         realEventsGames: Number(data?.realEventsGames || 0),
+        oddsMode: data?.oddsMode || "",
+        realOddsGames: Number(data?.realOddsGames || 0),
+        oddsEnabled: Boolean(data?.oddsEnabled),
         apiStatus: data?.apiStatus || ""
       });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
       console.error("Erro ao buscar API MekineBet:", e);
       setSignals([]);
-      setApiInfo({ source: "erro", mode: "offline", statsMode: "erro", realStatsGames: 0, eventsMode: "erro", realEventsGames: 0, apiStatus: "error" });
+      setApiInfo({
+        source: "erro",
+        mode: "offline",
+        statsMode: "erro",
+        realStatsGames: 0,
+        eventsMode: "erro",
+        realEventsGames: 0,
+        oddsMode: "erro",
+        realOddsGames: 0,
+        oddsEnabled: false,
+        apiStatus: "error"
+      });
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
       setLoading(false);
@@ -398,6 +434,62 @@ export default function App() {
 
   function teamColor(nome = "", fallback = "#22c55e") {
     return TEAM_COLORS[normalizar(nome)] || fallback;
+  }
+
+  const UNIFORM_PALETTE = [
+    "#22c55e", "#2563eb", "#ef4444", "#f59e0b", "#a855f7", "#06b6d4",
+    "#facc15", "#f8fafc", "#fb7185", "#14b8a6", "#6366f1", "#e5e7eb"
+  ];
+
+  function hashTexto(texto = "") {
+    return normalizar(texto).split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  }
+
+  function hexToRgb(hex = "#22c55e") {
+    const clean = String(hex).replace("#", "").trim();
+    const value = clean.length === 3
+      ? clean.split("").map((c) => c + c).join("")
+      : clean.padEnd(6, "0").slice(0, 6);
+
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16)
+    };
+  }
+
+  function distanciaCor(a = "#22c55e", b = "#6366f1") {
+    const ca = hexToRgb(a);
+    const cb = hexToRgb(b);
+    return Math.sqrt(
+      Math.pow(ca.r - cb.r, 2) +
+      Math.pow(ca.g - cb.g, 2) +
+      Math.pow(ca.b - cb.b, 2)
+    );
+  }
+
+  function corAlternativa(nome = "", corAtual = "#22c55e") {
+    const start = hashTexto(nome) % UNIFORM_PALETTE.length;
+
+    for (let i = 0; i < UNIFORM_PALETTE.length; i += 1) {
+      const candidate = UNIFORM_PALETTE[(start + i) % UNIFORM_PALETTE.length];
+      if (distanciaCor(candidate, corAtual) >= 95) return candidate;
+    }
+
+    return corAtual === "#22c55e" ? "#6366f1" : "#22c55e";
+  }
+
+  function teamColorPair(homeName = "Casa", awayName = "Fora") {
+    const homeColor = teamColor(homeName, UNIFORM_PALETTE[hashTexto(homeName) % UNIFORM_PALETTE.length]);
+    let awayColor = teamColor(awayName, UNIFORM_PALETTE[hashTexto(awayName) % UNIFORM_PALETTE.length]);
+
+    // A API não entrega a cor exata do uniforme em campo.
+    // Aqui usamos a cor base do time e impedimos cores iguais/parecidas no mesmo jogo.
+    if (distanciaCor(homeColor, awayColor) < 95) {
+      awayColor = corAlternativa(awayName, homeColor);
+    }
+
+    return { homeColor, awayColor };
   }
 
   function totalGols(item) {
@@ -550,81 +642,129 @@ export default function App() {
     return Math.max(0, Math.min(100, (Number(a || 0) / total) * 100));
   }
 
-  function timelineEvents(item, index, homeColor, awayColor) {
-    const stats = statsDoJogo(item);
-    const current = item.type === "live" ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
+  function eventoPrioridade(event = {}) {
+    const text = `${event.icon || ""} ${event.category || ""} ${event.type || ""} ${event.detail || ""}`.toLowerCase();
+    if (text.includes("⚽") || text.includes("goal") || text.includes("gol")) return 5;
+    if (text.includes("🟥") || text.includes("red") || text.includes("vermelho")) return 4;
+    if (text.includes("🥅") || text.includes("penalty") || text.includes("pênalti")) return 3;
+    if (text.includes("🟨") || text.includes("card") || text.includes("cart")) return 2;
+    return 1;
+  }
 
-    const eventosReais = eventosDoJogo(item);
+  function eventoLevel(event = {}) {
+    const text = `${event.icon || ""} ${event.category || ""} ${event.type || ""} ${event.detail || ""}`.toLowerCase();
+    if (text.includes("⚽") || text.includes("goal") || text.includes("gol") || text.includes("🟥")) return 3;
+    if (text.includes("penalty") || text.includes("pênalti") || text.includes("var") || text.includes("card") || text.includes("cart")) return 2;
+    return 1;
+  }
 
-    if (eventosReais.length) {
-      const times = timesDoJogo(item);
+  function eventoTeam(event, times) {
+    let team = event.side === "away" ? "away" : event.side === "home" ? "home" : "neutral";
 
-      return eventosReais
-        .map((event) => {
-          const minute = Math.max(1, Math.min(90, Number(event.minute || event.elapsed || 1)));
-          let team = event.side === "away" ? "away" : event.side === "home" ? "home" : "neutral";
-
-          if (team === "neutral") {
-            const teamName = normalizar(event.teamName || "");
-            if (teamName && teamName === normalizar(times.fora)) team = "away";
-            else team = "home";
-          }
-
-          const icon = event.icon || "•";
-          const isBig =
-            icon === "⚽" ||
-            icon === "🟥" ||
-            String(event.category || "").toUpperCase().includes("GOAL") ||
-            String(event.category || "").toUpperCase().includes("RED");
-
-          return {
-            m: minute,
-            team,
-            level: isBig ? 3 : 2,
-            icon,
-            color: team === "home" ? homeColor : awayColor,
-            real: true,
-            title: `${minute}' ${event.teamName || ""} ${event.player || ""} ${event.detail || event.type || ""}`.trim()
-          };
-        })
-        .filter((ev) => ev.m <= Math.max(90, current));
+    if (team === "neutral") {
+      const teamName = normalizar(event.teamName || "");
+      if (teamName && teamName === normalizar(times.fora)) team = "away";
+      else if (teamName && teamName === normalizar(times.casa)) team = "home";
+      else team = "home";
     }
 
-    const iconsByMinute = {
-      12: "⚽",
-      27: "🚩",
-      38: "⚽",
-      52: "🟨",
-      69: "⚽",
-      75: "🚩",
-      84: "🟨"
-    };
+    return team;
+  }
+
+  function timelineEvents(item, index, homeColor, awayColor) {
+    const stats = statsDoJogo(item);
+    const live = item.type === "live";
+    const current = live ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
+    const eventosReais = eventosDoJogo(item);
+    const times = timesDoJogo(item);
+
+    const eventosPorMinuto = new Map();
+
+    eventosReais.forEach((event) => {
+      const minute = Math.max(1, Math.min(90, Number(event.minute || event.elapsed || 1)));
+      const team = eventoTeam(event, times);
+      const normalizedEvent = {
+        ...event,
+        minute,
+        team,
+        priority: eventoPrioridade(event),
+        level: eventoLevel(event)
+      };
+
+      const atual = eventosPorMinuto.get(minute);
+      if (!atual || normalizedEvent.priority > atual.priority) {
+        eventosPorMinuto.set(minute, normalizedEvent);
+      }
+    });
+
+    const homeWeight =
+      stats.home.ataques +
+      stats.home.perigosos * 1.5 +
+      stats.home.finalizacoes * 2.2 +
+      stats.home.noGol * 5 +
+      stats.home.cantos * 2.5;
+
+    const awayWeight =
+      stats.away.ataques +
+      stats.away.perigosos * 1.5 +
+      stats.away.finalizacoes * 2.2 +
+      stats.away.noGol * 5 +
+      stats.away.cantos * 2.5;
+
+    const totalWeight = Math.max(1, homeWeight + awayWeight);
+    const homeBias = (homeWeight - awayWeight) / totalWeight;
 
     return Array.from({ length: 90 }, (_, i) => {
       const minute = i + 1;
+      const realEvent = eventosPorMinuto.get(minute);
 
-      // Um ataque por vez: em cada minuto só existe casa OU fora.
-      // Nunca desenha os dois times atacando ao mesmo tempo.
-      const wave = Math.sin((minute + index * 7) / 4) + Math.cos((minute + stats.home.ataques) / 7);
-      const team = wave >= 0 ? "home" : "away";
+      // Todo minuto tem leitura: um time progride no campo por vez.
+      // Level 1 = passou/meio-campo, 2 = ataque, 3 = muito perto do gol/chance clara.
+      let team;
 
-      const dangerSeed = Math.abs(Math.sin((minute * 3.7 + stats.home.perigosos + index * 11) / 9));
-      const level = dangerSeed > 0.84 ? 3 : dangerSeed > 0.55 ? 2 : 1;
+      if (realEvent) {
+        team = realEvent.team;
+      } else {
+        const wave =
+          Math.sin((minute + index * 7) / 4) +
+          Math.cos((minute + stats.home.ataques + stats.away.perigosos) / 8) +
+          homeBias * 1.4;
+        team = wave >= 0 ? "home" : "away";
+      }
 
-      // Minutos sem ataque ficam bem baixos, apenas cruzando o meio-campo.
-      const quiet = (minute + index) % 6 === 0;
-      const finalLevel = quiet && !iconsByMinute[minute] ? 1 : level;
+      const active = team === "home" ? stats.home : stats.away;
+      const passive = team === "home" ? stats.away : stats.home;
+      const activeForce = active.perigosos * 1.5 + active.noGol * 5 + active.finalizacoes * 2 + active.cantos * 2.2 + active.ataques * 0.35;
+      const passiveForce = passive.perigosos * 1.2 + passive.noGol * 4 + passive.finalizacoes * 1.5 + passive.cantos * 1.6 + passive.ataques * 0.25;
+      const balance = activeForce / Math.max(1, activeForce + passiveForce);
+      const seed = Math.abs(Math.sin((minute * 3.17 + active.perigosos * 1.9 + index * 13) / 7));
+      const fieldDepth = balance * 0.58 + seed * 0.42;
+
+      let level = fieldDepth > 0.72 ? 3 : fieldDepth > 0.38 ? 2 : 1;
+      if (realEvent) level = Math.max(level, realEvent.level || 1);
+
+      const label =
+        level === 3
+          ? "chance clara / perto do gol"
+          : level === 2
+            ? "ataque no terço ofensivo"
+            : "passou do meio-campo / ataque leve";
 
       return {
         m: minute,
         team,
-        level: finalLevel,
-        icon: iconsByMinute[minute] || "",
-        color: team === "home" ? homeColor : awayColor
+        level,
+        icon: realEvent?.icon || "",
+        color: team === "home" ? homeColor : awayColor,
+        real: Boolean(realEvent),
+        title: realEvent
+          ? `${minute}' ${realEvent.teamName || ""} ${realEvent.player || ""} ${realEvent.detail || realEvent.type || ""}`.trim()
+          : `${minute}' ${team === "home" ? times.casa : times.fora}: ${label}`,
+        label,
+        prelive: !live
       };
-    }).filter((ev) => ev.m <= Math.max(90, current));
+    }).filter((ev) => ev.m <= current);
   }
-
 
   function mercadosDoItem(item) {
     return Array.isArray(item.mercados) && item.mercados.length ? item.mercados : [item];
@@ -661,6 +801,35 @@ export default function App() {
           String(m.statsMode || m.statsSource || "").toLowerCase() === "real"
       )
     );
+  }
+
+  function oddValida(v) {
+    const raw = String(v ?? "").trim();
+    return raw !== "" && raw !== "—" && raw !== "-" && raw.toLowerCase() !== "null" && raw.toLowerCase() !== "undefined";
+  }
+
+  function mercadoOddReal(m) {
+    return (
+      m.realOdd === true ||
+      m.realOdd === "true" ||
+      m.hasRealOdds === true ||
+      m.hasRealOdds === "true" ||
+      String(m.oddsMode || "").toLowerCase() === "real" ||
+      (oddValida(m.odd) && Boolean(m.bookmaker || m.oddsProvider || m.oddsMarket || m.oddsLine))
+    );
+  }
+
+  function jogoOddReal(item) {
+    return mercadoOddReal(item) || mercadosDoItem(item).some((m) => mercadoOddReal(m));
+  }
+
+  function formatOdd(m) {
+    if (!oddValida(m?.odd)) return "—";
+    return String(m.odd).replace(".", ",");
+  }
+
+  function bookmakerDoMercado(m) {
+    return m?.bookmaker || m?.oddsProvider || "";
   }
 
   function jogoTemCategoria(item, categoria) {
@@ -703,6 +872,7 @@ export default function App() {
         if (filtro === "VIP") return mercadosDoItem(item).some((m) => isVip(m));
         if (filtro === "REAL") return jogoStatsReal(item);
         if (filtro === "EVENTOS") return jogoEventosReal(item);
+        if (filtro === "ODDS") return jogoOddReal(item);
         if (filtro === "HISTORICO") return item.type !== "live";
         return true;
       })
@@ -713,6 +883,7 @@ export default function App() {
   const alertCount = signals.filter((s) => jogoTemAlerta(s)).length;
   const realCount = signals.filter((s) => jogoStatsReal(s)).length;
   const eventosCount = signals.filter((s) => jogoEventosReal(s)).length;
+  const oddsCount = signals.filter((s) => jogoOddReal(s)).length;
 
   return (
     <div className="page">
@@ -730,6 +901,7 @@ export default function App() {
           <span className="pill">📡 {apiInfo.mode || "api"}</span>
           <span className="pill">📊 Real: {realCount || apiInfo.realStatsGames || 0}</span>
           <span className="pill">🎬 Eventos: {eventosCount || apiInfo.realEventsGames || 0}</span>
+          <span className="pill">💰 Odds: {oddsCount || apiInfo.realOddsGames || 0}</span>
           <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
@@ -746,12 +918,16 @@ export default function App() {
         <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando jogos pré-live/histórico enquanto monitora automaticamente.</div>
       )}
 
+      {apiInfo.mode !== "fallback-ia" && liveCount > 0 && oddsCount === 0 && apiInfo.realOddsGames === 0 && (
+        <div className="notice">💰 Jogos carregados, mas nenhuma odd real disponível agora para estes mercados.</div>
+      )}
+
       <div className="filters">
         {[
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
           ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["HISTORICO", "🕘 HISTÓRICO"]
+          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🕘 HISTÓRICO"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -770,11 +946,11 @@ export default function App() {
             const vip = isVip(item);
             const liveReal = item.type === "live";
             const times = timesDoJogo(item);
-            const homeColor = teamColor(times.casa, "#22c55e");
-            const awayColor = teamColor(times.fora, "#6366f1");
+            const { homeColor, awayColor } = teamColorPair(times.casa, times.fora);
             const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
             const events = timelineEvents(item, index, homeColor, awayColor);
+            const hasOdds = jogoOddReal(item);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
             const dangerHomePct = pctValue(stats.home.perigosos, stats.away.perigosos);
@@ -793,7 +969,7 @@ export default function App() {
                     <h2><span style={{ color: homeColor }}>{nomeCurto(times.casa)}</span> <em>vs</em> <span style={{ color: awayColor }}>{nomeCurto(times.fora)}</span></h2>
                     <p>{item.league || "Liga"}</p>
                     <b>{item.score || "0-0"}</b>
-                    <strong>{currentMinute}'</strong>
+                    <strong className={liveReal ? "gameMinute" : "preliveMinute"}>{liveReal ? `${currentMinute}'` : "PRÉ-LIVE"}</strong>
                   </div>
                   <div className="teamSide right">
                     <img className="heroLogo" src={logoFora(item)} alt={times.fora} onError={(e) => (e.currentTarget.src = fallbackLogo(times.fora))} />
@@ -802,12 +978,15 @@ export default function App() {
                 </div>
 
                 <div className="badges">
-                  <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
+                  <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE"}</span>
                   <span className={jogoStatsReal(item) ? "realStatsBadge" : "estimatedStatsBadge"}>
                     {jogoStatsReal(item) ? "STATS REAL" : "ESTIMADO"}
                   </span>
                   <span className={jogoEventosReal(item) ? "realEventsBadge" : "noEventsBadge"}>
                     {jogoEventosReal(item) ? "EVENTOS REAL" : "SEM EVENTOS"}
+                  </span>
+                  <span className={hasOdds ? "realOddsBadge" : "noOddsBadge"}>
+                    {hasOdds ? "ODD REAL" : "SEM ODD"}
                   </span>
                   {vip && <span className="vip">VIP</span>}
                   <div className="marketBadges">
@@ -905,20 +1084,24 @@ export default function App() {
                 </div>
 
                 <div className="flowCard">
-                  <h3>CRONOLOGIA DA PARTIDA {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}</h3>
+                  <h3>
+                    {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO PRÉ-LIVE"}
+                    {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}
+                    {!liveReal && <span className="flowPreliveTag">PROJEÇÃO IA</span>}
+                  </h3>
                   <div className="flowMinuteScale"><span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span></div>
                   <div className="flowWrap">
                     <div className="teamMini homeMini"><span>{sigla(times.casa)}</span><img src={logoCasa(item)} alt="" /></div>
                     <div className="teamMini awayMini"><span>{sigla(times.fora)}</span><img src={logoFora(item)} alt="" /></div>
                     <div className="middleLine"></div>
-                    <div className="nowLine" style={{ left: timelineLeft(currentMinute) }}><b>{currentMinute}'</b></div>
+                    {liveReal && <div className="nowLine" style={{ left: timelineLeft(currentMinute) }}><b>{currentMinute}'</b></div>}
                     {events.map((ev, i) => (
                       <React.Fragment key={i}>
                         <span
-                          className={`flowSpike ${ev.team}`}
+                          className={`flowSpike ${ev.team} level-${ev.level} ${ev.real ? "realMinute" : ""}`}
                           style={{
                             left: timelineLeft(ev.m),
-                            height: `${ev.level === 3 ? 32 : ev.level === 2 ? 23 : 13}px`,
+                            height: `${ev.level === 3 ? 30 : ev.level === 2 ? 18 : 7}px`,
                             background: ev.color,
                             boxShadow: `0 0 8px ${ev.color}`
                           }}
@@ -934,11 +1117,13 @@ export default function App() {
 
                 <div className="marketsPanel">
                   {mercadosOrdenados(item).map((m, i) => (
-                    <div key={i} className={`signalChip ${alertaForte(m) ? "strong" : ""}`}>
+                    <div key={i} className={`signalChip ${alertaForte(m) ? "strong" : ""} ${mercadoOddReal(m) ? "oddRealChip" : ""}`}>
                       <b>{categoriaMercado(m)}</b>
                       <span>{m.alert || mercadoStatus(m)}</span>
                       <strong>{m.confidence || 70}%</strong>
-                      <em>Odd {m.odd || "1.72"}</em>
+                      <em className={mercadoOddReal(m) ? "oddRealText" : ""}>
+                        {mercadoOddReal(m) ? `Odd ${formatOdd(m)} • ${bookmakerDoMercado(m) || "Real"}` : "Odd —"}
+                      </em>
                     </div>
                   ))}
                 </div>
@@ -2073,5 +2258,122 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
   }
 }
 
+
+
+
+.realOddsBadge{
+  background:#ca8a04!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  box-shadow:0 0 8px rgba(250,204,21,.22)!important;
+}
+
+.noOddsBadge{
+  background:#374151!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+}
+
+.oddRealChip{
+  border-color:rgba(250,204,21,.80)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.11),rgba(0,0,0,.26))!important;
+  box-shadow:0 0 10px rgba(250,204,21,.12)!important;
+}
+
+.oddRealText{
+  color:#facc15!important;
+  font-weight:900!important;
+}
+
+@media(max-width:700px){
+  .realOddsBadge,.noOddsBadge{
+    font-size:6.6px!important;
+    padding:2px 4px!important;
+  }
+}
+
+/* ===== AJUSTES MAKINE: TEMPO, CORES DISTINTAS E CRONOLOGIA MINUTO A MINUTO ===== */
+.heroCenter strong.gameMinute{
+  display:block!important;
+  margin-top:-4px!important;
+  transform:translateY(-3px)!important;
+  line-height:1!important;
+  color:#ef4444!important;
+}
+
+.heroCenter strong.preliveMinute{
+  display:inline-block!important;
+  margin-top:-2px!important;
+  transform:translateY(-2px)!important;
+  padding:2px 7px!important;
+  border-radius:999px!important;
+  background:#374151!important;
+  color:#facc15!important;
+  font-size:9px!important;
+  line-height:1!important;
+}
+
+.flowPreliveTag{
+  display:inline-block!important;
+  margin-left:6px!important;
+  padding:1px 5px!important;
+  border-radius:999px!important;
+  background:#7c2d12!important;
+  color:#fff!important;
+  font-size:7px!important;
+  vertical-align:middle!important;
+}
+
+.flowSpike.level-1{
+  opacity:.72!important;
+}
+
+.flowSpike.level-2{
+  opacity:.9!important;
+}
+
+.flowSpike.level-3{
+  width:2.4px!important;
+  opacity:1!important;
+}
+
+.flowSpike.realMinute{
+  box-shadow:0 0 10px currentColor!important;
+}
+
+.flowWrap{
+  background:
+    linear-gradient(180deg,rgba(34,197,94,.045),rgba(0,0,0,.08)),
+    linear-gradient(90deg,rgba(255,255,255,.035),rgba(255,255,255,0))!important;
+}
+
+.flowWrap:after{
+  content:""!important;
+  position:absolute!important;
+  left:42px!important;
+  right:8px!important;
+  top:50%!important;
+  height:1px!important;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent)!important;
+  pointer-events:none!important;
+}
+
+@media(max-width:700px){
+  .heroCenter strong.gameMinute{
+    margin-top:-3px!important;
+    transform:translateY(-2px)!important;
+    font-size:9px!important;
+  }
+
+  .heroCenter strong.preliveMinute{
+    font-size:7px!important;
+    padding:2px 5px!important;
+  }
+
+  .flowPreliveTag{
+    font-size:6px!important;
+    padding:1px 4px!important;
+  }
+}
 
 `;
