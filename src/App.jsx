@@ -1069,13 +1069,22 @@ export default function App() {
       mercadoSynthetic(item, "Mais de 3.5 gols", "OVER35", golsBase - 10, "🔐 VIP 24H • +3,5 GOLS"),
       mercadoSynthetic(item, "Mais gol na partida", "MAIS_GOL", golsBase + 11, "🔐 VIP 24H • MAIS GOL"),
       mercadoSynthetic(item, "Ambas marcam", "BTTS", bttsBase, "🔐 VIP 24H • AMBAS MARCAM"),
-      mercadoSynthetic(item, "Escanteios FT", "CANTOS", cantosBase, "🔐 VIP 24H • ESCANTEIOS FT"),
-      mercadoSynthetic(item, "Escanteios nos primeiros minutos", "CANTOS_INICIO", cantosBase - 2, "🔐 VIP 24H • CANTOS INÍCIO"),
-      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • CARTÕES FT"),
-      mercadoSynthetic(item, "Cartões nos primeiros minutos", "CARTOES_INICIO", cardsBase - 6, "🔐 VIP 24H • CARTÕES INÍCIO"),
-      mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", conf + balance * 40 + Math.abs(homeEdge) * 0.06, `🔐 VIP 24H • VITÓRIA ${favShort.toUpperCase()}`),
-      mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", conf + balance * 32 + 6, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`)
+      mercadoSynthetic(item, "Mais de 7.5 cantos FT", "CANTOS", cantosBase, "🔐 VIP 24H • +7,5 CANTOS"),
+      mercadoSynthetic(item, "Mais de 2.5 cantos até 20min", "CANTOS_INICIO", cantosBase - 2, "🔐 VIP 24H • CANTOS INÍCIO"),
+      mercadoSynthetic(item, "Mais de 3.5 cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • +3,5 CARTÕES"),
+      mercadoSynthetic(item, "Cartão nos primeiros 30min", "CARTOES_INICIO", cardsBase - 6, "🔐 VIP 24H • CARTÕES INÍCIO")
     ];
+
+    const vitoriaConf = conf + balance * 40 + Math.abs(homeEdge) * 0.06;
+    const duplaChanceConf = conf + balance * 32 + 6;
+
+    if (balance >= 0.18 && vitoriaConf >= 78) {
+      suggestions.push(mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", vitoriaConf, `🔐 VIP 24H • VITÓRIA ${favShort.toUpperCase()}`));
+    }
+
+    if (balance >= 0.12 && duplaChanceConf >= 76) {
+      suggestions.push(mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", duplaChanceConf, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`));
+    }
 
     const ordemPreLive = {
       OVER15: 1,
@@ -1368,7 +1377,7 @@ export default function App() {
         {[
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
-          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"], ["VITORIA", "🏆 VITÓRIA"], ["HANDICAP", "➕ HANDICAP"],
+          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
           ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
@@ -1443,7 +1452,7 @@ export default function App() {
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
                     <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
-                    <b>{categoriaMercado(strongest)}</b>
+                    <b>{strongest.market || strongest.mercado || categoriaMercado(strongest)}</b>
                     <span>{strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
 
