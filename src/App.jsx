@@ -1426,14 +1426,14 @@ export default function App() {
         <div className="empty emptyState">
           <b>
             {filtro === "HISTORICO"
-              ? "Nenhum pré-live VIP real nas próximas 24h."
+              ? "Nenhum pré-live VIP real encontrado nas próximas 24h."
               : filtro === "LIVE" || filtro === "TODOS"
                 ? "Nenhum jogo ao vivo real disponível agora."
                 : "Nenhum jogo encontrado nesse filtro."}
           </b>
           <span>
             {apiInfo.mode === "fallback-ia" || apiInfo.mode === "empty"
-              ? "Sem jogos demo/fallback. Quando a API-Football entregar jogos reais, eles aparecem automaticamente."
+              ? "Sem jogos demo/fallback. Quando API-Football, Sportmonks ou Odds API entregar jogos reais, eles aparecem automaticamente."
               : "Tente outro filtro ou aguarde a próxima atualização automática."}
           </span>
         </div>
