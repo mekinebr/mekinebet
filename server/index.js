@@ -29,6 +29,7 @@ const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
 const MAX_GAMES = Number(process.env.MAX_LIVE_GAMES || 9);
 const MAX_PRELIVE_GAMES = Number(process.env.MAX_PRELIVE_GAMES || 18);
 const PRELIVE_HOURS = Number(process.env.PRELIVE_HOURS || 24);
+const PRELIVE_FALLBACK_HOURS = Number(process.env.PRELIVE_FALLBACK_HOURS || 168);
 const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
 const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !== "false";
 const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
@@ -1441,7 +1442,7 @@ async function getSportmonksFixtures() {
     .filter((row) => isLive(row?.fixture?.status?.short || ""));
 
   const prelive = uniqueFixtures(fixtures24.map(transformSportmonksFixture))
-    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
+    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
 
   return { live, prelive };
 }
@@ -1540,7 +1541,7 @@ async function theOddsApiGet(path, params = {}, preferredKeyIndex = 0) {
 async function getTheOddsSports() {
   if (!ODDS_API_KEYS.length || !ODDS_ENABLED) return [];
 
-  const rows = await theOddsApiGet("/sports", {}, 0);
+  const rows = await theOddsApiGet("/sports", { all: "true" }, 0);
   const soccer = rows
     .filter((sport) => String(sport?.key || "").startsWith("soccer_"))
     .filter((sport) => sport?.active !== false)
@@ -1557,6 +1558,15 @@ async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
     dateFormat: "iso"
   };
 
+  const regionAttempts = uniqueText([
+    THE_ODDS_REGIONS,
+    "us,us2,uk,eu,au",
+    "us",
+    "uk",
+    "eu",
+    "au"
+  ]);
+
   // O endpoint principal aceita h2h, spreads e totals. Se qualquer mercado configurado falhar,
   // reduzimos para h2h para ainda puxar os jogos reais e não zerar o painel.
   const marketAttempts = uniqueText([
@@ -1566,13 +1576,16 @@ async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
     "h2h"
   ]);
 
-  for (const markets of marketAttempts) {
-    const rows = await theOddsApiGet(`/sports/${sportKey}/odds`, {
-      ...baseParams,
-      markets
-    }, preferredKeyIndex);
+  for (const regions of regionAttempts) {
+    for (const markets of marketAttempts) {
+      const rows = await theOddsApiGet(`/sports/${sportKey}/odds`, {
+        ...baseParams,
+        regions,
+        markets
+      }, preferredKeyIndex);
 
-    if (rows.length) return rows;
+      if (rows.length) return rows;
+    }
   }
 
   return [];
@@ -1676,7 +1689,7 @@ async function getFixtures() {
     liveFixtures = uniqueFixtures([...liveFixtures, ...liveFromDates]);
 
     preliveFixtures = uniqueFixtures([...todayRows, ...tomorrowRows])
-      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
+      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
 
     if (!liveFixtures.length && !preliveFixtures.length) {
       try {
@@ -1684,7 +1697,7 @@ async function getFixtures() {
           `/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=America/Sao_Paulo`
         );
         preliveFixtures = uniqueFixtures(nextRows)
-          .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
+          .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS));
       } catch (e) {
         console.log("Erro next API-Football:", e.message);
       }
@@ -1709,7 +1722,7 @@ async function getFixtures() {
 
   preliveFixtures = uniqueFixtures(preliveFixtures)
     .filter((row) => !liveFixtures.some((live) => fixtureKey(live) === fixtureKey(row)))
-    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS))
+    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_FALLBACK_HOURS))
     .sort((a, b) => fixtureSortScore(b, "prelive") - fixtureSortScore(a, "prelive"))
     .slice(0, MAX_PRELIVE_GAMES);
 
@@ -1888,7 +1901,7 @@ async function getSignalsPayload() {
           : realStatsGames > 0 || realEventsGames > 0 || realOddsGames > 0
             ? "Dados reais carregados dos provedores disponíveis."
             : "Jogos reais carregados, mas estatísticas/odds detalhadas ainda não disponíveis para estes fixtures.",
-    diagnostics: DEBUG_API ? providerDiagnostics : undefined,
+    diagnostics: providerDiagnostics,
     updatedAt: new Date().toISOString()
   };
 
@@ -1919,6 +1932,8 @@ const server = http.createServer(async (req, res) => {
         oddsApiKeys: ODDS_API_KEYS.length,
         cacheTtlMs: CACHE_TTL_MS,
         maxGames: MAX_GAMES,
+        preliveHours: PRELIVE_HOURS,
+        preliveFallbackHours: PRELIVE_FALLBACK_HOURS,
         oddsEnabled: ODDS_ENABLED,
         oddsBookmakerPreference: ODDS_BOOKMAKER || "",
         updatedAt: new Date().toISOString()
