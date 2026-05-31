@@ -736,42 +736,51 @@ export default function App() {
     const confidence = Number(item.confidence || 0);
     const market = String(item.market || "").toLowerCase();
     const alertText = String(item.alert ?? item.alerta ?? "").trim();
+    const cat = categoriaMercado(item);
+    const live = String(item.type || "").toLowerCase() === "live";
 
-    if (alertText && alertText !== "true" && alertText !== "false") {
+    if (alertText && alertText !== "true" && alertText !== "false" && !alertText.toLowerCase().includes("sinal muito forte")) {
       return alertText;
     }
 
-    if (alertaForte(item)) return "🚨 SINAL MUITO FORTE";
+    if (live && ["OVER 0,5", "OVER 1,5", "OVER 2,5", "OVER 3,5"].includes(cat)) {
+      const adjusted = ajustarConfiancaAoVivo(item, item);
+      if (adjusted < 42) return "⏳ SINAL EXPIRADO";
+      if (adjusted < 55) return "⚠️ PERDEU FORÇA";
+    }
 
     if (market.includes("0.5") || market.includes("0,5")) {
       if (gols >= 1) return "✅ GREEN";
       if (min >= 12 && pressure >= 70) return "🔥 GOL IMINENTE";
-      return "📊 MONITORANDO";
+      return live ? "📊 AO VIVO • AGUARDAR PRESSÃO" : "🔐 VIP PRÉ-LIVE • +0,5";
     }
     if (market.includes("1.5") || market.includes("1,5")) {
       if (gols >= 2) return "✅ GREEN";
       if (gols === 1 && pressure >= 72) return "🔥 2º GOL FORTE";
-      return "📊 MONITORANDO";
+      return live ? "📊 AO VIVO • +1 GOL" : "🔐 VIP PRÉ-LIVE • +1,5";
     }
     if (market.includes("2.5") || market.includes("2,5")) {
       if (gols >= 3) return "✅ GREEN";
       if (gols >= 2 && pressure >= 74) return "🔥 OVER FORTE";
-      return "📊 MONITORANDO";
+      return live ? "📊 AO VIVO • PRECISA ACELERAR" : "🔐 VIP PRÉ-LIVE • +2,5";
     }
     if (market.includes("3.5") || market.includes("3,5")) {
       if (gols >= 4) return "✅ GREEN";
       if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
-      return "📉 RISCO MÉDIO";
+      return live ? "📉 RISCO ALTO" : "🔐 VIP PRÉ-LIVE • +3,5";
     }
     if (market.includes("btts") || market.includes("ambas")) {
       if (gols >= 2) return "🔥 BTTS QUENTE";
       if (pressure >= 75) return "⚡ AMBAS PRESSIONANDO";
-      return "👀 OBSERVAÇÃO";
+      return live ? "👀 BTTS EM OBSERVAÇÃO" : "🔐 VIP PRÉ-LIVE • AMBAS";
     }
-    if (market.includes("cart") || market.includes("card")) return "🟨 CARTÕES AO VIVO";
-    if (market.includes("canto") || market.includes("corner")) return "🚩 CANTOS AO VIVO";
+    if (market.includes("cart") || market.includes("card")) return live ? "🟨 CARTÕES AO VIVO" : "🔐 VIP PRÉ-LIVE • CARTÕES";
+    if (market.includes("canto") || market.includes("corner")) return live ? "🚩 CANTOS AO VIVO" : "🔐 VIP PRÉ-LIVE • CANTOS";
+    if (cat === "VITÓRIA") return "🔐 VIP PRÉ-LIVE • VITÓRIA";
+    if (cat === "HANDICAP") return "🔐 VIP PRÉ-LIVE • HANDICAP";
+    if (cat === "MAIS GOL") return live ? "🔥 PRÓXIMO GOL" : "🔐 VIP PRÉ-LIVE • MAIS GOL";
     if (pressure >= 80 || confidence >= 85) return "🔥 ENTRADA FORTE";
-    return "📊 MONITORAMENTO IA";
+    return live ? "📊 MONITORAMENTO AO VIVO" : "🔐 VIP PRÉ-LIVE";
   }
 
   function categoriaMercado(item) {
@@ -792,6 +801,107 @@ export default function App() {
     if (market.includes("gol") || market.includes("goal") || category.includes("goals") || category.includes("gols")) return "GOLS";
     if (market.includes("top ia") || category.includes("topia")) return "TOP IA";
     return item.category?.toUpperCase() || "BASE";
+  }
+
+
+  function metaGolsCategoria(cat = "") {
+    if (cat === "OVER 0,5") return 1;
+    if (cat === "OVER 1,5") return 2;
+    if (cat === "OVER 2,5") return 3;
+    if (cat === "OVER 3,5") return 4;
+    return null;
+  }
+
+  function ajustarConfiancaAoVivo(m, jogo) {
+    const cat = categoriaMercado(m);
+    const alvo = metaGolsCategoria(cat);
+    const raw = Number(m.confidence || jogo.confidence || 70);
+
+    if (!jogoAoVivo(jogo) || !alvo) return Math.round(limitar(raw, 0, 96));
+
+    const gols = totalGols(jogo);
+    const min = minuto(jogo);
+    const faltam = Math.max(0, alvo - gols);
+
+    if (faltam <= 0) return 0;
+
+    let maxCap = 95;
+
+    if (faltam >= 1 && min >= 75) maxCap = Math.min(maxCap, 74);
+    if (faltam >= 1 && min >= 85) maxCap = Math.min(maxCap, 62);
+    if (faltam >= 2 && min >= 55) maxCap = Math.min(maxCap, 66);
+    if (faltam >= 2 && min >= 70) maxCap = Math.min(maxCap, 50);
+    if (faltam >= 2 && min >= 80) maxCap = Math.min(maxCap, 34);
+    if (faltam >= 3 && min >= 45) maxCap = Math.min(maxCap, 52);
+    if (faltam >= 3 && min >= 65) maxCap = Math.min(maxCap, 34);
+    if (faltam >= 3 && min >= 75) maxCap = Math.min(maxCap, 22);
+
+    if (alvo >= 3 && gols === 0 && min >= 60) maxCap = Math.min(maxCap, 38);
+    if (alvo >= 3 && gols === 0 && min >= 75) maxCap = Math.min(maxCap, 20);
+    if (alvo >= 4 && gols <= 1 && min >= 60) maxCap = Math.min(maxCap, 28);
+
+    const stats = statsDoJogo(jogo);
+    const pressao =
+      Number(m.pressure || jogo.pressure || 0) +
+      (stats.home.noGol + stats.away.noGol) * 2 +
+      (stats.home.perigosos + stats.away.perigosos) * 0.2;
+
+    const penalidadeTempo = Math.max(0, min - 12) * faltam * (alvo >= 3 ? 0.65 : 0.42);
+    const resgatePressao = Math.min(10, pressao / 14);
+    const adjusted = raw - penalidadeTempo + resgatePressao;
+
+    return Math.round(limitar(adjusted, 0, maxCap));
+  }
+
+  function sinalAindaServeAoVivo(m, jogo) {
+    const cat = categoriaMercado(m);
+    const alvo = metaGolsCategoria(cat);
+    if (!jogoAoVivo(jogo) || !alvo) return true;
+    if (metaGolsCategoria(cat) && totalGols(jogo) >= alvo) return false;
+    return ajustarConfiancaAoVivo(m, jogo) >= 38;
+  }
+
+  function rotuloSinal(m) {
+    const cat = categoriaMercado(m);
+    const market = String(m.market || m.mercado || "").toLowerCase();
+    if (cat === "OVER 1,5") return "✓ Over 1.5";
+    if (cat === "OVER 2,5") return "✓ Over 2.5";
+    if (cat === "OVER 3,5") return "✓ Over 3.5";
+    if (cat === "BTTS") return "✓ Ambas Marcam";
+    if (cat === "MAIS GOL") return "✓ Mais Gol";
+    if (cat === "CANTOS") return market.includes("inicio") ? "✓ Cantos Início" : "✓ Cantos";
+    if (cat === "CARTÕES") return market.includes("inicio") ? "✓ Cartões Início" : "✓ Cartões";
+    if (cat === "VITÓRIA") return "✓ Vitória";
+    if (cat === "HANDICAP") return "✓ Handicap";
+    if (cat === "OVER 0,5") return "✓ Over 0.5";
+    if (cat === "TOP IA") return "✓ Top IA";
+    return `✓ ${cat}`;
+  }
+
+  function descricaoSinal(m, jogo) {
+    const cat = categoriaMercado(m);
+    const live = jogoAoVivo(jogo);
+    const gols = totalGols(jogo);
+    const min = minuto(jogo);
+    const alvo = metaGolsCategoria(cat);
+
+    if (live && alvo) {
+      const faltam = Math.max(0, alvo - gols);
+      if (faltam <= 0) return "Mercado já bateu. Não é próximo sinal.";
+      const scope = min <= 45 ? "HT" : "FT";
+      return `${scope}: precisa de ${faltam} gol${faltam > 1 ? "s" : ""} até o fim.`;
+    }
+
+    if (cat === "OVER 1,5") return "Precisa de 2+ gols na partida.";
+    if (cat === "OVER 2,5") return "Precisa de 3+ gols na partida.";
+    if (cat === "OVER 3,5") return "Precisa de 4+ gols na partida.";
+    if (cat === "BTTS") return "Os dois times precisam marcar.";
+    if (cat === "MAIS GOL") return live ? "Busca o próximo gol do jogo." : "Jogo com boa chance de sair gol.";
+    if (cat === "CANTOS") return "Pressão lateral e escanteios projetados.";
+    if (cat === "CARTÕES") return "Jogo com tendência de cartões.";
+    if (cat === "VITÓRIA") return "Time favorito para vencer.";
+    if (cat === "HANDICAP") return "Proteção no favorito ou linha asiática.";
+    return live ? "Sinal ajustado ao momento do jogo." : "Sinal pré-live VIP.";
   }
 
   function isVip(item) {
@@ -1058,56 +1168,45 @@ export default function App() {
     const times = timesDoJogo(item);
     const fav = homeEdge >= 0 ? times.casa : times.fora;
     const favShort = nomeCurto(fav);
-    const golsBase = (stats.home.finalizacoes + stats.away.finalizacoes) * 0.9 + (stats.home.noGol + stats.away.noGol) * 3.2 + pressure * 0.24;
+    const golsBase = (stats.home.finalizacoes + stats.away.finalizacoes) * 0.9 + (stats.home.noGol + stats.away.noGol) * 3.2 + pressure * 0.24 + conf * 0.16;
     const bttsBase = Math.min(stats.home.finalizacoes, stats.away.finalizacoes) * 1.8 + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.55 + Math.min(stats.home.noGol, stats.away.noGol) * 4.5 + conf * 0.48;
     const cantosBase = (stats.home.cantos + stats.away.cantos) * 5.5 + (stats.home.ataques + stats.away.ataques) * 0.12 + pressure * 0.26;
     const cardsBase = (stats.home.cartoes + stats.away.cartoes) * 8 + (stats.home.faltas || 0) * 0.55 + (stats.away.faltas || 0) * 0.55 + 35;
+    const vitoriaConf = conf + balance * 42 + Math.abs(homeEdge) * 0.06;
+    const handicapConf = conf + balance * 34 + 6;
 
     const suggestions = [
-      mercadoSynthetic(item, "Mais de 1.5 gols", "OVER15", golsBase + 7, "🔐 VIP 24H • +1,5 GOLS"),
-      mercadoSynthetic(item, "Mais de 2.5 gols", "OVER25", golsBase - 1, "🔐 VIP 24H • +2,5 GOLS"),
-      mercadoSynthetic(item, "Mais de 3.5 gols", "OVER35", golsBase - 10, "🔐 VIP 24H • +3,5 GOLS"),
-      mercadoSynthetic(item, "Mais gol na partida", "MAIS_GOL", golsBase + 11, "🔐 VIP 24H • MAIS GOL"),
-      mercadoSynthetic(item, "Ambas marcam", "BTTS", bttsBase, "🔐 VIP 24H • AMBAS MARCAM"),
-      mercadoSynthetic(item, "Mais de 7.5 cantos FT", "CANTOS", cantosBase, "🔐 VIP 24H • +7,5 CANTOS"),
-      mercadoSynthetic(item, "Mais de 2.5 cantos até 20min", "CANTOS_INICIO", cantosBase - 2, "🔐 VIP 24H • CANTOS INÍCIO"),
-      mercadoSynthetic(item, "Mais de 3.5 cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • +3,5 CARTÕES"),
-      mercadoSynthetic(item, "Cartão nos primeiros 30min", "CARTOES_INICIO", cardsBase - 6, "🔐 VIP 24H • CARTÕES INÍCIO")
+      mercadoSynthetic(item, "Over 1.5 gols", "OVER15", golsBase + 8, "🔐 VIP PRÉ-LIVE • OVER 1.5"),
+      mercadoSynthetic(item, "Over 2.5 gols", "OVER25", golsBase, "🔐 VIP PRÉ-LIVE • OVER 2.5"),
+      mercadoSynthetic(item, "Over 3.5 gols", "OVER35", golsBase - 10, "🔐 VIP PRÉ-LIVE • OVER 3.5"),
+      mercadoSynthetic(item, "Ambas marcam", "BTTS", bttsBase, "🔐 VIP PRÉ-LIVE • AMBAS MARCAM"),
+      mercadoSynthetic(item, "Mais gol na partida", "MAIS_GOL", golsBase + 12, "🔐 VIP PRÉ-LIVE • MAIS GOL"),
+      mercadoSynthetic(item, "Cantos FT", "CANTOS", cantosBase, "🔐 VIP PRÉ-LIVE • CANTOS"),
+      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP PRÉ-LIVE • CARTÕES"),
+      mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", vitoriaConf, `🔐 VIP PRÉ-LIVE • VITÓRIA ${favShort.toUpperCase()}`),
+      mercadoSynthetic(item, `Handicap / Proteção ${favShort}`, "HANDICAP", handicapConf, `🔐 VIP PRÉ-LIVE • HANDICAP ${favShort.toUpperCase()}`)
     ];
-
-    const vitoriaConf = conf + balance * 40 + Math.abs(homeEdge) * 0.06;
-    const duplaChanceConf = conf + balance * 32 + 6;
-
-    if (balance >= 0.18 && vitoriaConf >= 78) {
-      suggestions.push(mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", vitoriaConf, `🔐 VIP 24H • VITÓRIA ${favShort.toUpperCase()}`));
-    }
-
-    if (balance >= 0.12 && duplaChanceConf >= 76) {
-      suggestions.push(mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", duplaChanceConf, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`));
-    }
 
     const ordemPreLive = {
       OVER15: 1,
       OVER25: 2,
       OVER35: 3,
-      MAIS_GOL: 4,
-      BTTS: 5,
+      BTTS: 4,
+      MAIS_GOL: 5,
       CANTOS: 6,
-      CANTOS_INICIO: 7,
-      CARTOES_FT: 8,
-      CARTOES_INICIO: 9,
-      VITORIA: 10,
-      HANDICAP: 11
+      CARTOES_FT: 7,
+      VITORIA: 8,
+      HANDICAP: 9
     };
 
     return suggestions
-      .filter((m) => Number(m.confidence || 0) >= 60)
+      .filter((m) => Number(m.confidence || 0) >= 58)
       .sort((a, b) => {
         const scoreA = Number(a.confidence || 0) + (100 - (ordemPreLive[a.category] || 99)) * 0.08;
         const scoreB = Number(b.confidence || 0) + (100 - (ordemPreLive[b.category] || 99)) * 0.08;
         return scoreB - scoreA;
       })
-      .slice(0, 8);
+      .slice(0, 9);
   }
 
   function mercadosDoItem(item) {
@@ -1217,12 +1316,14 @@ export default function App() {
 
   function mercadoPesoAoVivo(m, item) {
     const cat = categoriaMercado(m);
+    const confAjustada = ajustarConfiancaAoVivo(m, item);
     const pesoCat = {
       "OVER 0,5": 8,
-      "OVER 1,5": 12,
-      "OVER 2,5": 13,
-      "OVER 3,5": 9,
-      "BTTS": 11,
+      "OVER 1,5": 11,
+      "OVER 2,5": 9,
+      "OVER 3,5": 5,
+      "BTTS": 10,
+      "MAIS GOL": 13,
       "CANTOS": 8,
       "CARTÕES": 7,
       "TOP IA": 4,
@@ -1231,7 +1332,8 @@ export default function App() {
       "HANDICAP": 6
     }[cat] || 5;
 
-    return Number(m.confidence || 0) * 1.1 + Number(m.pressure || 0) * 0.55 + pesoCat + (mercadoOddReal(m) ? 5 : 0) - (mercadoCumprido(m, item) ? 60 : 0);
+    const expirou = !sinalAindaServeAoVivo(m, item);
+    return confAjustada * 1.15 + Number(m.pressure || 0) * 0.35 + pesoCat + (mercadoOddReal(m) ? 5 : 0) - (mercadoCumprido(m, item) ? 80 : 0) - (expirou ? 90 : 0);
   }
 
   function proximoSinalAoVivo(item) {
@@ -1250,24 +1352,53 @@ export default function App() {
     const fouls = (stats.home.faltas || 0) + (stats.away.faltas || 0);
     const pressureScore = press + shots * 0.7 + onGoal * 2.5 + danger * 0.35;
 
+    const mkLive = (market, category, confidence, alert) => {
+      const m = mercadoSynthetic(item, market, category, confidence, alert, {
+        type: "live",
+        status: "AO VIVO",
+        nextSignal: true,
+        signalScope: min <= 45 ? "HT" : "FT"
+      });
+
+      const adjusted = ajustarConfiancaAoVivo(m, item);
+      return {
+        ...m,
+        confidence: adjusted,
+        confianca: adjusted,
+        alert: adjusted < 45 ? "⏳ PERDEU FORÇA" : alert
+      };
+    };
+
     const candidates = [];
 
-    if (gols < 1) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL • 1º GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 2) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL • +1 GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 3) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 4) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 1) candidates.push(mkLive("Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL • 1º GOL"));
+    if (gols < 2) candidates.push(mkLive("Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL • +1 GOL"));
+    if (gols < 3) candidates.push(mkLive("Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5"));
+    if (gols < 4) candidates.push(mkLive("Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5"));
 
     const { homeGoals, awayGoals } = placarPartes(item);
     if (!(homeGoals > 0 && awayGoals > 0)) {
-      candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4, "🔥 PRÓXIMO SINAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true }));
+      candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4 - (min >= 75 ? 12 : 0), "🔥 PRÓXIMO SINAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true, signalScope: min <= 45 ? "HT" : "FT" }));
     }
 
-    candidates.push(mercadoSynthetic(item, "Próximos escanteios", "CANTOS", 42 + corners * 5 + press * 0.28 + min * 0.08, "🚩 PRÓXIMO SINAL • CANTOS", { type: "live", status: "AO VIVO", nextSignal: true }));
-    candidates.push(mercadoSynthetic(item, "Próximos cartões", "CARTOES_FT", 34 + cards * 8 + fouls * 0.9 + (min >= 55 ? 8 : 0), "🟨 PRÓXIMO SINAL • CARTÕES", { type: "live", status: "AO VIVO", nextSignal: true }));
+    candidates.push(mercadoSynthetic(item, "Próximos escanteios", "CANTOS", 42 + corners * 5 + press * 0.28 + min * 0.08, "🚩 PRÓXIMO SINAL • CANTOS", { type: "live", status: "AO VIVO", nextSignal: true, signalScope: min <= 45 ? "HT" : "FT" }));
+    candidates.push(mercadoSynthetic(item, "Próximos cartões", "CARTOES_FT", 34 + cards * 8 + fouls * 0.9 + (min >= 55 ? 8 : 0), "🟨 PRÓXIMO SINAL • CARTÕES", { type: "live", status: "AO VIVO", nextSignal: true, signalScope: min <= 45 ? "HT" : "FT" }));
 
-    const baseNaoCumpridos = base.filter((m) => !mercadoCumprido(m, item));
+    const baseNaoCumpridos = base
+      .filter((m) => !mercadoCumprido(m, item))
+      .map((m) => {
+        const adjusted = ajustarConfiancaAoVivo(m, item);
+        return {
+          ...m,
+          confidence: adjusted || m.confidence,
+          confianca: adjusted || m.confianca,
+          alert: adjusted < 45 && metaGolsCategoria(categoriaMercado(m)) ? "⏳ PERDEU FORÇA" : (m.alert || mercadoStatus(m))
+        };
+      });
+
     const finalistas = [...baseNaoCumpridos, ...candidates]
-      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"));
+      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"))
+      .filter((m) => sinalAindaServeAoVivo(m, item) || ["CANTOS", "CARTÕES"].includes(categoriaMercado(m)));
 
     return finalistas
       .slice()
@@ -1378,7 +1509,7 @@ export default function App() {
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
           ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
+          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["VITORIA", "🏆 VITÓRIA"], ["HANDICAP", "🛡️ HANDICAP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -1452,8 +1583,8 @@ export default function App() {
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
                     <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
-                    <b>{strongest.market || strongest.mercado || categoriaMercado(strongest)}</b>
-                    <span>{strongest.alert || mercadoStatus(strongest)}</span>
+                    <b>{rotuloSinal(strongest)}</b>
+                    <span>{descricaoSinal(strongest, item)} • {strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
 
                   <div className="highlightSignalMeta">
@@ -1599,7 +1730,11 @@ export default function App() {
                       className={`liveBall ${liveMap.side} ${liveMap.intensity}`}
                       style={{
                         left: `${liveMap.ballX}%`,
-                        top: `${liveMap.ballY}%`
+                        top: `${liveMap.ballY}%`,
+                        "--from-x": `${liveMap.trailFrom}%`,
+                        "--to-x": `${liveMap.ballX}%`,
+                        "--from-y": `${limitar(liveMap.ballY + (liveMap.side === "home" ? 8 : -8), 15, 85)}%`,
+                        "--to-y": `${liveMap.ballY}%`
                       }}
                     >
                       <span
@@ -1655,8 +1790,8 @@ export default function App() {
                 <div className="marketsPanel">
                   {mercadosOrdenados(item).map((m, i) => (
                     <div key={i} className={`signalChip ${alertaForte(m) ? "strong" : ""} ${mercadoOddReal(m) ? "oddRealChip" : ""}`}>
-                      <b>{categoriaMercado(m)}</b>
-                      <span>{m.alert || mercadoStatus(m)}</span>
+                      <b>{rotuloSinal(m)}</b>
+                      <span>{descricaoSinal(m, item)} • {m.alert || mercadoStatus(m)}</span>
                       <strong>{m.confidence || 70}%</strong>
                       <em className={mercadoOddReal(m) ? "oddRealText" : ""}>
                         {mercadoOddReal(m) ? `Odd ${formatOdd(m)} • ${bookmakerDoMercado(m) || "Real"}` : "Sem odd"}
@@ -3855,5 +3990,136 @@ h1{
   .livePulse span{max-width:50%!important}
   .field3d.liveField{height:58px!important}
 }
+
+
+/* ===== AJUSTE FINAL MAKINE: SINAIS CLAROS, PRELIVE VIP, HT/FT E BOLA EM MOVIMENTO ===== */
+.highlightSignalText b,
+.signalChip b{
+  color:#fff!important;
+  letter-spacing:.1px!important;
+}
+
+.highlightSignalText span,
+.signalChip span{
+  white-space:normal!important;
+  line-height:1.15!important;
+}
+
+.signalChip{
+  min-height:44px!important;
+}
+
+.signalChip em{
+  align-self:end!important;
+}
+
+.liveBall{
+  animation:ballTouchMove 2.2s ease-in-out infinite!important;
+}
+
+.liveBall.high{
+  animation-duration:1.35s!important;
+}
+
+.liveBall.medium{
+  animation-duration:1.75s!important;
+}
+
+@keyframes ballTouchMove{
+  0%{
+    left:var(--from-x);
+    top:var(--from-y);
+    transform:translate(-50%,-50%) scale(.86);
+  }
+  38%{
+    left:var(--from-x);
+    top:var(--to-y);
+    transform:translate(-50%,-50%) scale(1);
+  }
+  72%{
+    left:var(--to-x);
+    top:var(--to-y);
+    transform:translate(-50%,-50%) scale(1.18);
+  }
+  100%{
+    left:var(--to-x);
+    top:var(--to-y);
+    transform:translate(-50%,-50%) scale(.94);
+  }
+}
+
+.attackTrail{
+  opacity:.95!important;
+  animation:trailPulse 1.4s ease-in-out infinite!important;
+}
+
+@keyframes trailPulse{
+  0%,100%{filter:brightness(.85);opacity:.55}
+  50%{filter:brightness(1.45);opacity:1}
+}
+
+.playerDot{
+  animation:playerSupportMove 2.4s ease-in-out infinite!important;
+}
+
+.playerDot:nth-of-type(odd){
+  animation-delay:.35s!important;
+}
+
+@keyframes playerSupportMove{
+  0%,100%{transform:translate(-50%,-50%) scale(.92);opacity:.72}
+  50%{transform:translate(-50%,-50%) scale(1.18);opacity:1}
+}
+
+.flowSpike.level-1{
+  opacity:.45!important;
+}
+
+.flowSpike.level-2{
+  opacity:.78!important;
+}
+
+.flowSpike.level-3{
+  opacity:1!important;
+  box-shadow:0 0 10px currentColor!important;
+}
+
+.flowPreliveTag{
+  display:inline-block!important;
+  margin-left:6px!important;
+  padding:1px 5px!important;
+  border-radius:999px!important;
+  background:#7c2d12!important;
+  color:#facc15!important;
+  font-size:7px!important;
+  vertical-align:middle!important;
+}
+
+.preliveMinute{
+  background:#7c2d12!important;
+  color:#facc15!important;
+}
+
+.noOddsBadge,
+.noEventsBadge,
+.estimatedStatsBadge{
+  opacity:.88!important;
+}
+
+/* chips pre-live mais legiveis */
+.signalChip strong{
+  min-width:34px!important;
+}
+
+@media(max-width:700px){
+  .signalChip{
+    min-height:42px!important;
+  }
+  .highlightSignalText span,
+  .signalChip span{
+    font-size:7.2px!important;
+  }
+}
+
 
 `;
