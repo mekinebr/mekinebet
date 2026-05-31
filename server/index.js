@@ -79,6 +79,12 @@ function todayISO(offset = 0) {
   return d.toISOString().slice(0, 10);
 }
 
+function oddsApiIso(date = new Date()) {
+  // The Odds API exige YYYY-MM-DDTHH:MM:SSZ, sem milissegundos.
+  // Exemplo aceito: 2020-11-24T16:05:00Z
+  return new Date(date).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 function isLive(short = "") {
   return ["1H", "2H", "HT", "ET", "BT", "P", "LIVE"].includes(
     String(short).toUpperCase()
@@ -1563,27 +1569,15 @@ async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
     regions: THE_ODDS_REGIONS,
     oddsFormat: "decimal",
     dateFormat: "iso",
-    commenceTimeFrom: now.toISOString(),
-    commenceTimeTo: future.toISOString()
+    commenceTimeFrom: oddsApiIso(now),
+    commenceTimeTo: oddsApiIso(future)
   };
 
-  const regionAttempts = uniqueText([
-    THE_ODDS_REGIONS,
-    "us,us2,uk,eu,au",
-    "us",
-    "uk",
-    "eu",
-    "au"
-  ]);
-
-  // O endpoint principal aceita h2h, spreads e totals. Se qualquer mercado configurado falhar,
-  // reduzimos para h2h para ainda puxar os jogos reais e não zerar o painel.
-  const marketAttempts = uniqueText([
-    THE_ODDS_MARKETS,
-    "h2h,totals,spreads",
-    "h2h,totals",
-    "h2h"
-  ]);
+  // Evita estourar limite de requisições:
+  // tenta primeiro a configuração principal; se não achar, tenta somente h2h.
+  // Sem loop por várias regiões/mercados, porque a The Odds API bloqueia por frequência.
+  const regionAttempts = uniqueText([THE_ODDS_REGIONS || "us"]);
+  const marketAttempts = uniqueText([THE_ODDS_MARKETS || "h2h,totals,spreads", "h2h"]);
 
   for (const regions of regionAttempts) {
     for (const markets of marketAttempts) {
@@ -1594,6 +1588,12 @@ async function getTheOddsRowsForSport(sportKey, preferredKeyIndex = 0) {
       }, preferredKeyIndex);
 
       if (rows.length) return rows;
+
+      // Se a requisição respondeu OK vazia, não fica batendo em variações infinitas.
+      // Passa para a próxima liga para preservar quota.
+      if (providerDiagnostics.theOdds.some((d) => d.path === `/sports/${sportKey}/odds` && d.ok === true)) {
+        return [];
+      }
     }
   }
 
@@ -1604,7 +1604,11 @@ async function getTheOddsFixtures() {
   if (!ODDS_API_KEYS.length || !ODDS_ENABLED) return [];
 
   const output = [];
-  const sportKeys = (await getTheOddsSports()).slice(0, Number(process.env.ODDS_MAX_SPORTS || 80));
+  const maxSports = Number(process.env.ODDS_MAX_SPORTS || 12);
+  const discoveredSports = await getTheOddsSports();
+  const sportKeys = uniqueText([...THE_ODDS_SPORT_KEYS, ...discoveredSports])
+    .filter((key) => String(key || "").startsWith("soccer_"))
+    .slice(0, maxSports);
 
   for (let i = 0; i < sportKeys.length && output.length < MAX_PRELIVE_GAMES; i += 1) {
     const sportKey = sportKeys[i];
