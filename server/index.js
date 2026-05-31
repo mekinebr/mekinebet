@@ -14,6 +14,8 @@ const API_KEY =
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
 const MAX_GAMES = Number(process.env.MAX_LIVE_GAMES || 9);
+const MAX_PRELIVE_GAMES = Number(process.env.MAX_PRELIVE_GAMES || 18);
+const PRELIVE_HOURS = Number(process.env.PRELIVE_HOURS || 24);
 const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
 const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !== "false";
 const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
@@ -57,6 +59,125 @@ function isLive(short = "") {
   return ["1H", "2H", "HT", "ET", "BT", "P", "LIVE"].includes(
     String(short).toUpperCase()
   );
+}
+
+function isFinished(short = "") {
+  return [
+    "FT",
+    "AET",
+    "PEN",
+    "CANC",
+    "PST",
+    "SUSP",
+    "ABD",
+    "AWD",
+    "WO"
+  ].includes(String(short).toUpperCase());
+}
+
+function fixtureStartDate(row = {}) {
+  const timestamp = Number(row?.fixture?.timestamp || 0);
+  if (timestamp > 0) return new Date(timestamp * 1000);
+
+  const raw = row?.fixture?.date || row?.fixture?.timezone || "";
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isFutureFixture(row = {}) {
+  const short = String(row?.fixture?.status?.short || "").toUpperCase();
+  if (isLive(short) || isFinished(short)) return false;
+
+  const d = fixtureStartDate(row);
+  if (!d) return ["NS", "TBD"].includes(short);
+
+  return d.getTime() >= Date.now() - 15 * 60 * 1000;
+}
+
+function isWithinNextHours(row = {}, hours = PRELIVE_HOURS) {
+  const d = fixtureStartDate(row);
+  if (!d) return true;
+
+  const diffHours = (d.getTime() - Date.now()) / 36e5;
+  return diffHours >= -0.25 && diffHours <= hours;
+}
+
+function fixtureKey(row = {}) {
+  return String(row?.fixture?.id || `${row?.teams?.home?.name || ""}-${row?.teams?.away?.name || ""}-${row?.fixture?.date || ""}`);
+}
+
+function uniqueFixtures(rows = []) {
+  const map = new Map();
+  rows.filter(Boolean).forEach((row) => {
+    const key = fixtureKey(row);
+    if (key && !map.has(key)) map.set(key, row);
+  });
+  return Array.from(map.values());
+}
+
+function liveScope(minute = 0) {
+  const m = Number(minute || 0);
+  if (m > 0 && m <= 45) return "HT";
+  return "FT";
+}
+
+function goalsNeededFor(category = "") {
+  const cat = String(category || "").toUpperCase();
+  if (cat === "OVER05") return 1;
+  if (cat === "OVER15") return 2;
+  if (cat === "OVER25") return 3;
+  if (cat === "OVER35") return 4;
+  return null;
+}
+
+function applyLiveDecay(raw, category, ctx) {
+  if (ctx.type !== "live") return Math.round(clamp(raw, 30, 92));
+
+  const target = goalsNeededFor(category);
+  if (!target) return Math.round(clamp(raw, 25, 90));
+
+  const needed = Math.max(0, target - ctx.totalGoals);
+  if (needed <= 0) return 96;
+
+  const minute = Number(ctx.minute || 0);
+  const remaining = Math.max(0, 95 - minute);
+
+  let maxCap = 92;
+  if (needed >= 1 && minute >= 75) maxCap = Math.min(maxCap, 74);
+  if (needed >= 1 && minute >= 85) maxCap = Math.min(maxCap, 62);
+  if (needed >= 2 && minute >= 55) maxCap = Math.min(maxCap, 68);
+  if (needed >= 2 && minute >= 70) maxCap = Math.min(maxCap, 52);
+  if (needed >= 2 && minute >= 80) maxCap = Math.min(maxCap, 38);
+  if (needed >= 3 && minute >= 45) maxCap = Math.min(maxCap, 55);
+  if (needed >= 3 && minute >= 65) maxCap = Math.min(maxCap, 36);
+  if (needed >= 3 && minute >= 75) maxCap = Math.min(maxCap, 24);
+
+  if (target >= 3 && ctx.totalGoals === 0 && minute >= 60) maxCap = Math.min(maxCap, 42);
+  if (target >= 3 && ctx.totalGoals === 0 && minute >= 75) maxCap = Math.min(maxCap, 26);
+  if (target >= 4 && ctx.totalGoals <= 1 && minute >= 60) maxCap = Math.min(maxCap, 34);
+
+  const timePenalty = Math.max(0, minute - 12) * needed * (target >= 3 ? 0.55 : 0.38);
+  const pressureRescue = Math.min(10, (ctx.pressure || 0) / 12);
+  const adjusted = raw - timePenalty + pressureRescue + Math.min(8, remaining / 10);
+
+  return Math.round(clamp(adjusted, 5, maxCap));
+}
+
+function marketScopeLabel(category, market, ctx) {
+  if (ctx.type !== "live") return market;
+
+  const cat = String(category || "").toUpperCase();
+  const scope = liveScope(ctx.minute);
+
+  if (["OVER05", "OVER15", "OVER25", "OVER35"].includes(cat)) {
+    return `${market} ${scope}`;
+  }
+
+  if (cat === "BTTS") return `BTTS ${scope}`;
+  if (cat === "CANTOS_FT") return scope === "HT" ? "Cantos HT" : "Cantos FT";
+  if (cat === "CARTOES_FT") return scope === "HT" ? "Cartões HT" : "Cartões FT";
+
+  return market;
 }
 
 function hasApiErrors(errors) {
@@ -666,42 +787,87 @@ function confidence(category, ctx) {
 
   const shots = home.finalizacoes + away.finalizacoes;
   const onGoal = home.noGol + away.noGol;
+  const dangerous = home.perigosos + away.perigosos;
   const corners = home.cantos + away.cantos;
   const cards = home.cartoes + away.cartoes;
   const fouls = home.faltas + away.faltas;
-  const pre = type === "prelive" ? 3 : 0;
+  const pre = type === "prelive" ? 6 : 0;
 
   if (category === "OVER05") {
     if (totalGoals >= 1) return 96;
-    return Math.round(clamp(34 + pressure * 0.28 + onGoal * 3 + shots * 0.45 + pre, 35, 86));
+    const raw = 34 + pressure * 0.28 + onGoal * 3 + shots * 0.45 + dangerous * 0.12 + pre;
+    return applyLiveDecay(raw, category, ctx);
   }
 
   if (category === "OVER15") {
     if (totalGoals >= 2) return 96;
-    return Math.round(clamp(28 + pressure * 0.26 + totalGoals * 10 + onGoal * 2.4 + shots * 0.35 + pre, 30, 84));
+    const raw = 28 + pressure * 0.26 + totalGoals * 9 + onGoal * 2.5 + shots * 0.38 + dangerous * 0.10 + pre;
+    return applyLiveDecay(raw, category, ctx);
   }
 
   if (category === "OVER25") {
     if (totalGoals >= 3) return 96;
-    return Math.round(clamp(22 + pressure * 0.24 + totalGoals * 9 + onGoal * 2 + shots * 0.28 + pre, 25, 80));
+    const raw = 22 + pressure * 0.23 + totalGoals * 8 + onGoal * 1.9 + shots * 0.30 + dangerous * 0.08 + pre;
+    return applyLiveDecay(raw, category, ctx);
   }
 
   if (category === "OVER35") {
     if (totalGoals >= 4) return 96;
-    return Math.round(clamp(16 + pressure * 0.2 + totalGoals * 8 + onGoal * 1.6 + pre, 18, 72));
+    const raw = 16 + pressure * 0.19 + totalGoals * 7 + onGoal * 1.45 + shots * 0.22 + dangerous * 0.05 + pre;
+    return applyLiveDecay(raw, category, ctx);
   }
 
   if (category === "BTTS") {
     if (homeGoals > 0 && awayGoals > 0) return 96;
-    return Math.round(clamp(28 + Math.min(home.perigosos, away.perigosos) * 1.1 + onGoal * 2 + pre, 28, 82));
+
+    let raw =
+      28 +
+      Math.min(home.perigosos, away.perigosos) * 1.1 +
+      Math.min(home.finalizacoes, away.finalizacoes) * 0.9 +
+      Math.min(home.noGol, away.noGol) * 4 +
+      onGoal * 0.7 +
+      pre;
+
+    if (type === "live") {
+      if (minute >= 70 && (homeGoals === 0 || awayGoals === 0)) raw -= 14;
+      if (minute >= 82 && (homeGoals === 0 || awayGoals === 0)) raw -= 22;
+    }
+
+    return Math.round(clamp(raw, 20, type === "live" && minute >= 82 ? 58 : 82));
+  }
+
+  if (category === "MAIS_GOL") {
+    const raw = 35 + pressure * 0.33 + onGoal * 2.5 + shots * 0.35 + dangerous * 0.16 + pre;
+    return Math.round(clamp(type === "live" && minute >= 82 ? raw - 12 : raw, 35, type === "live" && minute >= 88 ? 68 : 88));
   }
 
   if (category === "CANTOS_FT") {
-    return Math.round(clamp(32 + corners * 5 + pressure * 0.18 + pre, 35, 86));
+    return Math.round(clamp(32 + corners * 5 + pressure * 0.18 + dangerous * 0.08 + pre, 35, 86));
   }
 
   if (category === "CARTOES_FT") {
-    return Math.round(clamp(28 + cards * 10 + fouls * 1.1 + (minute >= 55 ? 6 : 0), 30, 82));
+    return Math.round(clamp(28 + cards * 10 + fouls * 1.1 + (minute >= 55 ? 6 : 0) + pre, 30, 82));
+  }
+
+  if (category === "VITORIA" || category === "HANDICAP") {
+    const homePower =
+      home.finalizacoes * 2 +
+      home.noGol * 5 +
+      home.perigosos * 1.4 +
+      home.cantos * 1.5 +
+      home.ataques * 0.25 +
+      home.posse * 0.12;
+    const awayPower =
+      away.finalizacoes * 2 +
+      away.noGol * 5 +
+      away.perigosos * 1.4 +
+      away.cantos * 1.5 +
+      away.ataques * 0.25 +
+      away.posse * 0.12;
+
+    const edge = Math.abs(homePower - awayPower) / Math.max(1, homePower + awayPower);
+    const raw = 52 + edge * 70 + pre + (category === "HANDICAP" ? 4 : 0);
+    return Math.round(clamp(raw, 52, category === "HANDICAP" ? 86 : 82));
   }
 
   return Math.round(clamp((pressure + 60) / 2, 45, 88));
@@ -709,10 +875,14 @@ function confidence(category, ctx) {
 
 function alertText(category, conf, ctx) {
   if (ctx.type === "prelive") {
-    if (conf >= 82) return "🔥 PRÉ-LIVE FORTE";
-    if (conf >= 70) return "📊 PRÉ-LIVE BOM";
-    return "👀 PRÉ-LIVE MONITORANDO";
+    if (conf >= 84) return "🔐 VIP PRÉ-LIVE • FORTE";
+    if (conf >= 72) return "🔐 VIP PRÉ-LIVE • BOM";
+    return "🔐 VIP PRÉ-LIVE • OBSERVAR";
   }
+
+  const scope = liveScope(ctx.minute);
+  const target = goalsNeededFor(category);
+  const needed = target ? Math.max(0, target - ctx.totalGoals) : null;
 
   if (category === "OVER05" && ctx.totalGoals >= 1) return "✅ GREEN";
   if (category === "OVER15" && ctx.totalGoals >= 2) return "✅ GREEN";
@@ -720,10 +890,15 @@ function alertText(category, conf, ctx) {
   if (category === "OVER35" && ctx.totalGoals >= 4) return "✅ GREEN";
   if (category === "BTTS" && ctx.homeGoals > 0 && ctx.awayGoals > 0) return "✅ GREEN";
 
-  if (conf >= 88) return "🚨 SINAL MUITO FORTE";
-  if (conf >= 78) return "🔥 SINAL FORTE";
+  if (target && conf < 45) return `⏳ ${scope} PERDEU FORÇA`;
+  if (target && needed >= 2 && ctx.minute >= 70) return `⚠️ ${scope} SÓ COM PRESSÃO FORTE`;
 
-  return "📊 MONITORANDO";
+  if (conf >= 88) return `🚨 ${scope} SINAL MUITO FORTE`;
+  if (conf >= 78) return `🔥 ${scope} SINAL FORTE`;
+  if (category === "CANTOS_FT") return `🚩 ${scope} CANTOS`;
+  if (category === "CARTOES_FT") return `🟨 ${scope} CARTÕES`;
+
+  return `📊 ${scope} MONITORANDO`;
 }
 
 function buildSignals(
@@ -775,6 +950,9 @@ function buildSignals(
     league: league?.name || "Futebol",
     country: league?.country || "",
     score: `${homeGoals} - ${awayGoals}`,
+    fixtureDate: fixture?.date || "",
+    startTime: fixture?.date || "",
+    timestamp: fixture?.timestamp || null,
     minute,
     status: type === "live" ? "AO VIVO" : "PRÉ-LIVE",
     type,
@@ -826,29 +1004,47 @@ function buildSignals(
     type
   };
 
-  const markets = [
+  const liveMarkets = [
     ["OVER05", "Over 0.5", "OVER 0,5"],
     ["OVER15", "Over 1.5", "OVER 1,5"],
     ["OVER25", "Over 2.5", "OVER 2,5"],
     ["OVER35", "Over 3.5", "OVER 3,5"],
     ["BTTS", "BTTS", "BTTS"],
-    ["CANTOS_FT", "Cantos FT", "CANTOS"],
-    ["CARTOES_FT", "Cartões FT", "CARTÕES"]
+    ["MAIS_GOL", "Mais gol", "MAIS GOL"],
+    ["CANTOS_FT", "Cantos", "CANTOS"],
+    ["CARTOES_FT", "Cartões", "CARTÕES"]
   ];
+
+  const preliveMarkets = [
+    ["OVER15", "Over 1.5", "OVER 1,5"],
+    ["OVER25", "Over 2.5", "OVER 2,5"],
+    ["OVER35", "Over 3.5", "OVER 3,5"],
+    ["BTTS", "Ambas marcam", "AMBAS"],
+    ["MAIS_GOL", "Mais gol na partida", "MAIS GOL"],
+    ["CANTOS_FT", "Cantos FT", "CANTOS"],
+    ["CARTOES_FT", "Cartões FT", "CARTÕES"],
+    ["VITORIA", "Vitória provável", "VITÓRIA"],
+    ["HANDICAP", "Handicap / Dupla chance", "HANDICAP"]
+  ];
+
+  const markets = type === "prelive" ? preliveMarkets : liveMarkets;
 
   let signals = markets.map(([category, market, label]) => {
     const conf = confidence(category, ctx);
     const oddInfo = getOddInfo(safeOddsPack, category);
+    const displayMarket = marketScopeLabel(category, market, ctx);
 
     return {
       ...base,
       id: `${fixtureId}-${category}`,
       signalId: `${fixtureId}-${category}`,
-      market,
-      mercado: market,
+      market: displayMarket,
+      mercado: displayMarket,
+      rawMarket: market,
       category,
       categoria: category,
       categoryLabel: label,
+      signalScope: type === "live" ? liveScope(minute) : "PRELIVE",
       confidence: conf,
       confianca: conf,
       pressure,
@@ -892,9 +1088,9 @@ function buildSignals(
   });
 
   signals = signals
-    .filter((s) => s.confidence >= 55)
+    .filter((s) => s.confidence >= (type === "prelive" ? 58 : 55))
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 4);
+    .slice(0, type === "prelive" ? 9 : 4);
 
   return signals;
 }
@@ -919,49 +1115,65 @@ function fallbackFixtures() {
 }
 
 async function getFixtures() {
-  let fixtures = [];
+  let liveFixtures = [];
+  let preliveFixtures = [];
   let mode = "live";
 
   if (API_KEY) {
     try {
-      fixtures = await apiFootballGet("/fixtures?live=all");
+      liveFixtures = await apiFootballGet("/fixtures?live=all");
     } catch (e) {
       console.log("Erro live:", e.message);
     }
 
-    if (!fixtures.length) {
-      mode = "today";
+    const fetchByDate = async (offset) => {
       try {
-        fixtures = await apiFootballGet(
-          `/fixtures?date=${todayISO()}&timezone=America/Sao_Paulo`
+        return await apiFootballGet(
+          `/fixtures?date=${todayISO(offset)}&timezone=America/Sao_Paulo`
         );
       } catch (e) {
-        console.log("Erro today:", e.message);
+        console.log(`Erro fixtures date ${offset}:`, e.message);
+        return [];
       }
-    }
+    };
 
-    if (!fixtures.length) {
-      mode = "tomorrow";
-      try {
-        fixtures = await apiFootballGet(
-          `/fixtures?date=${todayISO(1)}&timezone=America/Sao_Paulo`
-        );
-      } catch (e) {
-        console.log("Erro tomorrow:", e.message);
-      }
-    }
+    const [todayRows, tomorrowRows] = await Promise.all([fetchByDate(0), fetchByDate(1)]);
 
-    if (!fixtures.length) {
-      mode = "next";
+    preliveFixtures = uniqueFixtures([...todayRows, ...tomorrowRows])
+      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS))
+      .sort((a, b) => {
+        const da = fixtureStartDate(a)?.getTime() || 0;
+        const db = fixtureStartDate(b)?.getTime() || 0;
+        return da - db;
+      });
+
+    if (!liveFixtures.length && !preliveFixtures.length) {
       try {
-        fixtures = await apiFootballGet(
-          `/fixtures?next=${MAX_GAMES}&timezone=America/Sao_Paulo`
+        const nextRows = await apiFootballGet(
+          `/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=America/Sao_Paulo`
         );
+
+        preliveFixtures = uniqueFixtures(nextRows)
+          .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
       } catch (e) {
         console.log("Erro next:", e.message);
       }
     }
   }
+
+  liveFixtures = uniqueFixtures(liveFixtures)
+    .filter((row) => isLive(row?.fixture?.status?.short || ""))
+    .slice(0, MAX_GAMES);
+
+  preliveFixtures = uniqueFixtures(preliveFixtures)
+    .filter((row) => !liveFixtures.some((live) => fixtureKey(live) === fixtureKey(row)))
+    .slice(0, MAX_PRELIVE_GAMES);
+
+  let fixtures = uniqueFixtures([...liveFixtures, ...preliveFixtures]);
+
+  if (liveFixtures.length && preliveFixtures.length) mode = "live+prelive24";
+  else if (liveFixtures.length) mode = "live";
+  else if (preliveFixtures.length) mode = "prelive24";
 
   if (!fixtures.length) {
     mode = "fallback-ia";
