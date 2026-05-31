@@ -647,6 +647,11 @@ export default function App() {
     return Number(nums[0] || 0) + Number(nums[1] || 0);
   }
 
+  function placarPartes(item) {
+    const nums = String(item.score || "0-0").match(/\d+/g) || [0, 0];
+    return { homeGoals: Number(nums[0] || 0), awayGoals: Number(nums[1] || 0) };
+  }
+
   function minuto(item) {
     return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
   }
@@ -776,6 +781,9 @@ export default function App() {
     if (market.includes("1.5") || market.includes("1,5") || category.includes("over15")) return "OVER 1,5";
     if (market.includes("2.5") || market.includes("2,5") || category.includes("over25")) return "OVER 2,5";
     if (market.includes("3.5") || market.includes("3,5") || category.includes("over35")) return "OVER 3,5";
+    if (market.includes("mais gol") || category.includes("mais_gol")) return "MAIS GOL";
+    if (category.includes("cantos_inicio") || market.includes("primeiros minutos") && (market.includes("canto") || market.includes("corner"))) return "CANTOS INÍCIO";
+    if (category.includes("cartoes_inicio") || category.includes("cartoes_inicio") || market.includes("primeiros minutos") && (market.includes("cart") || market.includes("card"))) return "CARTÕES INÍCIO";
     if (market.includes("cart") || market.includes("card") || category.includes("cart")) return "CARTÕES";
     if (market.includes("canto") || market.includes("corner") || category.includes("canto")) return "CANTOS";
     if (market.includes("btts") || market.includes("ambas") || category.includes("btts")) return "BTTS";
@@ -1056,20 +1064,41 @@ export default function App() {
     const cardsBase = (stats.home.cartoes + stats.away.cartoes) * 8 + (stats.home.faltas || 0) * 0.55 + (stats.away.faltas || 0) * 0.55 + 35;
 
     const suggestions = [
-      mercadoSynthetic(item, "Over 0.5 pré-live", "OVER05", golsBase + 10, "🔐 VIP 24H • OVER 0,5"),
-      mercadoSynthetic(item, "Over 1.5 pré-live", "OVER15", golsBase + 4, "🔐 VIP 24H • OVER 1,5"),
-      mercadoSynthetic(item, "Over 2.5 pré-live", "OVER25", golsBase - 5, "🔐 VIP 24H • OVER 2,5"),
+      mercadoSynthetic(item, "Mais de 1.5 gols", "OVER15", golsBase + 7, "🔐 VIP 24H • +1,5 GOLS"),
+      mercadoSynthetic(item, "Mais de 2.5 gols", "OVER25", golsBase - 1, "🔐 VIP 24H • +2,5 GOLS"),
+      mercadoSynthetic(item, "Mais de 3.5 gols", "OVER35", golsBase - 10, "🔐 VIP 24H • +3,5 GOLS"),
+      mercadoSynthetic(item, "Mais gol na partida", "MAIS_GOL", golsBase + 11, "🔐 VIP 24H • MAIS GOL"),
       mercadoSynthetic(item, "Ambas marcam", "BTTS", bttsBase, "🔐 VIP 24H • AMBAS MARCAM"),
+      mercadoSynthetic(item, "Escanteios FT", "CANTOS", cantosBase, "🔐 VIP 24H • ESCANTEIOS FT"),
+      mercadoSynthetic(item, "Escanteios nos primeiros minutos", "CANTOS_INICIO", cantosBase - 2, "🔐 VIP 24H • CANTOS INÍCIO"),
+      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • CARTÕES FT"),
+      mercadoSynthetic(item, "Cartões nos primeiros minutos", "CARTOES_INICIO", cardsBase - 6, "🔐 VIP 24H • CARTÕES INÍCIO"),
       mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", conf + balance * 40 + Math.abs(homeEdge) * 0.06, `🔐 VIP 24H • VITÓRIA ${favShort.toUpperCase()}`),
-      mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", conf + balance * 32 + 6, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`),
-      mercadoSynthetic(item, "Escanteios FT", "CANTOS", cantosBase, "🔐 VIP 24H • ESCANTEIOS"),
-      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", cardsBase, "🔐 VIP 24H • CARTÕES")
+      mercadoSynthetic(item, `Dupla chance ${favShort}`, "HANDICAP", conf + balance * 32 + 6, `🔐 VIP 24H • DUPLA CHANCE ${favShort.toUpperCase()}`)
     ];
 
+    const ordemPreLive = {
+      OVER15: 1,
+      OVER25: 2,
+      OVER35: 3,
+      MAIS_GOL: 4,
+      BTTS: 5,
+      CANTOS: 6,
+      CANTOS_INICIO: 7,
+      CARTOES_FT: 8,
+      CARTOES_INICIO: 9,
+      VITORIA: 10,
+      HANDICAP: 11
+    };
+
     return suggestions
-      .filter((m) => Number(m.confidence || 0) >= 62)
-      .sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))
-      .slice(0, 6);
+      .filter((m) => Number(m.confidence || 0) >= 60)
+      .sort((a, b) => {
+        const scoreA = Number(a.confidence || 0) + (100 - (ordemPreLive[a.category] || 99)) * 0.08;
+        const scoreB = Number(b.confidence || 0) + (100 - (ordemPreLive[b.category] || 99)) * 0.08;
+        return scoreB - scoreA;
+      })
+      .slice(0, 8);
   }
 
   function mercadosDoItem(item) {
@@ -1196,19 +1225,57 @@ export default function App() {
     return Number(m.confidence || 0) * 1.1 + Number(m.pressure || 0) * 0.55 + pesoCat + (mercadoOddReal(m) ? 5 : 0) - (mercadoCumprido(m, item) ? 60 : 0);
   }
 
-  function melhorMercado(item) {
-    const lista = mercadosDoItem(item);
-    const live = jogoAoVivo(item);
-    const candidatos = live ? lista.filter((m) => !mercadoCumprido(m, item)) : lista;
-    const finalistas = candidatos.length ? candidatos : lista;
+  function proximoSinalAoVivo(item) {
+    const gols = totalGols(item);
+    const min = minuto(item);
+    const stats = statsDoJogo(item);
+    const base = mercadosBaseDoItem(item);
+    const best = melhorMercadoBase(item);
+    const press = Number(best.pressure || item.pressure || 70);
+    const conf = Number(best.confidence || item.confidence || 70);
+    const shots = stats.home.finalizacoes + stats.away.finalizacoes;
+    const onGoal = stats.home.noGol + stats.away.noGol;
+    const danger = stats.home.perigosos + stats.away.perigosos;
+    const corners = stats.home.cantos + stats.away.cantos;
+    const cards = stats.home.cartoes + stats.away.cartoes;
+    const fouls = (stats.home.faltas || 0) + (stats.away.faltas || 0);
+    const pressureScore = press + shots * 0.7 + onGoal * 2.5 + danger * 0.35;
+
+    const candidates = [];
+
+    if (gols < 1) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL • 1º GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 2) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL • +1 GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 3) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 4) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+
+    const { homeGoals, awayGoals } = placarPartes(item);
+    if (!(homeGoals > 0 && awayGoals > 0)) {
+      candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4, "🔥 PRÓXIMO SINAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true }));
+    }
+
+    candidates.push(mercadoSynthetic(item, "Próximos escanteios", "CANTOS", 42 + corners * 5 + press * 0.28 + min * 0.08, "🚩 PRÓXIMO SINAL • CANTOS", { type: "live", status: "AO VIVO", nextSignal: true }));
+    candidates.push(mercadoSynthetic(item, "Próximos cartões", "CARTOES_FT", 34 + cards * 8 + fouls * 0.9 + (min >= 55 ? 8 : 0), "🟨 PRÓXIMO SINAL • CARTÕES", { type: "live", status: "AO VIVO", nextSignal: true }));
+
+    const baseNaoCumpridos = base.filter((m) => !mercadoCumprido(m, item));
+    const finalistas = [...baseNaoCumpridos, ...candidates]
+      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"));
 
     return finalistas
+      .slice()
+      .sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0] || best || item;
+  }
+
+  function melhorMercado(item) {
+    if (jogoAoVivo(item)) return proximoSinalAoVivo(item);
+
+    const lista = mercadosDoItem(item);
+    return lista
       .slice()
       .sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0] || item;
   }
 
   function mercadosOrdenados(item) {
-    const ordem = { "TOP IA": 0, "GOLS": 1, "OVER 0,5": 2, "OVER 1,5": 3, "OVER 2,5": 4, "OVER 3,5": 5, "BTTS": 6, "VITÓRIA": 7, "HANDICAP": 8, "CANTOS": 9, "CARTÕES": 10 };
+    const ordem = { "TOP IA": 0, "MAIS GOL": 1, "GOLS": 2, "OVER 1,5": 3, "OVER 2,5": 4, "OVER 3,5": 5, "BTTS": 6, "CANTOS": 7, "CANTOS INÍCIO": 8, "CARTÕES": 9, "CARTÕES INÍCIO": 10, "VITÓRIA": 11, "HANDICAP": 12, "OVER 0,5": 13 };
     return mercadosDoItem(item)
       .slice()
       .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
@@ -1227,7 +1294,7 @@ export default function App() {
 
         if (filtro === "TODOS") return jogoAoVivo(item);
         if (filtro === "LIVE") return jogoAoVivo(item);
-        if (preLive && !["VIP", "HISTORICO"].includes(filtro)) return false;
+        if (preLive && filtro !== "HISTORICO") return false;
         if (filtro === "ALERTA") return jogoTemAlerta(item);
         if (filtro === "OVER05") return jogoTemCategoria(item, "OVER 0,5");
         if (filtro === "OVER15") return jogoTemCategoria(item, "OVER 1,5");
@@ -1239,7 +1306,7 @@ export default function App() {
         if (filtro === "VITORIA") return jogoTemCategoria(item, "VITÓRIA");
         if (filtro === "HANDICAP") return jogoTemCategoria(item, "HANDICAP");
         if (filtro === "TOP IA") return jogoTemCategoria(item, "TOP IA") || mercadosDoItem(item).some((m) => (m.confidence || 0) >= 82);
-        if (filtro === "VIP") return preLiveVip || (jogoAoVivo(item) && mercadosDoItem(item).some((m) => isVip(m)));
+        if (filtro === "VIP") return jogoAoVivo(item) && mercadosDoItem(item).some((m) => isVip(m));
         if (filtro === "REAL") return jogoStatsReal(item);
         if (filtro === "EVENTOS") return jogoEventosReal(item);
         if (filtro === "ODDS") return jogoOddReal(item);
