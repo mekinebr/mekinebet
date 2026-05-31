@@ -499,103 +499,104 @@ export default function App() {
   function buildLiveMapState(item, index = 0) {
     const live = item.type === "live";
     const times = timesDoJogo(item);
+    const stats = statsDoJogo(item);
+    const current = live ? limitar(minuto(item) || 1, 1, 90) : 0;
 
     if (!live) {
       return {
         live: false,
         side: "neutral",
         intensity: "idle",
-        label: "Projeção VIP pré-live",
-        detail: "Jogo ainda não começou",
-        possessionTeam: "Pré-live",
-        ballOwner: "Sem posse ao vivo",
-        playType: "Projeção de mercado",
+        label: "Sinal VIP pré-live",
+        detail: "Jogo ainda vai começar",
+        possessionTeam: "Pré-live VIP",
+        ballOwner: "Projeção IA",
+        playType: "Mercados prováveis",
         ballX: 50,
         ballY: 50,
-        trailFrom: 49,
-        trailTo: 51,
+        trailFrom: 45,
+        trailTo: 55,
         supportDots: [
-          { x: 42, y: 45, team: "home" },
-          { x: 58, y: 55, team: "away" }
+          { x: 42, y: 42, team: "home" },
+          { x: 58, y: 58, team: "away" },
+          { x: 50, y: 50, team: "neutral" }
         ]
       };
     }
 
-    const stats = statsDoJogo(item);
-    const current = limitar(minuto(item) || 1, 1, 90);
-    const history = eventosDoJogo(item).filter(
-      (ev) => Number(ev.minute || 0) <= current
-    );
+    const events = eventosDoJogo(item)
+      .filter((ev) => Number(ev.minute || 0) <= current)
+      .sort((a, b) => Number(a.minute || 0) - Number(b.minute || 0));
 
-    const lastEvent = history.slice().reverse()[0] || null;
-    let side = "home";
+    const recentEvent = events
+      .slice()
+      .reverse()
+      .find((ev) => current - Number(ev.minute || 0) <= 3) || null;
 
-    if (lastEvent?.side === "home" || lastEvent?.side === "away") {
-      side = lastEvent.side;
-    } else if (lastEvent?.teamName) {
-      const teamName = normalizar(lastEvent.teamName);
-      if (teamName === normalizar(times.fora)) side = "away";
-      if (teamName === normalizar(times.casa)) side = "home";
+    const homeForce =
+      stats.home.ataques * 0.4 +
+      stats.home.perigosos * 1.6 +
+      stats.home.finalizacoes * 2.2 +
+      stats.home.noGol * 6 +
+      stats.home.cantos * 2.5;
+
+    const awayForce =
+      stats.away.ataques * 0.4 +
+      stats.away.perigosos * 1.6 +
+      stats.away.finalizacoes * 2.2 +
+      stats.away.noGol * 6 +
+      stats.away.cantos * 2.5;
+
+    let side;
+
+    if (recentEvent) {
+      side = eventoTeam(recentEvent, times);
     } else {
-      const homeForce =
-        stats.home.ataques +
-        stats.home.perigosos * 1.4 +
-        stats.home.noGol * 8 +
-        stats.home.finalizacoes * 2;
-
-      const awayForce =
-        stats.away.ataques +
-        stats.away.perigosos * 1.4 +
-        stats.away.noGol * 8 +
-        stats.away.finalizacoes * 2;
-
-      side = homeForce >= awayForce ? "home" : "away";
+      // Simula o estado vivo do campo com base no minuto, pressão e força ofensiva.
+      // Assim a bola não fica presa no último evento antigo da API.
+      const balance = (homeForce - awayForce) / Math.max(1, homeForce + awayForce);
+      const rhythm =
+        Math.sin((current + index * 3) / 2.8) +
+        Math.cos((current + stats.home.ataques + stats.away.ataques) / 4.6) +
+        balance * 1.8;
+      side = rhythm >= 0 ? "home" : "away";
     }
 
-    const teamStats = side === "home" ? stats.home : stats.away;
-    const evtText = `${lastEvent?.type || ""} ${lastEvent?.detail || ""} ${lastEvent?.category || ""}`.toLowerCase();
+    const active = side === "home" ? stats.home : stats.away;
+    const passive = side === "home" ? stats.away : stats.home;
+    const activeForce =
+      active.ataques * 0.35 +
+      active.perigosos * 1.65 +
+      active.finalizacoes * 2.3 +
+      active.noGol * 6.5 +
+      active.cantos * 2.4;
+    const passiveForce =
+      passive.ataques * 0.28 +
+      passive.perigosos * 1.25 +
+      passive.finalizacoes * 1.7 +
+      passive.noGol * 4.8 +
+      passive.cantos * 1.7;
 
-    let depth = limitar(
-      40 +
-        teamStats.finalizacoes * 1.35 +
-        teamStats.noGol * 4.8 +
-        teamStats.perigosos * 0.65 +
-        teamStats.cantos * 1.2,
-      54,
-      90
-    );
+    const dominance = activeForce / Math.max(1, activeForce + passiveForce);
+    const wave = Math.abs(Math.sin((current * 1.9 + index * 5 + active.perigosos) / 5.2));
+    const recentText = `${recentEvent?.type || ""} ${recentEvent?.detail || ""} ${recentEvent?.category || ""}`.toLowerCase();
 
-    if (/goal|gol/.test(evtText)) depth = 92;
-    else if (/corner|canto/.test(evtText)) depth = Math.max(depth, 84);
-    else if (/shot|chute|penalty|penal|danger|perig/.test(evtText)) depth = Math.max(depth, 78);
-    else if (/attack|ataque/.test(evtText)) depth = Math.max(depth, 67);
+    let depth = limitar(47 + dominance * 34 + wave * 13, 48, 93);
 
-    const ballX = side === "home" ? depth : 100 - depth;
-    const ballY = limitar(50 + Math.sin((current + index * 7) / 4) * 18, 24, 76);
+    if (/goal|gol|penalty|penal/.test(recentText)) depth = 92;
+    else if (/corner|canto/.test(recentText)) depth = Math.max(depth, 86);
+    else if (/shot|chute|danger|perig/.test(recentText)) depth = Math.max(depth, 80);
+
     const intensity = depth >= 86 ? "high" : depth >= 72 ? "medium" : "low";
-    const trailFrom = side === "home" ? 50 : ballX;
-    const trailTo = side === "home" ? ballX : 50;
-
-    let label = "Saída de jogo";
-    if (depth >= 86) label = "Pressão máxima";
-    else if (depth >= 72) label = "Ataque perigoso";
-    else if (depth >= 60) label = "Último terço";
-    if (/goal|gol/.test(evtText)) label = "Finalização decisiva";
-
-    const supportDots =
-      side === "home"
-        ? [
-            { x: limitar(ballX - 13, 10, 92), y: limitar(ballY - 10, 18, 82), team: "home" },
-            { x: limitar(ballX - 19, 10, 92), y: limitar(ballY + 10, 18, 82), team: "home" },
-            { x: limitar(ballX + 8, 10, 92), y: limitar(ballY + 2, 18, 82), team: "away" }
-          ]
-        : [
-            { x: limitar(ballX + 13, 8, 90), y: limitar(ballY - 10, 18, 82), team: "away" },
-            { x: limitar(ballX + 19, 8, 90), y: limitar(ballY + 10, 18, 82), team: "away" },
-            { x: limitar(ballX - 8, 8, 90), y: limitar(ballY + 2, 18, 82), team: "home" }
-          ];
-
     const possessionTeam = side === "home" ? times.casa : times.fora;
+    const sig = sigla(possessionTeam);
+    const phaseY = Math.sin((current + index * 11) / 3.1);
+    const lateral = limitar(50 + phaseY * 23, 20, 80);
+    const ballX = side === "home" ? depth : 100 - depth;
+    const ballY = lateral;
+    const trailFrom = side === "home" ? Math.max(48, ballX - 22) : Math.min(52, ballX + 22);
+    const trailTo = ballX;
+
     const playType =
       intensity === "high"
         ? "Chance clara / perto do gol"
@@ -603,12 +604,29 @@ export default function App() {
           ? "Ataque perigoso"
           : "Passou do meio-campo";
 
+    const label = `${sig} com a bola`;
+
+    const supportDots =
+      side === "home"
+        ? [
+            { x: limitar(ballX - 14, 8, 94), y: limitar(ballY - 12, 16, 84), team: "home" },
+            { x: limitar(ballX - 21, 8, 94), y: limitar(ballY + 13, 16, 84), team: "home" },
+            { x: limitar(ballX + 8, 8, 94), y: limitar(ballY + 3, 16, 84), team: "away" },
+            { x: limitar(ballX - 30, 8, 94), y: limitar(50 - phaseY * 15, 16, 84), team: "home" }
+          ]
+        : [
+            { x: limitar(ballX + 14, 6, 92), y: limitar(ballY - 12, 16, 84), team: "away" },
+            { x: limitar(ballX + 21, 6, 92), y: limitar(ballY + 13, 16, 84), team: "away" },
+            { x: limitar(ballX - 8, 6, 92), y: limitar(ballY + 3, 16, 84), team: "home" },
+            { x: limitar(ballX + 30, 6, 92), y: limitar(50 - phaseY * 15, 16, 84), team: "away" }
+          ];
+
     return {
       live: true,
       side,
       intensity,
       label,
-      detail: lastEvent?.detail || lastEvent?.type || "Ataque em andamento",
+      detail: recentEvent?.detail || recentEvent?.type || playType,
       possessionTeam,
       ballOwner: possessionTeam,
       playType,
@@ -757,6 +775,9 @@ export default function App() {
     if (market.includes("cart") || market.includes("card") || category.includes("cart")) return "CARTÕES";
     if (market.includes("canto") || market.includes("corner") || category.includes("canto")) return "CANTOS";
     if (market.includes("btts") || market.includes("ambas") || category.includes("btts")) return "BTTS";
+    if (market.includes("handicap") || market.includes("handcap") || category.includes("handicap")) return "HANDICAP";
+    if (market.includes("vitória") || market.includes("vitoria") || market.includes("vence") || market.includes("winner") || category.includes("winner") || category.includes("vitoria")) return "VITÓRIA";
+    if (market.includes("gol") || market.includes("goal") || category.includes("goals") || category.includes("gols")) return "GOLS";
     if (market.includes("top ia") || category.includes("topia")) return "TOP IA";
     return item.category?.toUpperCase() || "BASE";
   }
@@ -894,8 +915,66 @@ export default function App() {
     }).filter((ev) => ev.m <= current);
   }
 
-  function mercadosDoItem(item) {
+  function mercadosBaseDoItem(item) {
     return Array.isArray(item.mercados) && item.mercados.length ? item.mercados : [item];
+  }
+
+  function mercadoSynthetic(item, market, category, confidence, alert, extra = {}) {
+    return {
+      ...item,
+      id: `${item.id || item.fixtureId || item.match}-${category}-VIP`,
+      signalId: `${item.signalId || item.fixtureId || item.match}-${category}-VIP`,
+      market,
+      mercado: market,
+      category,
+      categoria: category,
+      confidence: Math.round(limitar(confidence, 55, 96)),
+      confianca: Math.round(limitar(confidence, 55, 96)),
+      pressure: Math.round(limitar((item.pressure || item.pressao || 70), 40, 95)),
+      pressao: Math.round(limitar((item.pressure || item.pressao || 70), 40, 95)),
+      alert,
+      odd: "—",
+      realOdd: false,
+      oddsMode: "none",
+      vipPrelive: true,
+      type: "prelive",
+      status: "PRÉ-LIVE VIP",
+      ...extra
+    };
+  }
+
+  function preliveVipMarkets(item) {
+    const base = mercadosBaseDoItem(item);
+    const isLiveGame = item.type === "live" || base.some((m) => m.type === "live");
+    if (isLiveGame) return [];
+
+    const stats = statsDoJogo(item);
+    const conf = Number(item.confidence || melhorMercadoBase(item).confidence || 72);
+    const pressure = Number(item.pressure || melhorMercadoBase(item).pressure || 70);
+    const homePower = stats.home.finalizacoes * 2 + stats.home.noGol * 5 + stats.home.perigosos * 1.5 + stats.home.cantos * 2 + stats.home.ataques * 0.25;
+    const awayPower = stats.away.finalizacoes * 2 + stats.away.noGol * 5 + stats.away.perigosos * 1.5 + stats.away.cantos * 2 + stats.away.ataques * 0.25;
+    const totalPower = homePower + awayPower;
+    const homeEdge = homePower - awayPower;
+    const times = timesDoJogo(item);
+    const fav = homeEdge >= 0 ? times.casa : times.fora;
+    const favShort = nomeCurto(fav);
+
+    const suggestions = [
+      mercadoSynthetic(item, "Gols na partida", "GOLS", conf + totalPower * 0.10 + 4, "🔐 VIP • GOLS NA PARTIDA"),
+      mercadoSynthetic(item, "Ambas marcam", "BTTS", conf + Math.min(stats.home.noGol, stats.away.noGol) * 4 + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.35, "🔐 VIP • AMBAS MARCAM"),
+      mercadoSynthetic(item, `Vitória ${favShort}`, "VITORIA", conf + Math.abs(homeEdge) * 0.16, `🔐 VIP • VITÓRIA ${favShort.toUpperCase()}`),
+      mercadoSynthetic(item, "Escanteios FT", "CANTOS", conf + (stats.home.cantos + stats.away.cantos) * 3 + pressure * 0.04, "🔐 VIP • ESCANTEIOS"),
+      mercadoSynthetic(item, "Cartões FT", "CARTOES_FT", conf + (stats.home.cartoes + stats.away.cartoes) * 7, "🔐 VIP • CARTÕES"),
+      mercadoSynthetic(item, `Handicap ${favShort} +0.5`, "HANDICAP", conf + Math.abs(homeEdge) * 0.12 + 3, `🔐 VIP • HANDICAP ${favShort.toUpperCase()} +0.5`)
+    ];
+
+    const existing = new Set(base.map((m) => categoriaMercado(m)));
+    return suggestions.filter((m) => !existing.has(categoriaMercado(m))).slice(0, 6);
+  }
+
+  function mercadosDoItem(item) {
+    const base = mercadosBaseDoItem(item);
+    return [...base, ...preliveVipMarkets(item)];
   }
 
   function eventosDoJogo(item) {
@@ -960,7 +1039,7 @@ export default function App() {
   }
 
   function jogoPreLiveVip(item) {
-    return jogoPreLive(item) && mercadosDoItem(item).some((m) => isVip(m));
+    return jogoPreLive(item);
   }
 
   function formatOdd(m) {
@@ -980,14 +1059,56 @@ export default function App() {
     return mercadosDoItem(item).some((m) => alertaForte(m) || mercadoStatus(m).includes("🔥") || mercadoStatus(m).includes("🚨"));
   }
 
-  function melhorMercado(item) {
-    return mercadosDoItem(item)
+  function melhorMercadoBase(item) {
+    return mercadosBaseDoItem(item)
       .slice()
       .sort((a, b) => (b.confidence || 0) + (b.pressure || 0) - ((a.confidence || 0) + (a.pressure || 0)))[0] || item;
   }
 
+  function mercadoCumprido(m, item) {
+    const gols = totalGols(item);
+    const status = String(m.alert || mercadoStatus(m) || "").toLowerCase();
+    const cat = categoriaMercado(m);
+    if (status.includes("green")) return true;
+    if (cat === "OVER 0,5" && gols >= 1) return true;
+    if (cat === "OVER 1,5" && gols >= 2) return true;
+    if (cat === "OVER 2,5" && gols >= 3) return true;
+    if (cat === "OVER 3,5" && gols >= 4) return true;
+    return false;
+  }
+
+  function mercadoPesoAoVivo(m, item) {
+    const cat = categoriaMercado(m);
+    const pesoCat = {
+      "OVER 0,5": 8,
+      "OVER 1,5": 12,
+      "OVER 2,5": 13,
+      "OVER 3,5": 9,
+      "BTTS": 11,
+      "CANTOS": 8,
+      "CARTÕES": 7,
+      "TOP IA": 4,
+      "GOLS": 12,
+      "VITÓRIA": 6,
+      "HANDICAP": 6
+    }[cat] || 5;
+
+    return Number(m.confidence || 0) * 1.1 + Number(m.pressure || 0) * 0.55 + pesoCat + (mercadoOddReal(m) ? 5 : 0) - (mercadoCumprido(m, item) ? 60 : 0);
+  }
+
+  function melhorMercado(item) {
+    const lista = mercadosDoItem(item);
+    const live = jogoAoVivo(item);
+    const candidatos = live ? lista.filter((m) => !mercadoCumprido(m, item)) : lista;
+    const finalistas = candidatos.length ? candidatos : lista;
+
+    return finalistas
+      .slice()
+      .sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0] || item;
+  }
+
   function mercadosOrdenados(item) {
-    const ordem = { "TOP IA": 0, "OVER 0,5": 1, "OVER 1,5": 2, "OVER 2,5": 3, "OVER 3,5": 4, "BTTS": 5, "CANTOS": 6, "CARTÕES": 7 };
+    const ordem = { "TOP IA": 0, "GOLS": 1, "OVER 0,5": 2, "OVER 1,5": 3, "OVER 2,5": 4, "OVER 3,5": 5, "BTTS": 6, "VITÓRIA": 7, "HANDICAP": 8, "CANTOS": 9, "CARTÕES": 10 };
     return mercadosDoItem(item)
       .slice()
       .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
@@ -1015,6 +1136,8 @@ export default function App() {
         if (filtro === "CARTÕES") return jogoTemCategoria(item, "CARTÕES");
         if (filtro === "CANTOS") return jogoTemCategoria(item, "CANTOS");
         if (filtro === "BTTS") return jogoTemCategoria(item, "BTTS");
+        if (filtro === "VITORIA") return jogoTemCategoria(item, "VITÓRIA");
+        if (filtro === "HANDICAP") return jogoTemCategoria(item, "HANDICAP");
         if (filtro === "TOP IA") return jogoTemCategoria(item, "TOP IA") || mercadosDoItem(item).some((m) => (m.confidence || 0) >= 82);
         if (filtro === "VIP") return preLiveVip || (jogoAoVivo(item) && mercadosDoItem(item).some((m) => isVip(m)));
         if (filtro === "REAL") return jogoStatsReal(item);
@@ -1073,7 +1196,7 @@ export default function App() {
         {[
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
-          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
+          ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"], ["VITORIA", "🏆 VITÓRIA"], ["HANDICAP", "➕ HANDICAP"],
           ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["REAL", "📊 REAL"], ["EVENTOS", "🎬 EVENTOS"], ["ODDS", "💰 ODDS"], ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
@@ -1147,7 +1270,7 @@ export default function App() {
 
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
-                    <small>SINAL MAIS FORTE AGORA</small>
+                    <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "SINAL PRÉ-LIVE VIP"}</small>
                     <b>{categoriaMercado(strongest)}</b>
                     <span>{strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
@@ -3489,5 +3612,67 @@ h1{
   }
 }
 
+
+
+/* ===== MAKINE AJUSTE: MINIMAPA VIVO + PRE-LIVE VIP + SINAL ACIONAVEL ===== */
+.livePulse{
+  border-color:rgba(255,255,255,.18)!important;
+  background:linear-gradient(90deg,rgba(4,10,14,.92),rgba(11,24,31,.88))!important;
+}
+.livePulse.high{border-color:rgba(250,204,21,.65)!important;box-shadow:0 0 10px rgba(250,204,21,.18)!important}
+.livePulse.medium{border-color:rgba(34,197,94,.45)!important;box-shadow:0 0 8px rgba(34,197,94,.15)!important}
+.livePulse.low{border-color:rgba(59,130,246,.45)!important}
+.livePulse.neutral,.livePulse.idle{border-color:rgba(250,204,21,.38)!important;background:linear-gradient(90deg,rgba(92,38,5,.35),rgba(12,17,23,.9))!important}
+.livePulse b{letter-spacing:.2px!important;text-transform:uppercase!important}
+.livePulse span{text-transform:none!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:58%!important}
+.field3d.liveField{background:
+  radial-gradient(circle at 50% -18%,rgba(255,255,255,.24),transparent 28%),
+  repeating-linear-gradient(90deg,#39a52a 0 20px,#2b8321 20px 40px)!important;
+}
+.attackTrail{
+  height:4px!important;
+  min-width:12px!important;
+  box-shadow:0 0 10px currentColor!important;
+  animation:trailRun 1.35s linear infinite!important;
+}
+@keyframes trailRun{0%{opacity:.35;filter:blur(.5px)}50%{opacity:1;filter:blur(0)}100%{opacity:.45;filter:blur(.5px)}}
+.playerDot{width:6px!important;height:6px!important;border:1px solid rgba(255,255,255,.55)!important;animation:playerJitter 2.2s ease-in-out infinite!important}
+@keyframes playerJitter{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(calc(-50% + 1px),calc(-50% - 1px)) scale(1.08)}}
+.liveBall{
+  width:9px!important;height:9px!important;
+  animation:ballMove 1.05s ease-in-out infinite!important;
+  box-shadow:0 0 12px rgba(255,255,255,.9)!important;
+}
+.liveBall.high{box-shadow:0 0 14px rgba(250,204,21,.95)!important}
+.liveBall.medium{box-shadow:0 0 12px rgba(34,197,94,.85)!important}
+.liveBall.low{box-shadow:0 0 10px rgba(147,197,253,.75)!important}
+@keyframes ballMove{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(calc(-50% + 3px),calc(-50% - 2px)) scale(1.18)}}
+.ballAura{animation:mbPulse .9s ease-in-out infinite!important}
+.mapStats.compact span{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.highlightSignalText small{color:#facc15!important}
+.highlightSignalText b{color:#fff!important}
+.highlightSignalMeta em{white-space:nowrap!important;max-width:130px!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.signalChip span{font-size:8px!important}
+.signalChip em{font-size:7.5px!important}
+.market:nth-child(n+7){display:none!important}
+
+/* deixa 3 jogos por linha, mas sem tentar colocar tudo numa tela so */
+@media(min-width:1101px){
+  .grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;align-items:start!important;overflow:visible!important;height:auto!important}
+  .card{height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important;gap:5px!important}
+  .flowLegend{display:none!important}
+}
+@media(min-width:1101px) and (max-width:1280px){
+  .filters{grid-template-columns:repeat(9,minmax(0,1fr))!important}
+  .field3d.liveField{height:52px!important}
+  .flowWrap{height:58px!important}
+  .heroCenter h2{font-size:11px!important}
+  .highlightSignalText b{font-size:10px!important}
+  .highlightSignalMeta strong{font-size:14px!important}
+}
+@media(max-width:700px){
+  .livePulse span{max-width:50%!important}
+  .field3d.liveField{height:58px!important}
+}
 
 `;
