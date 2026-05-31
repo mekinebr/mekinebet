@@ -4,12 +4,25 @@ import { URL } from "node:url";
 const PORT = Number(process.env.PORT || 10000);
 const API_BASE = "https://v3.football.api-sports.io";
 
-const API_KEY =
-  process.env.API_FOOTBALL_KEY ||
-  process.env.APISPORTS_KEY ||
-  process.env.API_SPORTS_KEY ||
-  process.env.RAPIDAPI_KEY ||
-  "";
+const uniqueText = (arr = []) => Array.from(new Set(arr.map((v) => String(v || "").trim()).filter(Boolean)));
+
+const API_KEYS = uniqueText([
+  ...(process.env.API_FOOTBALL_KEYS || "").split(","),
+  process.env.API_FOOTBALL_KEY,
+  process.env.APISPORTS_KEY,
+  process.env.API_SPORTS_KEY,
+  process.env.RAPIDAPI_KEY
+]);
+
+const API_KEY = API_KEYS[0] || "";
+
+const ODDS_API_KEYS = uniqueText([
+  ...(process.env.ODDS_API_KEYS || "").split(","),
+  process.env.ODDS_API_KEY,
+  process.env.ODDS_API_KEY_2
+]);
+
+const SPORTMONKS_TOKEN = String(process.env.SPORTMONKS_TOKEN || "").trim();
 
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30000);
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
@@ -19,8 +32,17 @@ const PRELIVE_HOURS = Number(process.env.PRELIVE_HOURS || 24);
 const DEBUG_API = String(process.env.DEBUG_API || "false").toLowerCase() === "true";
 const ODDS_ENABLED = String(process.env.ODDS_ENABLED || "true").toLowerCase() !== "false";
 const ODDS_BOOKMAKER = String(process.env.ODDS_BOOKMAKER || "").trim();
+const THIRD_PARTY_CACHE_TTL_MS = Number(process.env.THIRD_PARTY_CACHE_TTL_MS || 300000);
+const THE_ODDS_REGIONS = String(process.env.THE_ODDS_REGIONS || "eu,uk,us").trim();
+const THE_ODDS_MARKETS = String(process.env.THE_ODDS_MARKETS || "h2h,spreads,totals,btts").trim();
+const THE_ODDS_SPORT_KEYS = uniqueText(
+  (process.env.ODDS_SPORT_KEYS ||
+    "soccer_epl,soccer_usa_mls,soccer_brazil_campeonato,soccer_spain_la_liga,soccer_italy_serie_a,soccer_germany_bundesliga,soccer_france_ligue_one,soccer_netherlands_eredivisie,soccer_portugal_primeira_liga,soccer_conmebol_copa_libertadores,soccer_uefa_champs_league,soccer_uefa_europa_league")
+    .split(",")
+);
 
 let cache = { timestamp: 0, payload: null };
+let thirdPartyCache = { timestamp: 0, data: null };
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, Number(v || 0)));
 
@@ -221,45 +243,50 @@ function hasApiErrors(errors) {
 }
 
 async function apiFootballGet(path) {
-  if (!API_KEY) throw new Error("API_FOOTBALL_KEY ausente");
+  if (!API_KEYS.length) throw new Error("API_FOOTBALL_KEY ausente");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let lastError = null;
 
-  try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: {
-        "x-apisports-key": API_KEY,
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": "v3.football.api-sports.io"
-      },
-      signal: controller.signal
-    });
+  for (const key of API_KEYS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const data = await response.json().catch(() => ({}));
-
-    if (DEBUG_API) {
-      console.log("API-FOOTBALL DEBUG:", {
-        path,
-        status: response.status,
-        errors: data?.errors,
-        results: data?.results,
-        responseLength: Array.isArray(data?.response) ? data.response.length : 0
+    try {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: {
+          "x-apisports-key": key,
+          "x-rapidapi-key": key,
+          "x-rapidapi-host": "v3.football.api-sports.io"
+        },
+        signal: controller.signal
       });
-    }
 
-    if (!response.ok) {
-      throw new Error(`API status ${response.status}: ${JSON.stringify(data?.errors || data)}`);
-    }
+      const data = await response.json().catch(() => ({}));
 
-    if (hasApiErrors(data?.errors)) {
-      throw new Error(`API errors: ${JSON.stringify(data.errors)}`);
-    }
+      if (DEBUG_API) {
+        console.log("API-FOOTBALL DEBUG:", {
+          path,
+          status: response.status,
+          errors: data?.errors,
+          results: data?.results,
+          responseLength: Array.isArray(data?.response) ? data.response.length : 0
+        });
+      }
 
-    return Array.isArray(data?.response) ? data.response : [];
-  } finally {
-    clearTimeout(timeout);
+      if (!response.ok || hasApiErrors(data?.errors)) {
+        lastError = new Error(`API-Football key falhou: status ${response.status} ${JSON.stringify(data?.errors || data)}`);
+        continue;
+      }
+
+      return Array.isArray(data?.response) ? data.response : [];
+    } catch (e) {
+      lastError = e;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  throw lastError || new Error("Falha em todas as chaves API-Football");
 }
 
 function fakeStats(i = 0, type = "prelive") {
@@ -754,6 +781,37 @@ function findOddForCategory(entries = [], category = "") {
     );
   }
 
+  if (cat === "MAIS_GOL") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        const value = normalizeName(entry.value || "");
+        return value.includes("over") && (bet.includes("goals") || bet.includes("total") || bet.includes("over under"));
+      }),
+      0.5
+    );
+  }
+
+  if (cat === "VITORIA") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        return bet.includes("match winner") || bet === "h2h" || bet.includes("full time result") || bet.includes("winner");
+      }),
+      null
+    );
+  }
+
+  if (cat === "HANDICAP") {
+    return pickBestOdd(
+      entries.filter((entry) => {
+        const bet = normalizeName(entry.bet || "");
+        return bet.includes("spread") || bet.includes("handicap") || bet.includes("asian handicap");
+      }),
+      null
+    );
+  }
+
   return null;
 }
 
@@ -787,6 +845,41 @@ function buildOddsPack(preOddsRows = [], liveOddsRows = []) {
     bookmaker: firstRealOdd?.bookmaker || "",
     oddsUpdatedAt: firstRealOdd?.oddsUpdatedAt || "",
     entries,
+    byCategory
+  };
+}
+
+
+function buildOddsPackFromEntries(entries = []) {
+  const cleanEntries = Array.isArray(entries) ? entries.filter((entry) => entry?.odd) : [];
+
+  if (!cleanEntries.length) return emptyOddsPack();
+
+  const byCategory = {};
+  [
+    "OVER05",
+    "OVER15",
+    "OVER25",
+    "OVER35",
+    "BTTS",
+    "MAIS_GOL",
+    "CANTOS_FT",
+    "CARTOES_FT",
+    "VITORIA",
+    "HANDICAP"
+  ].forEach((category) => {
+    const oddInfo = findOddForCategory(cleanEntries, category);
+    if (oddInfo?.odd) byCategory[category] = oddInfo;
+  });
+
+  const firstRealOdd = Object.values(byCategory)[0] || null;
+
+  return {
+    hasRealOdds: Boolean(firstRealOdd),
+    oddsMode: firstRealOdd ? "real" : "none",
+    bookmaker: firstRealOdd?.bookmaker || "",
+    oddsUpdatedAt: firstRealOdd?.oddsUpdatedAt || "",
+    entries: cleanEntries,
     byCategory
   };
 }
@@ -989,7 +1082,7 @@ function buildSignals(
     minute,
     status: type === "live" ? "AO VIVO" : "PRÉ-LIVE",
     type,
-    source: fixtureId && String(fixtureId).startsWith("fallback") ? "fallback" : "api-football",
+    source: fixtureRow?._externalSource || "api-football",
     statsMode: statsPack.hasRealStats ? "real" : "estimated",
     realStats: Boolean(statsPack.hasRealStats),
 
@@ -1128,6 +1221,352 @@ function buildSignals(
   return signals;
 }
 
+
+function relationData(row = {}, key = "") {
+  const value = row?.[key];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
+async function fetchJsonWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`);
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeSportmonksStatus(row = {}) {
+  const raw = String(
+    row?.state?.short_name ||
+    row?.state?.developer_name ||
+    row?.state?.name ||
+    row?.status ||
+    ""
+  ).toUpperCase();
+
+  if (raw.includes("1ST") || raw.includes("FIRST") || raw === "1H" || raw.includes("INPLAY")) return "1H";
+  if (raw.includes("2ND") || raw.includes("SECOND") || raw === "2H") return "2H";
+  if (raw.includes("HALF") || raw === "HT") return "HT";
+  if (raw.includes("FULL") || raw === "FT" || raw.includes("FINISHED")) return "FT";
+  if (raw.includes("NOT_STARTED") || raw.includes("NS") || raw.includes("UPCOMING")) return "NS";
+  return raw || "NS";
+}
+
+function sportmonksMinute(row = {}) {
+  const direct = toNumber(row?.minute ?? row?.time?.minute ?? row?.periods?.current?.minute, null);
+  if (Number.isFinite(direct)) return direct;
+
+  const start = row?.starting_at_timestamp ? Number(row.starting_at_timestamp) * 1000 : new Date(row?.starting_at || "").getTime();
+  if (!Number.isFinite(start)) return 0;
+
+  const elapsed = Math.floor((Date.now() - start) / 60000);
+  return clamp(elapsed, 0, 120);
+}
+
+function sportmonksTeams(row = {}) {
+  const participants = relationData(row, "participants");
+  const home = participants.find((p) => normalizeName(p?.meta?.location || p?.location || p?.pivot?.location || "") === "home") || participants[0] || {};
+  const away = participants.find((p) => normalizeName(p?.meta?.location || p?.location || p?.pivot?.location || "") === "away") || participants[1] || {};
+
+  const split = String(row?.name || "").split(/\s+vs\s+|\s+-\s+/i);
+
+  return {
+    home: {
+      id: home?.id || row?.localteam_id || "home",
+      name: home?.name || split[0] || "Casa",
+      logo: home?.image_path || home?.logo_path || ""
+    },
+    away: {
+      id: away?.id || row?.visitorteam_id || "away",
+      name: away?.name || split[1] || "Fora",
+      logo: away?.image_path || away?.logo_path || ""
+    }
+  };
+}
+
+function sportmonksScore(row = {}, teams = {}) {
+  const scores = relationData(row, "scores");
+  let home = 0;
+  let away = 0;
+
+  scores.forEach((scoreRow) => {
+    const description = normalizeName(scoreRow?.description || scoreRow?.type?.name || scoreRow?.score?.description || "");
+    const isCurrent = !description || description.includes("current") || description.includes("2nd") || description.includes("1st") || description.includes("score");
+    if (!isCurrent) return;
+
+    const participantId = scoreRow?.participant_id || scoreRow?.team_id;
+    const goals = toNumber(scoreRow?.score?.goals ?? scoreRow?.score?.participant ?? scoreRow?.goals ?? scoreRow?.value, null);
+    if (!Number.isFinite(goals)) return;
+
+    if (String(participantId) === String(teams.home.id)) home = Math.max(home, goals);
+    if (String(participantId) === String(teams.away.id)) away = Math.max(away, goals);
+  });
+
+  return { home, away };
+}
+
+function sportmonksStatsPack(row = {}, teams = {}) {
+  const rawStats = relationData(row, "statistics");
+  if (!rawStats.length) return null;
+
+  const rows = [
+    { team: { id: teams.home.id }, statistics: [] },
+    { team: { id: teams.away.id }, statistics: [] }
+  ];
+
+  rawStats.forEach((stat) => {
+    const participantId = stat?.participant_id || stat?.team_id;
+    const typeName = stat?.type?.name || stat?.type?.code || stat?.name || stat?.type || "";
+    const value = stat?.data?.value ?? stat?.value ?? stat?.data ?? 0;
+    const target = String(participantId) === String(teams.away.id) ? rows[1] : rows[0];
+    if (typeName) target.statistics.push({ type: typeName, value });
+  });
+
+  if (!rows[0].statistics.length && !rows[1].statistics.length) return null;
+  return buildRealStats({ teams }, rows);
+}
+
+function sportmonksEventsPack(row = {}, teams = {}) {
+  const rawEvents = relationData(row, "events");
+  if (!rawEvents.length) return { matchEvents: [], hasRealEvents: false, eventsMode: "none" };
+
+  const fixtureRow = { teams };
+  const converted = rawEvents.map((event) => {
+    const participantId = event?.participant_id || event?.team_id;
+    return {
+      time: { elapsed: toNumber(event?.minute ?? event?.extra_minute ?? event?.time?.minute, 0), extra: 0 },
+      team: {
+        id: participantId,
+        name: String(participantId) === String(teams.away.id) ? teams.away.name : teams.home.name
+      },
+      type: event?.type?.name || event?.type || event?.event_type || "Event",
+      detail: event?.result || event?.info || event?.addition || event?.type?.name || "",
+      comments: event?.info || "",
+      player: { name: event?.player_name || event?.player?.name || event?.player?.display_name || "" },
+      assist: { name: event?.related_player_name || event?.assist?.name || "" }
+    };
+  });
+
+  return buildRealEvents(fixtureRow, converted);
+}
+
+function transformSportmonksFixture(row = {}) {
+  const teams = sportmonksTeams(row);
+  const score = sportmonksScore(row, teams);
+  const short = normalizeSportmonksStatus(row);
+  const startRaw = row?.starting_at || row?.starting_at_timestamp || "";
+  const startDate = row?.starting_at_timestamp ? new Date(Number(row.starting_at_timestamp) * 1000) : new Date(startRaw);
+  const timestamp = Number(row?.starting_at_timestamp || (Number.isNaN(startDate.getTime()) ? 0 : Math.floor(startDate.getTime() / 1000)));
+  const status = { short, elapsed: isLive(short) ? sportmonksMinute(row) : 0 };
+
+  const fixtureRow = {
+    fixture: {
+      id: `sportmonks-${row?.id || `${teams.home.name}-${teams.away.name}-${timestamp}`}`,
+      date: Number.isFinite(startDate.getTime()) ? startDate.toISOString() : "",
+      timestamp,
+      status
+    },
+    league: {
+      name: row?.league?.name || row?.league?.data?.name || row?.league_name || "Sportmonks Football",
+      country: row?.league?.country?.name || row?.league?.data?.country?.name || ""
+    },
+    teams,
+    goals: score,
+    _externalSource: "sportmonks"
+  };
+
+  fixtureRow._externalStatsPack = sportmonksStatsPack(row, teams);
+  fixtureRow._externalEventsPack = sportmonksEventsPack(row, teams);
+  return fixtureRow;
+}
+
+async function sportmonksGet(path, params = {}) {
+  if (!SPORTMONKS_TOKEN) return [];
+
+  const url = new URL(`https://api.sportmonks.com/v3/football${path}`);
+  url.searchParams.set("api_token", SPORTMONKS_TOKEN);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+  });
+
+  const data = await fetchJsonWithTimeout(url.toString());
+  const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  return rows;
+}
+
+async function getSportmonksFixtures() {
+  if (!SPORTMONKS_TOKEN) return { live: [], prelive: [] };
+
+  const include = "scores;participants;statistics.type;events;league;state";
+  let liveRows = [];
+  let preRows = [];
+
+  try {
+    liveRows = await sportmonksGet("/livescores/inplay", { include });
+  } catch (e) {
+    console.log("Erro Sportmonks live:", e.message);
+  }
+
+  try {
+    preRows = await sportmonksGet(`/fixtures/between/${todayISO(0)}/${todayISO(1)}`, { include });
+  } catch (e) {
+    console.log("Erro Sportmonks fixtures 24h:", e.message);
+  }
+
+  const live = uniqueFixtures(liveRows.map(transformSportmonksFixture))
+    .filter((row) => isLive(row?.fixture?.status?.short || ""));
+
+  const prelive = uniqueFixtures(preRows.map(transformSportmonksFixture))
+    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
+
+  return { live, prelive };
+}
+
+function theOddsEventToEntries(event = {}) {
+  const entries = [];
+  const updatedAt = event?.commence_time || new Date().toISOString();
+
+  (event?.bookmakers || []).forEach((bookmaker) => {
+    const bookmakerName = bookmaker?.title || bookmaker?.key || "The Odds API";
+
+    (bookmaker?.markets || []).forEach((market) => {
+      const marketKey = market?.key || "";
+      const marketName = marketKey === "h2h" ? "Match Winner" : marketKey === "spreads" ? "Handicap" : marketKey === "totals" ? "Goals Over/Under" : marketKey.toUpperCase();
+
+      (market?.outcomes || []).forEach((outcome) => {
+        const odd = formatOdd(outcome?.price);
+        if (!odd) return;
+
+        const point = Number(outcome?.point);
+        const label = Number.isFinite(point) ? `${outcome?.name || ""} ${point}`.trim() : outcome?.name || "";
+
+        entries.push({
+          source: "the-odds-api",
+          updatedAt: market?.last_update || updatedAt,
+          bookmaker: bookmakerName,
+          bookmakerId: bookmaker?.key || null,
+          bet: marketName,
+          betId: marketKey,
+          value: label,
+          odd,
+          suspended: false,
+          line: Number.isFinite(point) ? point : numberFromText(label),
+          raw: outcome
+        });
+      });
+    });
+  });
+
+  return entries;
+}
+
+function transformTheOddsFixture(event = {}, sportTitle = "The Odds API") {
+  const start = new Date(event?.commence_time || "");
+  const timestamp = Number.isNaN(start.getTime()) ? 0 : Math.floor(start.getTime() / 1000);
+  const home = event?.home_team || "Casa";
+  const away = event?.away_team || "Fora";
+
+  return {
+    fixture: {
+      id: `oddsapi-${event?.id || `${home}-${away}-${timestamp}`}`,
+      date: Number.isNaN(start.getTime()) ? "" : start.toISOString(),
+      timestamp,
+      status: { short: "NS", elapsed: 0 }
+    },
+    league: { name: sportTitle || event?.sport_title || "The Odds API Soccer", country: "Odds" },
+    teams: {
+      home: { id: `oddsapi-home-${event?.id}`, name: home, logo: "" },
+      away: { id: `oddsapi-away-${event?.id}`, name: away, logo: "" }
+    },
+    goals: { home: 0, away: 0 },
+    _externalSource: "the-odds-api",
+    _externalOddsPack: buildOddsPackFromEntries(theOddsEventToEntries(event))
+  };
+}
+
+async function theOddsApiGet(path, params = {}, preferredKeyIndex = 0) {
+  if (!ODDS_API_KEYS.length) return [];
+
+  let lastError = null;
+  const orderedKeys = [...ODDS_API_KEYS.slice(preferredKeyIndex), ...ODDS_API_KEYS.slice(0, preferredKeyIndex)];
+
+  for (const apiKey of orderedKeys) {
+    const url = new URL(`https://api.the-odds-api.com/v4${path}`);
+    url.searchParams.set("apiKey", apiKey);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+    });
+
+    try {
+      const data = await fetchJsonWithTimeout(url.toString());
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      lastError = e;
+      console.log("Erro The Odds API:", path, e.message);
+    }
+  }
+
+  if (DEBUG_API && lastError) console.log("Todas as chaves The Odds API falharam:", lastError.message);
+  return [];
+}
+
+async function getTheOddsFixtures() {
+  if (!ODDS_API_KEYS.length || !ODDS_ENABLED) return [];
+
+  const output = [];
+  const sportKeys = THE_ODDS_SPORT_KEYS.slice(0, Number(process.env.ODDS_MAX_SPORTS || 12));
+
+  for (let i = 0; i < sportKeys.length && output.length < MAX_PRELIVE_GAMES; i += 1) {
+    const sportKey = sportKeys[i];
+
+    try {
+      const rows = await theOddsApiGet(`/sports/${sportKey}/odds`, {
+        regions: THE_ODDS_REGIONS,
+        markets: THE_ODDS_MARKETS,
+        oddsFormat: "decimal",
+        dateFormat: "iso"
+      }, i % Math.max(1, ODDS_API_KEYS.length));
+
+      rows.forEach((event) => {
+        const fixture = transformTheOddsFixture(event, event?.sport_title || sportKey.replace(/^soccer_/, "Soccer "));
+        if (isFutureFixture(fixture) && isWithinNextHours(fixture, PRELIVE_HOURS)) output.push(fixture);
+      });
+    } catch (e) {
+      console.log("Erro odds sport:", sportKey, e.message);
+    }
+  }
+
+  return uniqueFixtures(output);
+}
+
+async function getThirdPartyFixturesCached() {
+  const now = Date.now();
+  if (thirdPartyCache.data && now - thirdPartyCache.timestamp < THIRD_PARTY_CACHE_TTL_MS) {
+    return thirdPartyCache.data;
+  }
+
+  const [sportmonks, theOdds] = await Promise.all([
+    getSportmonksFixtures(),
+    getTheOddsFixtures()
+  ]);
+
+  const data = {
+    live: uniqueFixtures([...(sportmonks.live || [])]),
+    prelive: uniqueFixtures([...(sportmonks.prelive || []), ...(theOdds || [])])
+  };
+
+  thirdPartyCache = { timestamp: now, data };
+  return data;
+}
+
 function fallbackFixtures() {
   return [
     ["Flamengo", "Palmeiras", "Brasileirão Série A"],
@@ -1150,9 +1589,9 @@ function fallbackFixtures() {
 async function getFixtures() {
   let liveFixtures = [];
   let preliveFixtures = [];
-  let mode = API_KEY ? "empty" : "no-api-key";
+  let mode = API_KEYS.length || SPORTMONKS_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
 
-  if (API_KEY) {
+  if (API_KEYS.length) {
     const fetchByDate = async (offset) => {
       try {
         return await apiFootballGet(
@@ -1170,40 +1609,41 @@ async function getFixtures() {
     try {
       liveFixtures = await apiFootballGet("/fixtures?live=all");
     } catch (e) {
-      console.log("Erro live:", e.message);
+      console.log("Erro live API-Football:", e.message);
     }
 
-    // Backup importante:
-    // em alguns momentos o endpoint /fixtures?live=all retorna vazio,
-    // mas o endpoint do dia traz jogos com status 1H/2H/HT.
-    // Sem isso os jogos ao vivo somem da tela e aparece fallback/demo.
     [todayRows, tomorrowRows] = await Promise.all([fetchByDate(0), fetchByDate(1)]);
 
-    const liveFromToday = uniqueFixtures([...todayRows, ...tomorrowRows])
+    const liveFromDates = uniqueFixtures([...todayRows, ...tomorrowRows])
       .filter((row) => isLive(row?.fixture?.status?.short || ""));
 
-    liveFixtures = uniqueFixtures([...liveFixtures, ...liveFromToday]);
+    liveFixtures = uniqueFixtures([...liveFixtures, ...liveFromDates]);
 
     preliveFixtures = uniqueFixtures([...todayRows, ...tomorrowRows])
-      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS))
-      .sort((a, b) => {
-        const da = fixtureStartDate(a)?.getTime() || 0;
-        const db = fixtureStartDate(b)?.getTime() || 0;
-        return da - db;
-      });
+      .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
 
     if (!liveFixtures.length && !preliveFixtures.length) {
       try {
         const nextRows = await apiFootballGet(
           `/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=America/Sao_Paulo`
         );
-
         preliveFixtures = uniqueFixtures(nextRows)
           .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS));
       } catch (e) {
-        console.log("Erro next:", e.message);
+        console.log("Erro next API-Football:", e.message);
       }
     }
+  }
+
+  // Fallback real, sem demo:
+  // Sportmonks cobre livescores e fixtures; The Odds API cobre odds/pre-live.
+  // Eles entram junto quando a API-Football estiver vazia, limitada ou sem quota.
+  try {
+    const thirdParty = await getThirdPartyFixturesCached();
+    liveFixtures = uniqueFixtures([...liveFixtures, ...(thirdParty.live || [])]);
+    preliveFixtures = uniqueFixtures([...preliveFixtures, ...(thirdParty.prelive || [])]);
+  } catch (e) {
+    console.log("Erro providers externos:", e.message);
   }
 
   liveFixtures = uniqueFixtures(liveFixtures)
@@ -1213,6 +1653,7 @@ async function getFixtures() {
 
   preliveFixtures = uniqueFixtures(preliveFixtures)
     .filter((row) => !liveFixtures.some((live) => fixtureKey(live) === fixtureKey(row)))
+    .filter((row) => isFutureFixture(row) && isWithinNextHours(row, PRELIVE_HOURS))
     .sort((a, b) => fixtureSortScore(b, "prelive") - fixtureSortScore(a, "prelive"))
     .slice(0, MAX_PRELIVE_GAMES);
 
@@ -1221,17 +1662,17 @@ async function getFixtures() {
   if (liveFixtures.length && preliveFixtures.length) mode = "live+prelive24";
   else if (liveFixtures.length) mode = "live";
   else if (preliveFixtures.length) mode = "prelive24";
-  else if (API_KEY) mode = "empty";
+  else mode = API_KEYS.length || SPORTMONKS_TOKEN || ODDS_API_KEYS.length ? "empty" : "no-api-key";
 
-  // Não retorna jogos demo/fallback.
-  // Se não existe dado real, a tela mostra aviso em branco em vez de partidas falsas.
   return { fixtures, mode };
 }
 
 async function getStatsForFixture(fixture, mode) {
   const fixtureId = fixture?.fixture?.id;
 
-  if (!fixtureId || mode === "fallback-ia") {
+  if (fixture?._externalStatsPack) return fixture._externalStatsPack;
+
+  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
     return null;
   }
 
@@ -1247,7 +1688,9 @@ async function getStatsForFixture(fixture, mode) {
 async function getEventsForFixture(fixture, mode) {
   const fixtureId = fixture?.fixture?.id;
 
-  if (!fixtureId || mode === "fallback-ia") {
+  if (fixture?._externalEventsPack) return fixture._externalEventsPack;
+
+  if (!fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
     return {
       matchEvents: [],
       hasRealEvents: false,
@@ -1271,7 +1714,9 @@ async function getEventsForFixture(fixture, mode) {
 async function getOddsForFixture(fixture, mode) {
   const fixtureId = fixture?.fixture?.id;
 
-  if (!ODDS_ENABLED || !fixtureId || mode === "fallback-ia") {
+  if (fixture?._externalOddsPack) return fixture._externalOddsPack;
+
+  if (!ODDS_ENABLED || !fixtureId || String(fixtureId).startsWith("sportmonks-") || String(fixtureId).startsWith("oddsapi-")) {
     return emptyOddsPack();
   }
 
@@ -1355,7 +1800,12 @@ async function getSignalsPayload() {
 
   const payload = {
     ok: true,
-    source: API_KEY ? "api-football" : "no-api-key",
+    source: fixtures.some((f) => f?._externalSource) ? "multi-api" : API_KEYS.length ? "api-football" : "no-api-key",
+    providers: {
+      apiFootballKeys: API_KEYS.length,
+      sportmonks: Boolean(SPORTMONKS_TOKEN),
+      theOddsApiKeys: ODDS_API_KEYS.length
+    },
     mode,
     statsMode: realStatsGames > 0 ? "real" : "estimated",
     eventsMode: realEventsGames > 0 ? "real" : "none",
@@ -1377,9 +1827,9 @@ async function getSignalsPayload() {
       mode === "empty"
         ? "Nenhum jogo real encontrado agora. Sem fallback/demo."
         : mode === "no-api-key"
-          ? "API key ausente no Render. Configure API_FOOTBALL_KEY."
+          ? "Nenhuma API configurada no Render. Configure API_FOOTBALL_KEY, SPORTMONKS_TOKEN ou ODDS_API_KEY."
           : realStatsGames > 0 || realEventsGames > 0 || realOddsGames > 0
-            ? "Dados reais carregados da API-Football."
+            ? "Dados reais carregados dos provedores disponíveis."
             : "Jogos reais carregados, mas estatísticas/odds detalhadas ainda não disponíveis para estes fixtures.",
     updatedAt: new Date().toISOString()
   };
@@ -1406,6 +1856,9 @@ const server = http.createServer(async (req, res) => {
         service: "mekinebet-api",
         routes: ["/api/signals", "/health"],
         hasApiKey: Boolean(API_KEY),
+        apiFootballKeys: API_KEYS.length,
+        hasSportmonks: Boolean(SPORTMONKS_TOKEN),
+        oddsApiKeys: ODDS_API_KEYS.length,
         cacheTtlMs: CACHE_TTL_MS,
         maxGames: MAX_GAMES,
         oddsEnabled: ODDS_ENABLED,
