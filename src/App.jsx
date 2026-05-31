@@ -1335,24 +1335,15 @@ export default function App() {
   }
 
   function mercadosVisiveisNoFiltro(item) {
-    const catFiltro = categoriaFiltroAtual();
+    const cat = categoriaFiltroAtual();
     const lista = mercadosOrdenados(item);
-
-    if (!catFiltro) return lista;
-
-    const filtrados = lista.filter((m) => categoriaMercado(m) === catFiltro);
-
-    // Se o usuário clicou em OVER 1,5, por exemplo, o card mostra apenas OVER 1,5.
-    // Isso evita aparecer TOP IA, Mais Gol ou outro mercado misturado dentro do filtro.
-    return filtrados;
+    return cat ? lista.filter((m) => categoriaMercado(m) === cat) : lista;
   }
 
   function melhorMercadoDoFiltro(item) {
     const lista = mercadosVisiveisNoFiltro(item);
     if (lista.length) {
-      return lista
-        .slice()
-        .sort((a, b) => mercadoPesoAoVivo(b, item) - mercadoPesoAoVivo(a, item))[0];
+      return lista.slice().sort((a, b) => (b.confidence || 0) + (b.pressure || 0) - ((a.confidence || 0) + (a.pressure || 0)))[0];
     }
     return jogoAoVivo(item) ? melhorMercado(item) : melhorSinalPreLiveVip(item);
   }
@@ -4067,7 +4058,7 @@ h1{
 }
 
 
-/* ===== V9 RESTORE ESTAVEL: FILTROS EXATOS SEM ZERAR SINAIS ===== */
+/* ===== V10 MULTI-API ESTAVEL ===== */
 .filters .activeBtn{
   background:#19d56b!important;
   color:#001b0b!important;
@@ -4077,21 +4068,9 @@ h1{
 .signalChip{
   border-color:rgba(250,204,21,.34)!important;
 }
-.signalChip b{
-  color:#fff!important;
-}
-.signalChip span{
-  color:#e5e7eb!important;
-}
 .estimatedStatsBadge{
   background:#374151!important;
   color:#e5e7eb!important;
-}
-.statsEstimatedBox{
-  position:relative!important;
-}
-.statsOverlayNotice{
-  background:rgba(4,10,14,.76)!important;
 }
 
 `;
