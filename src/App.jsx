@@ -1462,7 +1462,6 @@ export default function App() {
           ["ODDS", "💰 ODDS"],
           ["REAL", "📊 STATS REAL"],
           ["EVENTOS", "🎬 EVENTOS"]
-        ]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
