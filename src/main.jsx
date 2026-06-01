@@ -2,12 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 
-// Renderização principal
 ReactDOM.createRoot(document.getElementById("root")).render(
   <App />
 );
 
-// Limpa Service Worker antigo e caches antigos
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
