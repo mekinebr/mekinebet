@@ -1231,15 +1231,53 @@ export default function App() {
       .sort((a, b) => (b.confidence || 0) + (b.pressure || 0) - ((a.confidence || 0) + (a.pressure || 0)))[0] || item;
   }
 
+  function numeroLinhaMercado(m) {
+    const txt = String(`${m?.market || ""} ${m?.mercado || ""} ${m?.oddsLine || ""}`).replace(",", ".");
+    const found = txt.match(/(\d+(?:\.\d+)?)/);
+    return found ? Number(found[1]) : null;
+  }
+
+  function linhaCantosAoVivo(item) {
+    const stats = statsDoJogo(item);
+    const total = Number(stats.home.cantos || 0) + Number(stats.away.cantos || 0);
+    const min = minuto(item);
+
+    if (min <= 20) return total <= 2 ? 4.5 : total <= 4 ? 6.5 : 8.5;
+    if (min <= 35) return total <= 4 ? 6.5 : total <= 6 ? 8.5 : 9.5;
+    if (min <= 55) return total <= 6 ? 8.5 : total <= 8 ? 9.5 : 10.5;
+    if (min <= 75) return total <= 8 ? 9.5 : total <= 10 ? 10.5 : 11.5;
+    return total <= 10 ? 10.5 : 11.5;
+  }
+
+  function linhaCartoesAoVivo(item) {
+    const stats = statsDoJogo(item);
+    const total = Number(stats.home.cartoes || 0) + Number(stats.away.cartoes || 0);
+    const min = minuto(item);
+
+    if (min <= 25) return total <= 1 ? 2.5 : 3.5;
+    if (min <= 45) return total <= 2 ? 3.5 : 4.5;
+    if (min <= 65) return total <= 3 ? 4.5 : 5.5;
+    return total <= 4 ? 5.5 : 6.5;
+  }
+
   function mercadoCumprido(m, item) {
     const gols = totalGols(item);
-    const status = String(m.alert || mercadoStatus(m) || "").toLowerCase();
+    const stats = statsDoJogo(item);
+    const cantos = Number(stats.home.cantos || 0) + Number(stats.away.cantos || 0);
+    const cartoes = Number(stats.home.cartoes || 0) + Number(stats.away.cartoes || 0);
+    const { homeGoals, awayGoals } = placarPartes(item);
+    const status = String(m.alert || "").toLowerCase();
     const cat = categoriaMercado(m);
+    const linha = numeroLinhaMercado(m);
+
     if (status.includes("green")) return true;
     if (cat === "OVER 0,5" && gols >= 1) return true;
     if (cat === "OVER 1,5" && gols >= 2) return true;
     if (cat === "OVER 2,5" && gols >= 3) return true;
     if (cat === "OVER 3,5" && gols >= 4) return true;
+    if (cat === "BTTS" && homeGoals > 0 && awayGoals > 0) return true;
+    if ((cat === "CANTOS" || cat === "CANTOS INÍCIO") && linha !== null && cantos > linha) return true;
+    if ((cat === "CARTÕES" || cat === "CARTÕES INÍCIO") && linha !== null && cartoes > linha) return true;
     return false;
   }
 
@@ -1270,32 +1308,43 @@ export default function App() {
     const best = melhorMercadoBase(item);
     const press = Number(best.pressure || item.pressure || 70);
     const conf = Number(best.confidence || item.confidence || 70);
-    const shots = stats.home.finalizacoes + stats.away.finalizacoes;
-    const onGoal = stats.home.noGol + stats.away.noGol;
-    const danger = stats.home.perigosos + stats.away.perigosos;
-    const corners = stats.home.cantos + stats.away.cantos;
-    const cards = stats.home.cartoes + stats.away.cartoes;
-    const fouls = (stats.home.faltas || 0) + (stats.away.faltas || 0);
+    const shots = Number(stats.home.finalizacoes || 0) + Number(stats.away.finalizacoes || 0);
+    const onGoal = Number(stats.home.noGol || 0) + Number(stats.away.noGol || 0);
+    const danger = Number(stats.home.perigosos || 0) + Number(stats.away.perigosos || 0);
+    const corners = Number(stats.home.cantos || 0) + Number(stats.away.cantos || 0);
+    const cards = Number(stats.home.cartoes || 0) + Number(stats.away.cartoes || 0);
+    const fouls = Number(stats.home.faltas || 0) + Number(stats.away.faltas || 0);
     const pressureScore = press + shots * 0.7 + onGoal * 2.5 + danger * 0.35;
+    const statsReal = jogoStatsReal(item);
 
     const candidates = [];
 
+    // Sinais de gols só entram se ainda NÃO bateram.
     if (gols < 1) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL • 1º GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
     if (gols < 2) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL • +1 GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 3) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 4) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 3 && min <= 82) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+    if (gols < 4 && min <= 75) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
 
     const { homeGoals, awayGoals } = placarPartes(item);
-    if (!(homeGoals > 0 && awayGoals > 0)) {
+    if (!(homeGoals > 0 && awayGoals > 0) && min <= 80) {
       candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4, "🔥 PRÓXIMO SINAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true }));
     }
 
-    candidates.push(mercadoSynthetic(item, "Próximos escanteios", "CANTOS", 42 + corners * 5 + press * 0.28 + min * 0.08, "🚩 PRÓXIMO SINAL • CANTOS", { type: "live", status: "AO VIVO", nextSignal: true }));
-    candidates.push(mercadoSynthetic(item, "Próximos cartões", "CARTOES_FT", 34 + cards * 8 + fouls * 0.9 + (min >= 55 ? 8 : 0), "🟨 PRÓXIMO SINAL • CARTÕES", { type: "live", status: "AO VIVO", nextSignal: true }));
+    // Cantos e cartões agora mostram a linha que ainda falta acontecer.
+    if (statsReal) {
+      const linhaCantos = linhaCantosAoVivo(item);
+      const cantosConf = 42 + corners * 5.2 + press * 0.28 + danger * 0.10 + (min <= 35 ? 5 : 0);
+      candidates.push(mercadoSynthetic(item, `Mais de ${String(linhaCantos).replace(".", ",")} cantos`, "CANTOS", cantosConf, `🚩 PRÓXIMO SINAL • +${String(linhaCantos).replace(".", ",")} CANTOS`, { type: "live", status: "AO VIVO", nextSignal: true, oddsLine: linhaCantos }));
+
+      const linhaCartoes = linhaCartoesAoVivo(item);
+      const cartoesConf = 34 + cards * 8 + fouls * 0.9 + (min >= 55 ? 8 : 0);
+      candidates.push(mercadoSynthetic(item, `Mais de ${String(linhaCartoes).replace(".", ",")} cartões`, "CARTOES_FT", cartoesConf, `🟨 PRÓXIMO SINAL • +${String(linhaCartoes).replace(".", ",")} CARTÕES`, { type: "live", status: "AO VIVO", nextSignal: true, oddsLine: linhaCartoes }));
+    }
 
     const baseNaoCumpridos = base.filter((m) => !mercadoCumprido(m, item));
     const finalistas = [...baseNaoCumpridos, ...candidates]
-      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"));
+      .filter((m) => !String(m.alert || "").toLowerCase().includes("green"))
+      .filter((m) => !mercadoCumprido(m, item));
 
     return finalistas
       .slice()
@@ -1312,10 +1361,16 @@ export default function App() {
   }
 
   function mercadosOrdenados(item) {
-    const ordem = { "TOP IA": 0, "MAIS GOL": 1, "GOLS": 2, "OVER 1,5": 3, "OVER 2,5": 4, "OVER 3,5": 5, "BTTS": 6, "CANTOS": 7, "CANTOS INÍCIO": 8, "CARTÕES": 9, "CARTÕES INÍCIO": 10, "VITÓRIA": 11, "HANDICAP": 12, "OVER 0,5": 13 };
+    const ordem = { "TOP IA": 0, "MAIS GOL": 1, "GOLS": 2, "OVER 0,5": 3, "OVER 1,5": 4, "OVER 2,5": 5, "OVER 3,5": 6, "BTTS": 7, "CANTOS": 8, "CANTOS INÍCIO": 9, "CARTÕES": 10, "CARTÕES INÍCIO": 11, "VITÓRIA": 12, "HANDICAP": 13 };
     return mercadosDoItem(item)
+      .filter((m) => !jogoAoVivo(item) || !mercadoCumprido(m, item))
       .slice()
-      .sort((a, b) => (ordem[categoriaMercado(a)] ?? 99) - (ordem[categoriaMercado(b)] ?? 99));
+      .sort((a, b) => {
+        const oa = ordem[categoriaMercado(a)] ?? 99;
+        const ob = ordem[categoriaMercado(b)] ?? 99;
+        if (oa !== ob) return oa - ob;
+        return Number(b.confidence || 0) - Number(a.confidence || 0);
+      });
   }
 
   function categoriaFiltroAtual() {
