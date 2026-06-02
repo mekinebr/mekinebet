@@ -345,6 +345,9 @@ export default function App() {
     message: ""
   });
 
+  const [scannerMercado, setScannerMercado] = useState("GOLS");
+  const [scannerLinha, setScannerLinha] = useState("2.5");
+
   async function carregar() {
     try {
       const res = await fetch(API_URL, { cache: "no-store" });
@@ -1395,6 +1398,8 @@ export default function App() {
   }
 
   function melhorMercadoDoFiltro(item) {
+    if (item?.__scannerMarket) return item.__scannerMarket;
+
     const lista = mercadosVisiveisNoFiltro(item);
     if (lista.length) {
       return lista.slice().sort((a, b) => (b.confidence || 0) + (b.pressure || 0) - ((a.confidence || 0) + (a.pressure || 0)))[0];
@@ -1402,8 +1407,94 @@ export default function App() {
     return jogoAoVivo(item) ? melhorMercado(item) : melhorSinalPreLiveVip(item);
   }
 
+  const SCANNER_LINHAS = {
+    GOLS: ["0.5", "1.5", "2.5", "3.5"],
+    CANTOS: ["6.5", "7.5", "8.5", "9.5", "10.5"],
+    CARTOES: ["2.5", "3.5", "4.5", "5.5", "6.5"],
+    BTTS: ["Sim"],
+    VITORIA: ["Favorito"],
+    HANDICAP: ["Dupla chance", "Handicap"]
+  };
+
+  function linhaScannerAtual() {
+    const linhas = SCANNER_LINHAS[scannerMercado] || [scannerLinha];
+    return linhas.includes(scannerLinha) ? scannerLinha : linhas[0];
+  }
+
+  function categoriaScanner(m) {
+    const cat = categoriaMercado(m);
+    if (scannerMercado === "GOLS") {
+      const linha = linhaScannerAtual();
+      if (linha === "0.5") return cat === "OVER 0,5" || cat === "MAIS GOL" || cat === "GOLS";
+      if (linha === "1.5") return cat === "OVER 1,5";
+      if (linha === "2.5") return cat === "OVER 2,5";
+      if (linha === "3.5") return cat === "OVER 3,5";
+      return cat.includes("OVER") || cat === "MAIS GOL" || cat === "GOLS";
+    }
+
+    if (scannerMercado === "CANTOS") return cat === "CANTOS" || cat === "CANTOS INÍCIO";
+    if (scannerMercado === "CARTOES") return cat === "CARTÕES" || cat === "CARTÕES INÍCIO";
+    if (scannerMercado === "BTTS") return cat === "BTTS";
+    if (scannerMercado === "VITORIA") return cat === "VITÓRIA";
+    if (scannerMercado === "HANDICAP") return cat === "HANDICAP";
+    return true;
+  }
+
+  function labelMercadoScanner() {
+    const linha = linhaScannerAtual();
+    if (scannerMercado === "GOLS") return `Over ${linha} gols`;
+    if (scannerMercado === "CANTOS") return `Over ${linha} cantos FT`;
+    if (scannerMercado === "CARTOES") return `Over ${linha} cartões FT`;
+    if (scannerMercado === "BTTS") return "Ambas marcam";
+    if (scannerMercado === "VITORIA") return "Vitória do favorito";
+    if (scannerMercado === "HANDICAP") return linha;
+    return scannerMercado;
+  }
+
+  function mercadoParaScanner(item) {
+    const candidatos = mercadosDoItem(item)
+      .filter((m) => !mercadoCumprido(m, item))
+      .filter((m) => categoriaScanner(m))
+      .map((m) => {
+        const baseScore = Number(m.confidence || 0) * 1.25 + Number(m.pressure || 0) * 0.55;
+        const realBonus = (jogoStatsReal(item) ? 7 : 0) + (jogoOddReal(item) ? 5 : 0) + (jogoEventosReal(item) ? 3 : 0);
+        const vipBonus = isVip(m) ? 6 : 0;
+        return { ...m, __scannerScore: Math.round(baseScore + realBonus + vipBonus) };
+      });
+
+    return candidatos.sort((a, b) => (b.__scannerScore || 0) - (a.__scannerScore || 0))[0] || null;
+  }
+
+  const scannerOportunidades = useMemo(() => {
+    return signals
+      .map((item) => {
+        const m = mercadoParaScanner(item);
+        if (!m) return null;
+        const backtest = Math.round(limitar((m.confidence || 0) * 0.72 + (m.pressure || 0) * 0.22 + (jogoStatsReal(item) ? 4 : 0) + (jogoOddReal(item) ? 3 : 0), 55, 98));
+        return {
+          ...item,
+          __scannerMarket: {
+            ...m,
+            market: m.market || labelMercadoScanner(),
+            alert: m.alert || "⚡ SCANNER VIP"
+          },
+          __scannerBacktest: backtest,
+          __scannerScore: Number(m.__scannerScore || 0) + backtest * 0.35
+        };
+      })
+      .filter(Boolean)
+      .filter((item) => {
+        const texto = `${item.match} ${item.league} ${item.__scannerMarket?.market || ""}`.toLowerCase();
+        return texto.includes(busca.toLowerCase());
+      })
+      .sort((a, b) => Number(b.__scannerScore || 0) - Number(a.__scannerScore || 0))
+      .slice(0, 50);
+  }, [signals, busca, scannerMercado, scannerLinha]);
+
 
   const sinaisFiltrados = useMemo(() => {
+    if (filtro === "SCANNER") return scannerOportunidades;
+
     return signals
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${mercadosDoItem(item).map((m) => `${m.market} ${m.category} ${m.alert}`).join(" ")}`.toLowerCase();
@@ -1443,7 +1534,7 @@ export default function App() {
         }
         return (melhorMercado(b).confidence || 70) + (melhorMercado(b).pressure || 70) - ((melhorMercado(a).confidence || 70) + (melhorMercado(a).pressure || 70));
       });
-  }, [signals, busca, filtro]);
+  }, [signals, busca, filtro, scannerOportunidades]);
 
   const liveCount = signals.filter((s) => s.type === "live" || mercadosDoItem(s).some((m) => m.type === "live")).length;
   const alertCount = signals.filter((s) => jogoTemAlerta(s)).length;
@@ -1514,6 +1605,7 @@ export default function App() {
           ["ODDS", "💰 ODDS"],
           ["REAL", "📊 STATS REAL"],
           ["EVENTOS", "🎬 EVENTOS"],
+          ["SCANNER", "⚡ SCANNER VIP"],
           ["HISTORICO", "🔐 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
@@ -1522,12 +1614,74 @@ export default function App() {
 
       <input placeholder="🔍  Buscar jogo, liga ou mercado..." value={busca} onChange={(e) => setBusca(e.target.value)} className="search" />
 
+      {filtro === "SCANNER" && (
+        <section className="scannerVipPanel">
+          <div className="scannerHead">
+            <div>
+              <small>⚡ SCANNER VIP</small>
+              <h2>Escanear oportunidades de alto valor</h2>
+              <p>Escolha o mercado e a linha. O ranking mostra apenas sinais que ainda podem acontecer.</p>
+            </div>
+            <strong>{scannerOportunidades.length} oportunidades</strong>
+          </div>
+
+          <div className="scannerControls">
+            <label>
+              Mercado
+              <select value={scannerMercado} onChange={(e) => { setScannerMercado(e.target.value); setScannerLinha((SCANNER_LINHAS[e.target.value] || ["2.5"])[0]); }}>
+                <option value="GOLS">Gols</option>
+                <option value="CANTOS">Cantos</option>
+                <option value="CARTOES">Cartões</option>
+                <option value="BTTS">Ambas marcam</option>
+                <option value="VITORIA">Vitória</option>
+                <option value="HANDICAP">Handicap / Dupla chance</option>
+              </select>
+            </label>
+
+            <label>
+              Linha
+              <select value={linhaScannerAtual()} onChange={(e) => setScannerLinha(e.target.value)}>
+                {(SCANNER_LINHAS[scannerMercado] || []).map((linha) => (
+                  <option key={linha} value={linha}>{linha}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="scannerTarget">
+              <span>Buscando</span>
+              <b>{labelMercadoScanner()}</b>
+            </div>
+          </div>
+
+          <div className="scannerRanking">
+            {scannerOportunidades.slice(0, 6).map((item, i) => {
+              const m = item.__scannerMarket || melhorMercado(item);
+              return (
+                <div className="scannerResult" key={`${item.id || item.fixtureId || item.match}-${i}`}>
+                  <span className="rank">#{i + 1}</span>
+                  <div>
+                    <b>{tituloJogo(item)}</b>
+                    <small>{item.league || "Liga"} • {jogoAoVivo(item) ? `${minuto(item)}' ao vivo` : textoInicio(item)}</small>
+                    <em>{m.market || labelMercadoScanner()}</em>
+                  </div>
+                  <strong>{m.confidence || 0}%</strong>
+                  <small className="backtest">Backtest {item.__scannerBacktest || 0}%</small>
+                  <button type="button" onClick={() => setBusca(tituloJogo(item))}>Ver análise</button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {loading ? (
         <div className="empty">Carregando sinais...</div>
       ) : sinaisFiltrados.length === 0 ? (
         <div className="empty emptyState">
           <b>
-            {filtro === "HISTORICO"
+            {filtro === "SCANNER"
+              ? "Nenhuma oportunidade encontrada nesse scanner agora."
+              : filtro === "HISTORICO"
               ? "Nenhum pré-live VIP real encontrado agora."
               : filtro === "LIVE"
                 ? "Nenhum jogo ao vivo real disponível agora."
@@ -4124,5 +4278,35 @@ h1{
   background:#374151!important;
   color:#e5e7eb!important;
 }
+
+
+/* ===== SCANNER VIP + MENU UMA LINHA ===== */
+.filters{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  gap:5px!important;
+  overflow-x:auto!important;
+  padding-bottom:2px!important;
+  scrollbar-width:thin!important;
+}
+.filters button{
+  flex:1 1 0!important;
+  min-width:64px!important;
+  height:29px!important;
+  padding:4px 3px!important;
+  font-size:8px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.scannerVipPanel{
+  border:1px solid rgba(250,204,21,.55);
+  background:linear-gradient(180deg,rgba(23,22,8,.96),rgba(5,14,14,.96));
+  border-radius:12px;
+  padding:10px;
+  margin:8px 0 10px;
+  box-shadow:0 0 20px rgba(250,204,21,.08);
+}
+.scannerHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.scannerHead small{color:#facc15;font-weight:900}.scannerHead h2{margin:2px 0;color:#fff;font-size:18px}.scannerHead p{margin:0;color:#d1d5db;font-size:12px;font-weight:700}.scannerHead strong{background:#facc15;color:#111827;border-radius:999px;padding:7px 12px;font-weight:900;white-space:nowrap}.scannerControls{display:grid;grid-template-columns:180px 160px 1fr;gap:8px;margin-bottom:10px}.scannerControls label{display:grid;gap:4px;color:#d1d5db;font-size:11px;font-weight:900}.scannerControls select{height:34px;border-radius:8px;border:1px solid #0f7a3e;background:#07141a;color:#fff;font-weight:900;padding:0 8px}.scannerTarget{border:1px solid rgba(34,197,94,.45);border-radius:8px;background:#06110d;padding:7px 10px;display:grid;align-content:center}.scannerTarget span{font-size:10px;color:#9ca3af;font-weight:900}.scannerTarget b{color:#58f5a5;font-size:14px}.scannerRanking{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.scannerResult{display:grid;grid-template-columns:40px 1fr 54px 76px 88px;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.13);background:rgba(0,0,0,.26);border-radius:10px;padding:8px}.scannerResult .rank{background:#facc15;color:#111827;border-radius:999px;font-weight:900;text-align:center;padding:5px 0}.scannerResult b{display:block;color:#fff;font-size:12px}.scannerResult small{display:block;color:#d1d5db;font-size:10px;font-weight:800}.scannerResult em{display:block;color:#58f5a5;font-style:normal;font-weight:900;font-size:11px}.scannerResult strong{font-size:20px;color:#22c55e;text-align:center}.scannerResult .backtest{color:#facc15;text-align:center}.scannerResult button{border:0;background:#1ccc67;color:#001b0b;border-radius:8px;padding:7px;font-weight:900;cursor:pointer;font-size:10px}
+@media(max-width:1100px){.scannerControls{grid-template-columns:1fr 1fr}.scannerTarget{grid-column:1/-1}.scannerRanking{grid-template-columns:1fr}.scannerResult{grid-template-columns:36px 1fr 48px}.scannerResult .backtest,.scannerResult button{grid-column:2/-1}.filters button{flex:0 0 92px!important}}
 
 `;
