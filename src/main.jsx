@@ -3,9 +3,12 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <App />
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
 
+// Limpa Service Worker antigo
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
@@ -23,8 +26,7 @@ if ("serviceWorker" in navigator) {
         }
       }
 
-      console.log("Service Workers removidos");
-      console.log("Caches removidos");
+      console.log("MekineBet cache limpo");
     } catch (error) {
       console.error("Erro ao limpar cache:", error);
     }
