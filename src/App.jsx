@@ -1564,7 +1564,8 @@ export default function App() {
 
   return (
     <div className="page">
-      <style>{css}
+      <style>{`
+${css}
 
 /* ===== AJUSTE FINAL: NOMES, STATS REAIS, MENU, TEMPO ===== */
 .filters{
@@ -1684,7 +1685,7 @@ export default function App() {
   .teamSide small{width:84px!important;max-width:84px!important;font-size:10px!important}
 }
 
-</style>
+`}</style>
 
       <header className="topBar">
         <div>
