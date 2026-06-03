@@ -394,7 +394,7 @@ export default function App() {
 
   useEffect(() => {
     carregar();
-    const timer = setInterval(carregar, 20000);
+    const timer = setInterval(carregar, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -1550,7 +1550,122 @@ export default function App() {
 
   return (
     <div className="page">
-      <style>{css}</style>
+      <style>{css}
+
+/* ===== AJUSTE FINAL DANILO - MENU, NOMES, STATS REAIS ===== */
+.filters{
+  display:grid!important;
+  grid-template-columns:repeat(17,minmax(58px,1fr))!important;
+  gap:5px!important;
+  width:100%!important;
+  overflow:hidden!important;
+}
+.filters button{
+  min-width:0!important;
+  height:31px!important;
+  padding:5px 3px!important;
+  font-size:9px!important;
+  letter-spacing:.1px!important;
+  font-weight:1000!important;
+  text-shadow:0 1px 2px #000!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  border-color:rgba(125,211,252,.42)!important;
+}
+.statusWrap .pill{
+  padding:7px 11px!important;
+  font-size:12px!important;
+  font-weight:1000!important;
+}
+.matchHero{
+  grid-template-columns:98px minmax(0,1fr) 98px!important;
+  min-height:96px!important;
+  gap:8px!important;
+}
+.heroCenter h2{
+  display:none!important;
+}
+.heroCenter{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:0!important;
+}
+.heroCenter p{
+  font-size:10px!important;
+  font-weight:900!important;
+  color:#e5e7eb!important;
+  max-width:100%!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.heroCenter b{
+  font-size:31px!important;
+  line-height:1!important;
+}
+.heroCenter strong.gameMinute{
+  font-size:13px!important;
+  padding:4px 8px!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  color:#fff!important;
+}
+.heroLogo{
+  width:58px!important;
+  height:58px!important;
+}
+.teamSide{
+  min-width:0!important;
+  overflow:visible!important;
+}
+.teamSide small{
+  display:block!important;
+  width:96px!important;
+  max-width:96px!important;
+  min-height:28px!important;
+  font-size:12px!important;
+  line-height:1.08!important;
+  font-weight:1000!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:unset!important;
+  text-align:center!important;
+  word-break:normal!important;
+}
+.statsOverlayNotice{
+  display:none!important;
+}
+.estimatedStatsBadge,
+.noEventsBadge,
+.noOddsBadge{
+  opacity:.9!important;
+}
+.statDial small,
+.shotBox small{
+  font-size:8.5px!important;
+  color:#f8fafc!important;
+}
+.statDial b,
+.shotBox strong{
+  font-size:17px!important;
+  color:#f8fafc!important;
+}
+.flowCard.preliveOnly,
+.preliveOnly .flowCard,
+.card[data-type="prelive"] .flowCard{
+  display:none!important;
+}
+@media (max-width:900px){
+  .filters{grid-template-columns:repeat(4,minmax(0,1fr))!important;overflow:visible!important}
+  .filters button{font-size:10px!important}
+  .matchHero{grid-template-columns:82px minmax(0,1fr) 82px!important}
+  .teamSide small{width:82px!important;max-width:82px!important;font-size:10px!important}
+}
+
+</style>
 
       <header className="topBar">
         <div>
@@ -1720,15 +1835,18 @@ export default function App() {
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const statsReal = jogoStatsReal(item);
             const statText = (v, suffix = "") => {
+              if (!statsReal) return "—";
               const n = Number(v || 0);
               return `${Number.isFinite(n) ? Math.round(n) : 0}${suffix}`;
             };
             const statPair = (a, b) => {
+              if (!statsReal) return "—/—";
               const x = Number(a || 0);
               const y = Number(b || 0);
               return `${Number.isFinite(x) ? Math.round(x) : 0}/${Number.isFinite(y) ? Math.round(y) : 0}`;
             };
             const statPct = (v) => {
+              if (!statsReal) return 50;
               const n = Number(v || 0);
               return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 50));
             };
@@ -1748,7 +1866,6 @@ export default function App() {
                     <small style={{ color: homeColor }}>{nomeCurto(times.casa)}</small>
                   </div>
                   <div className="heroCenter">
-                    <h2><span style={{ color: homeColor }}>{nomeCurto(times.casa)}</span> <em>vs</em> <span style={{ color: awayColor }}>{nomeCurto(times.fora)}</span></h2>
                     <p>{item.league || "Liga"}</p>
                     <b>{item.score || "0-0"}</b>
                     <strong className={liveReal ? "gameMinute" : "preliveMinute"}>
