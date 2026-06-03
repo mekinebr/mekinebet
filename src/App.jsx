@@ -347,7 +347,7 @@ export default function App() {
 
   const [scannerMercado, setScannerMercado] = useState("GOLS");
   const [scannerLinha, setScannerLinha] = useState("2.5");
-  const [nowTick, setNowTick] = useState(Date.now());
+  const [agora, setAgora] = useState(new Date());
 
   async function carregar() {
     try {
@@ -399,8 +399,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(timer);
+    const relogio = setInterval(() => setAgora(new Date()), 1000);
+    return () => clearInterval(relogio);
   }, []);
 
   function timesDoJogo(item) {
@@ -666,6 +666,20 @@ export default function App() {
 
   function minuto(item) {
     return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
+  }
+
+  function periodoDoJogo(item) {
+    const m = minuto(item);
+    if (!jogoAoVivo(item)) return "PRÉ-LIVE";
+    if (m <= 45) return "1º TEMPO";
+    if (m <= 90) return "2º TEMPO";
+    return "ACRÉSCIMOS";
+  }
+
+  function tempoAoVivoTexto(item) {
+    const m = Math.max(0, minuto(item));
+    const s = String(agora.getSeconds()).padStart(2, "0");
+    return `${periodoDoJogo(item)} • ${m}' ${s}s`;
   }
 
   function statsDoJogo(item) {
@@ -1552,10 +1566,10 @@ export default function App() {
     <div className="page">
       <style>{css}
 
-/* ===== AJUSTE FINAL DANILO - MENU, NOMES, STATS REAIS ===== */
+/* ===== AJUSTE FINAL: NOMES, STATS REAIS, MENU, TEMPO ===== */
 .filters{
   display:grid!important;
-  grid-template-columns:repeat(17,minmax(58px,1fr))!important;
+  grid-template-columns:repeat(17,minmax(56px,1fr))!important;
   gap:5px!important;
   width:100%!important;
   overflow:hidden!important;
@@ -1563,27 +1577,23 @@ export default function App() {
 .filters button{
   min-width:0!important;
   height:31px!important;
-  padding:5px 3px!important;
+  padding:4px 3px!important;
   font-size:9px!important;
-  letter-spacing:.1px!important;
+  line-height:1!important;
   font-weight:1000!important;
-  text-shadow:0 1px 2px #000!important;
   white-space:nowrap!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
-  border-color:rgba(125,211,252,.42)!important;
-}
-.statusWrap .pill{
-  padding:7px 11px!important;
-  font-size:12px!important;
-  font-weight:1000!important;
+  color:#f8fafc!important;
+  text-shadow:0 1px 2px #000!important;
 }
 .matchHero{
-  grid-template-columns:98px minmax(0,1fr) 98px!important;
-  min-height:96px!important;
-  gap:8px!important;
+  grid-template-columns:104px minmax(0,1fr) 104px!important;
+  min-height:108px!important;
+  gap:10px!important;
 }
-.heroCenter h2{
+.heroCenter h2,
+.matchHero h2{
   display:none!important;
 }
 .heroCenter{
@@ -1603,29 +1613,28 @@ export default function App() {
   text-overflow:ellipsis!important;
 }
 .heroCenter b{
-  font-size:31px!important;
+  font-size:32px!important;
   line-height:1!important;
 }
 .heroCenter strong.gameMinute{
-  font-size:13px!important;
-  padding:4px 8px!important;
+  font-size:12px!important;
+  font-weight:1000!important;
+  padding:5px 9px!important;
   border-radius:999px!important;
   background:#ef4444!important;
   color:#fff!important;
+  box-shadow:0 0 12px rgba(239,68,68,.5)!important;
+  white-space:nowrap!important;
 }
 .heroLogo{
   width:58px!important;
   height:58px!important;
 }
-.teamSide{
-  min-width:0!important;
-  overflow:visible!important;
-}
 .teamSide small{
   display:block!important;
-  width:96px!important;
-  max-width:96px!important;
-  min-height:28px!important;
+  width:104px!important;
+  max-width:104px!important;
+  min-height:30px!important;
   font-size:12px!important;
   line-height:1.08!important;
   font-weight:1000!important;
@@ -1636,33 +1645,43 @@ export default function App() {
   word-break:normal!important;
 }
 .statsOverlayNotice{
-  display:none!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  font-size:11px!important;
+  font-weight:1000!important;
+  color:#facc15!important;
+  background:rgba(0,0,0,.72)!important;
+  border:1px solid rgba(250,204,21,.55)!important;
+  border-radius:8px!important;
+  padding:8px!important;
 }
-.estimatedStatsBadge,
-.noEventsBadge,
-.noOddsBadge{
-  opacity:.9!important;
-}
-.statDial small,
-.shotBox small{
-  font-size:8.5px!important;
-  color:#f8fafc!important;
+.statsOverlayNotice small{
+  font-size:9px!important;
+  color:#e5e7eb!important;
 }
 .statDial b,
 .shotBox strong{
   font-size:17px!important;
   color:#f8fafc!important;
 }
-.flowCard.preliveOnly,
-.preliveOnly .flowCard,
-.card[data-type="prelive"] .flowCard{
+.statDial small,
+.shotBox small{
+  font-size:8.5px!important;
+  color:#f8fafc!important;
+}
+.card:not([data-live="true"]) .timelineBox,
+.card:not([data-live="true"]) .chronology,
+.card:not([data-live="true"]) .timeline{
   display:none!important;
 }
 @media (max-width:900px){
   .filters{grid-template-columns:repeat(4,minmax(0,1fr))!important;overflow:visible!important}
   .filters button{font-size:10px!important}
-  .matchHero{grid-template-columns:82px minmax(0,1fr) 82px!important}
-  .teamSide small{width:82px!important;max-width:82px!important;font-size:10px!important}
+  .matchHero{grid-template-columns:84px minmax(0,1fr) 84px!important}
+  .teamSide small{width:84px!important;max-width:84px!important;font-size:10px!important}
 }
 
 </style>
@@ -1850,7 +1869,6 @@ export default function App() {
               const n = Number(v || 0);
               return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 50));
             };
-            const currentSecond = new Date(nowTick).getSeconds();
 
             const atkHomePct = pctValue(stats.home.ataques, stats.away.ataques);
             const dangerHomePct = pctValue(stats.home.perigosos, stats.away.perigosos);
@@ -1859,7 +1877,7 @@ export default function App() {
             const onGoalHomePct = pctValue(stats.home.noGol, stats.away.noGol);
 
             return (
-              <section key={item.id || index} className="card">
+              <section key={item.id || index} className="card" data-live={liveReal ? "true" : "false"}>
                 <div className="matchHero">
                   <div className="teamSide">
                     <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
@@ -1869,7 +1887,7 @@ export default function App() {
                     <p>{item.league || "Liga"}</p>
                     <b>{item.score || "0-0"}</b>
                     <strong className={liveReal ? "gameMinute" : "preliveMinute"}>
-                      {liveReal ? `${currentMinute}' ${String(currentSecond).padStart(2, "0")}s` : `VIP 24H • ${textoInicio(item)}`}
+                      {liveReal ? tempoAoVivoTexto(item) : `VIP 24H • ${textoInicio(item)}`}
                     </strong>
                   </div>
                   <div className="teamSide right">
@@ -1915,6 +1933,13 @@ export default function App() {
                 </div>
 
                 <div className={`betStats proStats ${statsReal ? "statsRealBox" : "statsEstimatedBox"}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                  {!statsReal && (
+                    <div className="statsOverlayNotice">
+                      AGUARDANDO STATS REAIS
+                      <small>sem números estimados/imprecisos</small>
+                    </div>
+                  )}
+
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
@@ -2064,15 +2089,15 @@ export default function App() {
                   <div className="mapStats compact">
                     <span>{liveMap.live ? `Bola: ${sigla(liveMap.possessionTeam)}` : "VIP pré-live"}</span>
                     <span>{liveMap.label}</span>
-                    <span>{liveMap.live ? `${currentMinute}' ${String(currentSecond).padStart(2, "0")}s` : "Próximo jogo"}</span>
+                    <span>{liveMap.live ? `${currentMinute}'` : "Próximo jogo"}</span>
                   </div>
                 </div>
 
-                {liveReal && (
                 <div className="flowCard">
                   <h3>
-                    CRONOLOGIA DA PARTIDA
+                    {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO VIP PRÉ-LIVE"}
                     {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}
+                    {!liveReal && <span className="flowPreliveTag">PROJEÇÃO IA</span>}
                   </h3>
                   <div className="flowMinuteScale"><span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span></div>
                   <div className="flowWrap">
@@ -2099,7 +2124,6 @@ export default function App() {
                     <span><i className="leve"></i>Ataque leve</span><span><i className="perigoso"></i>Ataque perigoso</span><span><i className="clara"></i>Chance clara</span><span>⚽ Gol</span><span>🟨 Cartão</span><span>🚩 Escanteio</span>
                   </div>
                 </div>
-                )}
 
                 <div className="marketsPanel">
                   {mercadosVisiveisNoFiltro(item).map((m, i) => (
@@ -4438,29 +4462,5 @@ h1{
 }
 .scannerHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.scannerHead small{color:#facc15;font-weight:900}.scannerHead h2{margin:2px 0;color:#fff;font-size:18px}.scannerHead p{margin:0;color:#d1d5db;font-size:12px;font-weight:700}.scannerHead strong{background:#facc15;color:#111827;border-radius:999px;padding:7px 12px;font-weight:900;white-space:nowrap}.scannerControls{display:grid;grid-template-columns:180px 160px 1fr;gap:8px;margin-bottom:10px}.scannerControls label{display:grid;gap:4px;color:#d1d5db;font-size:11px;font-weight:900}.scannerControls select{height:34px;border-radius:8px;border:1px solid #0f7a3e;background:#07141a;color:#fff;font-weight:900;padding:0 8px}.scannerTarget{border:1px solid rgba(34,197,94,.45);border-radius:8px;background:#06110d;padding:7px 10px;display:grid;align-content:center}.scannerTarget span{font-size:10px;color:#9ca3af;font-weight:900}.scannerTarget b{color:#58f5a5;font-size:14px}.scannerRanking{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.scannerResult{display:grid;grid-template-columns:40px 1fr 54px 76px 88px;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.13);background:rgba(0,0,0,.26);border-radius:10px;padding:8px}.scannerResult .rank{background:#facc15;color:#111827;border-radius:999px;font-weight:900;text-align:center;padding:5px 0}.scannerResult b{display:block;color:#fff;font-size:12px}.scannerResult small{display:block;color:#d1d5db;font-size:10px;font-weight:800}.scannerResult em{display:block;color:#58f5a5;font-style:normal;font-weight:900;font-size:11px}.scannerResult strong{font-size:20px;color:#22c55e;text-align:center}.scannerResult .backtest{color:#facc15;text-align:center}.scannerResult button{border:0;background:#1ccc67;color:#001b0b;border-radius:8px;padding:7px;font-weight:900;cursor:pointer;font-size:10px}
 @media(max-width:1100px){.scannerControls{grid-template-columns:1fr 1fr}.scannerTarget{grid-column:1/-1}.scannerRanking{grid-template-columns:1fr}.scannerResult{grid-template-columns:36px 1fr 48px}.scannerResult .backtest,.scannerResult button{grid-column:2/-1}.filters button{flex:0 0 92px!important}}
-
-/* AJUSTES MEKINEBET - stats sempre visíveis, pré-live limpo e nomes maiores */
-.statsOverlayNotice{display:none!important}
-.statsEstimatedBox{opacity:1!important}
-.metricNumbers b,.shotNumbers b,.statsTopGrid b{opacity:1!important}
-.heroCenter h2{
-  font-size:19px!important;
-  line-height:1.14!important;
-  white-space:normal!important;
-  overflow:visible!important;
-  text-overflow:unset!important;
-}
-.teamSide small{
-  font-size:12px!important;
-  line-height:1.12!important;
-  max-width:116px!important;
-  white-space:normal!important;
-  overflow:visible!important;
-  text-overflow:unset!important;
-}
-.matchHero{grid-template-columns:82px 1fr 82px!important;min-height:94px!important}
-.card{min-width:420px}
-.preliveMinute{font-size:12px!important;color:#facc15!important}
-.gameMinute{font-size:14px!important;color:#ef4444!important}
 
 `;
