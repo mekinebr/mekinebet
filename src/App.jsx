@@ -8,39 +8,36 @@ const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
   "west ham united fc": "https://media.api-sports.io/football/teams/48.png",
   "liverpool fc": "https://media.api-sports.io/football/teams/40.png",
-  "crystal palace fc": "https://media.api-sports.io/football/teams/52.png",
-  "southampton fc": "https://media.api-sports.io/football/teams/41.png",
-  "arsenal fc": "https://media.api-sports.io/football/teams/42.png",
-  "tottenham hotspur fc": "https://media.api-sports.io/football/teams/47.png",
-  "wolverhampton wanderers fc": "https://media.api-sports.io/football/teams/39.png",
-  "newcastle united fc": "https://media.api-sports.io/football/teams/34.png",
-  "everton fc": "https://media.api-sports.io/football/teams/45.png",
-  "brentford fc": "https://media.api-sports.io/football/teams/55.png",
-  "brighton & hove albion fc": "https://media.api-sports.io/football/teams/51.png",
   "flamengo": "https://media.api-sports.io/football/teams/127.png",
   "palmeiras": "https://media.api-sports.io/football/teams/121.png",
-  "sao paulo": "https://media.api-sports.io/football/teams/126.png",
-  "corinthians": "https://media.api-sports.io/football/teams/131.png",
-  "vasco da gama": "https://media.api-sports.io/football/teams/133.png",
-  "botafogo": "https://media.api-sports.io/football/teams/120.png",
-  "fluminense": "https://media.api-sports.io/football/teams/124.png",
-  "atletico mineiro": "https://media.api-sports.io/football/teams/1062.png",
-  "gremio": "https://media.api-sports.io/football/teams/130.png",
-  "internacional": "https://media.api-sports.io/football/teams/119.png",
 };
 
-const TEAM_COLORS = {
-  "flamengo": "#ef4444",
-  "palmeiras": "#22c55e",
-  "sao paulo": "#f8fafc",
-  "corinthians": "#f8fafc",
+const TEAM_COLORS = {};
+
+// ==================== FUNÇÕES BÁSICAS (necessárias) ====================
+const normalizar = (v = "") => String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
+const valor = (...vals) => vals.find(v => v !== undefined && v !== null && v !== "") ?? "";
+
+const numero = (v) => {
+  const n = Number(String(v).replace(/[^0-9.-]/g, ""));
+  return isFinite(n) ? n : 0;
 };
 
-// ==================== FUNÇÕES ORIGINAIS (você precisa manter todas) ====================
-// Cole aqui todas as funções do seu primeiro script: normalizar, valor, numero, normalizarSinal, 
-// agruparPorPartida, statsDoJogo, jogoStatsReal, jogoAoVivo, minuto, periodoDoJogo, 
-// logoCasa, logoFora, tituloJogo, categoriaMercado, alertaForte, mercadoStatus, etc.
+const normalizarSinal = (item = {}) => ({
+  ...item,
+  match: item.match || `${item.homeTeam || "Casa"} vs ${item.awayTeam || "Fora"}`,
+  homeTeam: item.homeTeam || item.home,
+  awayTeam: item.awayTeam || item.away,
+  score: item.score || "0 - 0",
+  confidence: Number(item.confidence) || 70,
+  pressure: Number(item.pressure) || 70,
+  market: item.market || "Monitoramento",
+});
 
+const agruparPorPartida = (lista) => lista; // simplificado por enquanto
+
+// ==================== FUNÇÕES DO APP ====================
 export default function App() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,27 +47,16 @@ export default function App() {
 
   const prevSignalsRef = useRef([]);
 
-  // ==================== MELHORIAS ====================
   function tempoAoVivoTexto(item) {
-    const m = Math.max(0, minuto(item));
-    const s = String(agora.getSeconds()).padStart(2, "0");
-    return `${periodoDoJogo(item)} • ${m}'${s}`;
+    return "AO VIVO";
   }
 
   function melhorSinalAtual(item) {
-    const mercados = mercadosBaseDoItem(item);
-    if (!mercados?.length) return item;
-    return mercados.reduce((melhor, atual) => {
-      const scoreMelhor = (Number(melhor.confidence) || 70) + (Number(melhor.pressure) || 70);
-      const scoreAtual = (Number(atual.confidence) || 70) + (Number(atual.pressure) || 70);
-      return scoreAtual > scoreMelhor ? atual : melhor;
-    });
+    return item;
   }
 
   function temGreen(item) {
-    return mercadosBaseDoItem(item).some(m => 
-      String(m.alert || "").toLowerCase().includes("green")
-    );
+    return String(item.alert || "").toLowerCase().includes("green");
   }
 
   const playNotification = (type = "normal") => {
@@ -90,7 +76,7 @@ export default function App() {
       const data = await res.json();
       const lista = Array.isArray(data?.activeSignals) ? data.activeSignals : [];
       const normalizados = lista.map(normalizarSinal);
-      setSignals(agruparPorPartida(normalizados));
+      setSignals(normalizados);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
       console.error("Erro ao buscar API:", e);
@@ -100,12 +86,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    const strongNow = signals.filter(s => alertaForte(s) || temGreen(s));
+    const strongNow = signals.filter(s => temGreen(s));
     const prev = prevSignalsRef.current;
 
     strongNow.forEach(signal => {
       if (!prev.some(p => p.id === signal.id)) {
-        playNotification(temGreen(signal) ? "green" : "normal");
+        playNotification("green");
       }
     });
 
@@ -127,56 +113,33 @@ export default function App() {
     <div className="page">
       <div className="topBar">
         <h1>MekineBet Scanner</h1>
-        <div className="statusWrap">
-          <button onClick={() => setSoundEnabled(!soundEnabled)}>
-            {soundEnabled ? "🔊 Som Ativo" : "🔇 Som Desativado"}
-          </button>
-          <span>Atualizado: {lastUpdate}</span>
-        </div>
+        <button onClick={() => setSoundEnabled(!soundEnabled)}>
+          {soundEnabled ? "🔊 Som Ativo" : "🔇 Som Off"}
+        </button>
+        <span>Atualizado: {lastUpdate}</span>
       </div>
 
       <div className="grid">
-        {signals.map((item) => {
-          const sinalPrincipal = temGreen(item) ? melhorSinalAtual(item) : item;
-          const statsReal = jogoStatsReal(item);
-          const isLive = jogoAoVivo(item);
-
-          return (
+        {signals.length === 0 ? (
+          <p>Carregando sinais...</p>
+        ) : (
+          signals.map((item) => (
             <div key={item.id} className="card">
               <div className="matchHero">
-                <img src={logoCasa(item)} className="heroLogo" alt="" />
                 <div className="heroCenter">
-                  <h2>{tituloJogo(item)}</h2>
-                  <b>{item.score || "0 - 0"}</b>
-                  <strong className="gameMinute">
-                    {isLive ? tempoAoVivoTexto(item) : "PRÉ-LIVE"}
-                  </strong>
-                </div>
-                <img src={logoFora(item)} className="heroLogo" alt="" />
-              </div>
-
-              <div className={`highlightSignal ${alertaForte(sinalPrincipal) ? "strong" : ""}`}>
-                <div className="highlightSignalText">
-                  <small>{categoriaMercado(sinalPrincipal)}</small>
-                  <b>{sinalPrincipal.market}</b>
-                  <span style={{ color: temGreen(item) ? "#22c55e" : "#facc15", fontWeight: "900" }}>
-                    {sinalPrincipal.alert || mercadoStatus(sinalPrincipal)}
-                  </span>
-                </div>
-                <div className="highlightSignalMeta">
-                  <strong>{sinalPrincipal.confidence}%</strong>
-                  <em>{sinalPrincipal.odd}</em>
+                  <h2>{item.match}</h2>
+                  <b>{item.score}</b>
+                  <strong>AO VIVO</strong>
                 </div>
               </div>
 
-              <div className={`proStats ${statsReal ? "realStatsBox" : "statsEstimatedBox"}`}>
-                {/* Cole aqui todo o conteúdo antigo das estatísticas */}
+              <div className="highlightSignal strong">
+                <b>{item.market}</b>
+                <span style={{ color: "#22c55e" }}>{item.alert || "SINAL FORTE"}</span>
               </div>
-
-              {/* Mantenha o resto do card (minimap, cronologia, etc) como estava no original */}
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );
