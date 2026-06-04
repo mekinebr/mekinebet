@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet-api.onrender.com").replace(/\/$/, "");
 const API_URL = `${API_BASE_URL}/api/signals`;
 
-// ==================== CONSTANTES ORIGINAIS ====================
+// ==================== CONSTANTES ====================
 const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
   "west ham united fc": "https://media.api-sports.io/football/teams/48.png",
@@ -34,14 +34,12 @@ const TEAM_COLORS = {
   "palmeiras": "#22c55e",
   "sao paulo": "#f8fafc",
   "corinthians": "#f8fafc",
-  // ... adicione mais se quiser
 };
 
-// ==================== FUNÇÕES ORIGINAIS (você deve colar todas aqui) ====================
-// Cole todas as funções que estavam no arquivo original:
-// normalizar, valor, numero, normalizarSinal, agruparPorPartida, statsDoJogo, 
-// jogoStatsReal, jogoAoVivo, minuto, periodoDoJogo, logoCasa, logoFora, tituloJogo, 
-// categoriaMercado, alertaForte, mercadoStatus, mercadosBaseDoItem, etc.
+// ==================== FUNÇÕES ORIGINAIS (você precisa manter todas) ====================
+// Cole aqui todas as funções do seu primeiro script: normalizar, valor, numero, normalizarSinal, 
+// agruparPorPartida, statsDoJogo, jogoStatsReal, jogoAoVivo, minuto, periodoDoJogo, 
+// logoCasa, logoFora, tituloJogo, categoriaMercado, alertaForte, mercadoStatus, etc.
 
 export default function App() {
   const [signals, setSignals] = useState([]);
@@ -52,7 +50,7 @@ export default function App() {
 
   const prevSignalsRef = useRef([]);
 
-  // ==================== FUNÇÕES MELHORADAS ====================
+  // ==================== MELHORIAS ====================
   function tempoAoVivoTexto(item) {
     const m = Math.max(0, minuto(item));
     const s = String(agora.getSeconds()).padStart(2, "0");
@@ -62,7 +60,6 @@ export default function App() {
   function melhorSinalAtual(item) {
     const mercados = mercadosBaseDoItem(item);
     if (!mercados?.length) return item;
-
     return mercados.reduce((melhor, atual) => {
       const scoreMelhor = (Number(melhor.confidence) || 70) + (Number(melhor.pressure) || 70);
       const scoreAtual = (Number(atual.confidence) || 70) + (Number(atual.pressure) || 70);
@@ -71,7 +68,7 @@ export default function App() {
   }
 
   function temGreen(item) {
-    return mercadosBaseDoItem(item).some(m =>
+    return mercadosBaseDoItem(item).some(m => 
       String(m.alert || "").toLowerCase().includes("green")
     );
   }
@@ -102,7 +99,6 @@ export default function App() {
     }
   }
 
-  // Notificação sonora
   useEffect(() => {
     const strongNow = signals.filter(s => alertaForte(s) || temGreen(s));
     const prev = prevSignalsRef.current;
@@ -129,12 +125,11 @@ export default function App() {
 
   return (
     <div className="page">
-      {/* TopBar mantida original */}
       <div className="topBar">
         <h1>MekineBet Scanner</h1>
         <div className="statusWrap">
-          <button onClick={() => setSoundEnabled(!soundEnabled)} className="soundBtn">
-            {soundEnabled ? "🔊 Som Ativo" : "🔇 Som Off"}
+          <button onClick={() => setSoundEnabled(!soundEnabled)}>
+            {soundEnabled ? "🔊 Som Ativo" : "🔇 Som Desativado"}
           </button>
           <span>Atualizado: {lastUpdate}</span>
         </div>
@@ -148,7 +143,6 @@ export default function App() {
 
           return (
             <div key={item.id} className="card">
-              {/* PLACAR - SEM BOLA VERMELHA */}
               <div className="matchHero">
                 <img src={logoCasa(item)} className="heroLogo" alt="" />
                 <div className="heroCenter">
@@ -161,7 +155,6 @@ export default function App() {
                 <img src={logoFora(item)} className="heroLogo" alt="" />
               </div>
 
-              {/* SINAL PRINCIPAL */}
               <div className={`highlightSignal ${alertaForte(sinalPrincipal) ? "strong" : ""}`}>
                 <div className="highlightSignalText">
                   <small>{categoriaMercado(sinalPrincipal)}</small>
@@ -176,12 +169,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* STATS - COR REAL */}
               <div className={`proStats ${statsReal ? "realStatsBox" : "statsEstimatedBox"}`}>
-                {/* Cole aqui todo o conteúdo antigo de .proStats do seu arquivo original */}
+                {/* Cole aqui todo o conteúdo antigo das estatísticas */}
               </div>
 
-              {/* Mantenha o resto do card (minimap, flow, etc.) como estava originalmente */}
+              {/* Mantenha o resto do card (minimap, cronologia, etc) como estava no original */}
             </div>
           );
         })}
