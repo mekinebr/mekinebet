@@ -694,9 +694,17 @@ export default function App() {
 
   function tempoAoVivoTexto(item) {
     const total = segundosCorridosDoJogo(item);
-    const m = Math.floor(total / 60);
+    const rawMinute = Math.floor(total / 60);
     const s = String(total % 60).padStart(2, "0");
-    return `${periodoDoJogo(item)} • ${m}:${s}`;
+
+    // V8: evita relógio visual travado em 99:59.
+    // Se a API mandar acréscimos, mostra 90+ em vez de estourar o painel.
+    if (rawMinute > 90) {
+      const extra = Math.min(15, rawMinute - 90);
+      return `ACRÉSCIMOS • 90+${extra}`;
+    }
+
+    return `${periodoDoJogo(item)} • ${rawMinute}:${s}`;
   }
 
   function statsDoJogo(item) {
@@ -1751,6 +1759,127 @@ ${css}
 .card[data-live="false"] .flowCard {
   display: none !important;
 }
+
+
+/* ===== MEKINEBET V8 - AJUSTE CONSERVADOR SEM RECOMEÇAR ===== */
+/* Pré-live limpo: sem campo animado, sem cronologia/projeção e sem stats falsas */
+.card[data-live="false"] .miniMap,
+.card[data-live="false"] .flowCard {
+  display: none !important;
+}
+
+.card[data-live="false"] {
+  min-height: 355px !important;
+}
+
+/* Quando não houver stats reais, não mostrar gráficos/barras/números simulados */
+.statsEstimatedBox {
+  min-height: 72px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px !important;
+  border: 1px solid rgba(250,204,21,.55) !important;
+  background: linear-gradient(180deg, rgba(40,31,8,.72), rgba(12,16,13,.88)) !important;
+}
+
+.statsEstimatedBox .statsTopGrid,
+.statsEstimatedBox .statsMiddleRow,
+.statsEstimatedBox .metricPair,
+.statsEstimatedBox .sideCounters,
+.statsEstimatedBox .shotBoxPro,
+.statsEstimatedBox .dualMiniBar,
+.statsEstimatedBox .metricVs,
+.statsEstimatedBox .shotBars {
+  display: none !important;
+}
+
+.statsEstimatedBox .statsOverlayNotice {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  text-align: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #facc15 !important;
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+}
+
+.statsEstimatedBox .statsOverlayNotice small {
+  display: block !important;
+  margin-top: 4px !important;
+  color: #fef3c7 !important;
+  font-size: 10px !important;
+  opacity: .92 !important;
+}
+
+/* Stats reais alinhadas */
+.statsRealBox .statsTopGrid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.statsRealBox .statsMiddleRow {
+  display: grid !important;
+  grid-template-columns: 42px 1fr 42px !important;
+  gap: 8px !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.metricPair,
+.sideCounters,
+.shotBoxPro {
+  min-width: 0 !important;
+}
+
+/* Remove bolinha laranja/bola decorativa do campo e ícone do clima */
+.liveBall,
+.ballAura,
+.weatherBadge span {
+  display: none !important;
+}
+
+.weatherBadge {
+  padding: 3px 8px !important;
+  gap: 0 !important;
+}
+
+/* Tempo limpo, sem bolinhas/ícones extras */
+.heroCenter strong.gameMinute::before,
+.heroCenter strong.gameMinute::after,
+.heroCenter strong.preliveMinute::before,
+.heroCenter strong.preliveMinute::after {
+  content: none !important;
+  display: none !important;
+}
+
+.heroCenter strong.gameMinute,
+.heroCenter strong.preliveMinute {
+  display: inline-block !important;
+  background: rgba(15,23,42,.78) !important;
+  border: 1px solid rgba(34,197,94,.35) !important;
+  border-radius: 999px !important;
+  padding: 3px 9px !important;
+  color: #f8fafc !important;
+  line-height: 1.1 !important;
+  top: 0 !important;
+}
+
+/* Cronologia só para ao vivo, garantia final */
+.card[data-live="false"] .flowWrap,
+.card[data-live="false"] .flowMinuteScale,
+.card[data-live="false"] .flowLegend {
+  display: none !important;
+}
 </style>
 
       <header className="topBar">
@@ -1914,7 +2043,7 @@ ${css}
             const { homeColor, awayColor } = teamColorPair(times.casa, times.fora);
             const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
-            const events = timelineEvents(item, index, homeColor, awayColor);
+            const events = liveReal ? timelineEvents(item, index, homeColor, awayColor) : [];
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
             const liveMap = buildLiveMapState(item, index);
