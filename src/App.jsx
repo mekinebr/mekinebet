@@ -1,7 +1,51 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet-api.onrender.com").replace(/\/$/, "");
-const API_URL = `${API_BASE_URL}/api/signals`;
+const API_URL = `${API_BASE_URL}/api/signals
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
 
 const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
@@ -78,7 +122,51 @@ const normalizar = (v = "") =>
   String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
 const fallbackLogo = (name = "Time") =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
 
 const valor = (...vals) => {
   for (const v of vals) {
@@ -433,7 +521,51 @@ export default function App() {
 
   function tituloJogo(item) {
     const t = timesDoJogo(item);
-    return `${nomeCurto(t.casa)} vs ${nomeCurto(t.fora)}`;
+    return `${nomeCurto(t.casa)} vs ${nomeCurto(t.fora)}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
   }
 
   function logoCasa(item) {
@@ -620,7 +752,51 @@ export default function App() {
           ? "Ataque perigoso"
           : "Passou do meio-campo";
 
-    const label = `${sig} com a bola`;
+    const label = `${sig} com a bola
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
 
     const supportDots =
       side === "home"
@@ -696,7 +872,51 @@ export default function App() {
     const total = segundosCorridosDoJogo(item);
     const m = Math.floor(total / 60);
     const s = String(total % 60).padStart(2, "0");
-    return `${periodoDoJogo(item)} • ${m}:${s}`;
+    return `${periodoDoJogo(item)} • ${m}:${s}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
   }
 
   function statsDoJogo(item) {
@@ -1469,9 +1689,141 @@ export default function App() {
 
   function labelMercadoScanner() {
     const linha = linhaScannerAtual();
-    if (scannerMercado === "GOLS") return `Over ${linha} gols`;
-    if (scannerMercado === "CANTOS") return `Over ${linha} cantos FT`;
-    if (scannerMercado === "CARTOES") return `Over ${linha} cartões FT`;
+    if (scannerMercado === "GOLS") return `Over ${linha} gols
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
+    if (scannerMercado === "CANTOS") return `Over ${linha} cantos FT
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
+    if (scannerMercado === "CARTOES") return `Over ${linha} cartões FT
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
     if (scannerMercado === "BTTS") return "Ambas marcam";
     if (scannerMercado === "VITORIA") return "Vitória do favorito";
     if (scannerMercado === "HANDICAP") return linha;
@@ -1519,10 +1871,169 @@ export default function App() {
   }, [signals, busca, scannerMercado, scannerLinha]);
 
 
+
+  function jogoKey(item) {
+    const fixtureId = item.fixtureId || item.gameId || item.fixture?.id;
+    if (fixtureId) return `fixture-${fixtureId}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
+
+    const t = timesDoJogo(item);
+    const data = String(item.fixtureDate || item.startTime || item.date || "").slice(0, 10);
+    return normalizar(`${t.casa}-${t.fora}-${data || item.league || ""}`);
+  }
+
+  function mercadoPeso(item) {
+    const cat = categoriaMercado(item);
+    const conf = Number(item.confidence || item.confianca || 0);
+    const press = Number(item.pressure || item.pressao || 0);
+    const status = mercadoStatus(item);
+
+    let peso = conf + press * 0.35;
+
+    if (status.includes("🚨")) peso += 18;
+    if (status.includes("🔥")) peso += 12;
+    if (status.includes("✅")) peso += 8;
+    if (cat === "MAIS GOL" || String(item.market || "").toLowerCase().includes("mais gol")) peso += 10;
+    if (cat.includes("OVER")) peso += 6;
+    if (cat === "BTTS") peso += 4;
+    if (cat === "CANTOS") peso += 3;
+
+    return peso;
+  }
+
+  function juntarSinaisDoMesmoJogo(lista = []) {
+    const mapa = new Map();
+
+    lista.forEach((item) => {
+      const key = jogoKey(item);
+      const atual = mapa.get(key);
+
+      if (!atual) {
+        mapa.set(key, {
+          ...item,
+          mercadosAtivos: [item],
+          melhorMercado: item,
+        });
+        return;
+      }
+
+      const mercadosAtivos = [...(atual.mercadosAtivos || []), item]
+        .filter((m, idx, arr) => {
+          const assinatura = `${categoriaMercado(m)}-${String(m.market || m.mercado || "").toLowerCase()}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
+          return arr.findIndex((x) => `${categoriaMercado(x)}-${String(x.market || x.mercado || "").toLowerCase()}` === assinatura) === idx;
+        })
+        .sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
+
+      const melhorMercado = mercadosAtivos[0] || atual.melhorMercado || item;
+
+      mapa.set(key, {
+        ...atual,
+        ...melhorMercado,
+        mercadosAtivos,
+        melhorMercado,
+        confidence: Math.max(...mercadosAtivos.map((m) => Number(m.confidence || m.confianca || 0))),
+        pressure: Math.max(...mercadosAtivos.map((m) => Number(m.pressure || m.pressao || 0))),
+        market: melhorMercado.market || melhorMercado.mercado || atual.market,
+        mercado: melhorMercado.mercado || melhorMercado.market || atual.mercado,
+        category: melhorMercado.category || melhorMercado.categoria || atual.category,
+      });
+    });
+
+    return Array.from(mapa.values());
+  }
+
+
   const sinaisFiltrados = useMemo(() => {
     if (filtro === "SCANNER") return scannerOportunidades;
 
-    return signals
+    const filtrados = signals
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${mercadosDoItem(item).map((m) => `${m.market} ${m.category} ${m.alert}`).join(" ")}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
@@ -1727,11 +2238,6 @@ ${css}
 
 /* V5 ajustes finais */
 .gameMinute::before, .gameMinute::after,
-.preliveMinute::before, .preliveMinute::after,
-.heroCenter strong::before, .heroCenter strong::after {
-  content: none !important;
-  display: none !important;
-}
 .betStats {
   min-height: 230px;
 }
@@ -1918,18 +2424,150 @@ ${css}
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
             const liveMap = buildLiveMapState(item, index);
-            const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
+            const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
             const statsReal = jogoStatsReal(item);
             const statText = (v, suffix = "") => {
               if (!statsReal) return "—";
               const n = Number(v || 0);
-              return `${Number.isFinite(n) ? Math.round(n) : 0}${suffix}`;
+              return `${Number.isFinite(n) ? Math.round(n) : 0}${suffix}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
             };
             const statPair = (a, b) => {
               if (!statsReal) return "—/—";
               const x = Number(a || 0);
               const y = Number(b || 0);
-              return `${Number.isFinite(x) ? Math.round(x) : 0}/${Number.isFinite(y) ? Math.round(y) : 0}`;
+              return `${Number.isFinite(x) ? Math.round(x) : 0}/${Number.isFinite(y) ? Math.round(y) : 0}
+.activeMarkets{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin:3px 0 5px!important;
+}
+.activeMarkets span{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:4px!important;
+  border:1px solid rgba(250,204,21,.35)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.10),rgba(0,0,0,.18))!important;
+  border-radius:6px!important;
+  padding:4px 6px!important;
+  min-width:0!important;
+}
+.activeMarkets b{
+  font-size:8px!important;
+  color:#fff!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.activeMarkets em{
+  font-style:normal!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  color:#22ff88!important;
+}
+@media(max-width:700px){
+  .activeMarkets{grid-template-columns:repeat(2,1fr)!important}
+}
+
+
+.preliveMinute::before,
+.preliveMinute::after,
+.heroCenter strong::before,
+.heroCenter strong::after{
+  content:"" !important;
+  display:none !important;
+}
+
+`;
             };
             const statPct = (v) => {
               if (!statsReal) return 50;
