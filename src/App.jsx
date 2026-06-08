@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_URL = "https://mekinebet.onrender.com/api/signals";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet.onrender.com").replace(/\/$/, "");
+const API_URL = `${API_BASE_URL}/api/signals`;
 
 const TEAM_LOGOS = {
   "ipswich town fc": "https://media.api-sports.io/football/teams/57.png",
@@ -48,7 +49,7 @@ const fallbackLogo = (name = "Time") =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071a10&color=00ff87&bold=true&size=96`;
 
 export default function App() {
-  const [signals, setSignals] = useState(DEMO_SIGNALS);
+  const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("TODOS");
   const [busca, setBusca] = useState("");
@@ -59,10 +60,14 @@ export default function App() {
       const res = await fetch(API_URL, { cache: "no-store" });
       const data = await res.json();
       const lista = Array.isArray(data?.activeSignals) ? data.activeSignals : [];
-      setSignals(lista.length ? lista : DEMO_SIGNALS);
+
+      // Somente jogos/sinais reais vindos da API/backend.
+      // Sem DEMO, sem BASE, sem histórico e sem pré-live.
+      const reais = lista.filter(sinalReal);
+      setSignals(reais);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
-      setSignals(DEMO_SIGNALS);
+      setSignals([]);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } finally {
       setLoading(false);
@@ -71,7 +76,7 @@ export default function App() {
 
   useEffect(() => {
     carregar();
-    const timer = setInterval(carregar, 20000);
+    const timer = setInterval(carregar, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -133,64 +138,155 @@ export default function App() {
     return Number(String(item.minute || 0).replace(/\D/g, "")) || 0;
   }
 
+  function toNumber(v, fallback = 0) {
+    if (v === undefined || v === null || v === "") return fallback;
+    const n = Number(String(v).replace("%", "").replace(",", ".").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function jogoAoVivoReal(item) {
+    const type = String(item.type || item.tipo || "").toLowerCase();
+    const status = String(item.status || item.estado || item.fixture?.status?.short || "").toUpperCase();
+
+    return (
+      type === "live" ||
+      status.includes("AO VIVO") ||
+      ["1H", "2H", "HT", "ET", "BT", "P", "LIVE", "INT"].includes(status)
+    );
+  }
+
+  function jogoStatsReal(item) {
+    return (
+      item.realStats === true ||
+      item.hasRealStats === true ||
+      String(item.statsMode || item.statsSource || "").toLowerCase() === "real"
+    );
+  }
+
+  function jogoEventosReal(item) {
+    return (
+      item.hasRealEvents === true ||
+      String(item.eventsMode || "").toLowerCase() === "real" ||
+      (Array.isArray(item.matchEvents) && item.matchEvents.length > 0)
+    );
+  }
+
+  function jogoFonteReal(item) {
+    const source = String(item.source || "").toLowerCase();
+
+    return Boolean(
+      item.fixtureId ||
+      item.gameId ||
+      item.fixture?.id ||
+      source.includes("api-football") ||
+      source.includes("api")
+    );
+  }
+
+  function sinalReal(item) {
+    const mercado = String(item.market || item.mercado || "").trim();
+    const conf = Number(item.confidence || item.confianca || 0);
+
+    return (
+      jogoAoVivoReal(item) &&
+      jogoFonteReal(item) &&
+      (jogoStatsReal(item) || jogoEventosReal(item)) &&
+      mercado !== "" &&
+      conf >= 30
+    );
+  }
+
   function statsDoJogo(item) {
-    const conf = item.confidence || 70;
-    const press = item.pressure || 70;
-    const gols = totalGols(item);
+    const real = jogoStatsReal(item);
+
+    // Nunca inventar estatística no frontend.
+    // Se a API/backend não mandar stats reais, retorna zero e o card não usa dados estimados.
     const home = {
-      posse: item.possession || Math.min(72, Math.max(42, conf - 18)),
-      finalizacoes: item.shots || Math.max(8, Math.round(press / 6 + gols * 2)),
-      noGol: item.shotsOnGoal || Math.max(2, Math.round((press / 18) + gols)),
-      ataques: item.attacks || Math.max(18, Math.round(press / 2)),
-      cantos: item.corners || Math.max(2, Math.round(press / 18)),
-      cartoes: item.cards || Math.max(0, Math.round((100 - conf) / 30)),
-      perigosos: item.dangerousAttacks || Math.max(8, Math.round(press / 3))
+      posse: real ? toNumber(item.possession ?? item.posse ?? item.ballPossession, 0) : 0,
+      finalizacoes: real ? toNumber(item.shots ?? item.finalizacoes ?? item.finalizações ?? item.chutes, 0) : 0,
+      noGol: real ? toNumber(item.shotsOnGoal ?? item.chutesNoGol ?? item.noGol, 0) : 0,
+      ataques: real ? toNumber(item.attacks ?? item.ataques, 0) : 0,
+      cantos: real ? toNumber(item.corners ?? item.cantos ?? item.escanteios, 0) : 0,
+      cartoes: real ? toNumber(item.yellowCards ?? item.cards ?? item.cartoes ?? item.cartões, 0) : 0,
+      vermelhos: real ? toNumber(item.redCards ?? item.vermelhos ?? item.cartoesVermelhos, 0) : 0,
+      perigosos: real ? toNumber(item.dangerousAttacks ?? item.ataquesPerigosos ?? item.perigosos, 0) : 0
     };
+
     const away = {
-      posse: Math.max(28, 100 - home.posse),
-      finalizacoes: Math.max(3, Math.round(home.finalizacoes * 0.55)),
-      noGol: Math.max(0, Math.round(home.noGol * 0.45)),
-      ataques: Math.max(12, Math.round(home.ataques * 0.58)),
-      cantos: Math.max(1, Math.round(home.cantos * 0.55)),
-      cartoes: Math.max(0, Math.round(home.cartoes * 0.8)),
-      perigosos: Math.max(6, Math.round(home.perigosos * 0.55))
+      posse: real ? toNumber(item.possessionAway ?? item.posseAway ?? item.posseFora, Math.max(0, 100 - home.posse)) : 0,
+      finalizacoes: real ? toNumber(item.shotsAway ?? item.finalizacoesAway ?? item.finalizacoesFora ?? item.chutesAway, 0) : 0,
+      noGol: real ? toNumber(item.shotsOnGoalAway ?? item.chutesNoGolAway ?? item.noGolAway, 0) : 0,
+      ataques: real ? toNumber(item.attacksAway ?? item.ataquesAway ?? item.ataquesFora, 0) : 0,
+      cantos: real ? toNumber(item.cornersAway ?? item.cantosAway ?? item.escanteiosAway, 0) : 0,
+      cartoes: real ? toNumber(item.yellowCardsAway ?? item.cardsAway ?? item.cartoesAway ?? item.cartoesFora, 0) : 0,
+      vermelhos: real ? toNumber(item.redCardsAway ?? item.vermelhosAway ?? item.cartoesVermelhosAway, 0) : 0,
+      perigosos: real ? toNumber(item.dangerousAttacksAway ?? item.ataquesPerigososAway ?? item.perigososFora, 0) : 0
     };
-    return { home, away };
+
+    return { home, away, real };
   }
 
   function mercadoStatus(item) {
+    const alertText = String(item.alert ?? item.alerta ?? "").trim();
+    if (alertText && alertText !== "true" && alertText !== "false") return alertText;
+
+    if (!sinalReal(item)) return "❌ SEM SINAL REAL";
+
+    const stats = statsDoJogo(item);
     const gols = totalGols(item);
     const min = minuto(item);
-    const pressure = item.pressure || 70;
-    const market = String(item.market || "").toLowerCase();
+    const pressure = Number(item.pressure || item.pressao || 0);
+    const confidence = Number(item.confidence || item.confianca || 0);
+    const market = String(item.market || item.mercado || "").toLowerCase();
+
+    const totalDanger = stats.home.perigosos + stats.away.perigosos;
+    const totalShots = stats.home.finalizacoes + stats.away.finalizacoes;
+    const totalOnGoal = stats.home.noGol + stats.away.noGol;
+    const totalCorners = stats.home.cantos + stats.away.cantos;
+    const totalCards = stats.home.cartoes + stats.away.cartoes;
+
     if (market.includes("0.5") || market.includes("0,5")) {
-      if (gols >= 1) return "✅ GREEN";
-      if (min >= 12 && pressure >= 70) return "🔥 GOL IMINENTE";
-      return "📊 MONITORANDO";
+      if (gols >= 1) return "✅ GREEN REAL";
+      if (min <= 45 && totalDanger >= 18 && totalOnGoal >= 3 && pressure >= 55) return "🔥 OVER 0.5 REAL";
+      if (totalShots >= 8 && totalOnGoal >= 3) return "📊 OVER 0.5 OBSERVAR";
+      return "❌ SEM ENTRADA";
     }
+
     if (market.includes("1.5") || market.includes("1,5")) {
-      if (gols >= 2) return "✅ GREEN";
-      if (gols === 1 && pressure >= 72) return "🔥 2º GOL FORTE";
-      return "📊 MONITORANDO";
+      if (gols >= 2) return "✅ GREEN REAL";
+      if (min >= 35 && totalDanger >= 24 && totalOnGoal >= 4 && pressure >= 60) return "🔥 OVER 1.5 REAL";
+      return "❌ SEM ENTRADA";
     }
+
     if (market.includes("2.5") || market.includes("2,5")) {
-      if (gols >= 3) return "✅ GREEN";
-      if (gols >= 2 && pressure >= 74) return "🔥 OVER FORTE";
-      return "📊 MONITORANDO";
+      if (gols >= 3) return "✅ GREEN REAL";
+      if (min >= 55 && totalDanger >= 30 && totalOnGoal >= 5 && pressure >= 65) return "🚨 OVER 2.5 REAL";
+      return "❌ SEM ENTRADA";
     }
+
     if (market.includes("3.5") || market.includes("3,5")) {
-      if (gols >= 4) return "✅ GREEN";
-      if (gols >= 3 && pressure >= 82) return "🚨 JOGO MALUCO";
-      return "📉 RISCO MÉDIO";
+      if (gols >= 4) return "✅ GREEN REAL";
+      if (min >= 60 && totalDanger >= 38 && totalOnGoal >= 7 && pressure >= 75) return "🚨 OVER 3.5 REAL";
+      return "❌ SEM ENTRADA";
     }
+
     if (market.includes("btts") || market.includes("ambas")) {
-      if (gols >= 2) return "🔥 BTTS QUENTE";
-      if (pressure >= 75) return "⚡ AMBAS PRESSIONANDO";
-      return "👀 OBSERVAÇÃO";
+      if (stats.home.noGol >= 2 && stats.away.noGol >= 2 && stats.home.perigosos >= 10 && stats.away.perigosos >= 10) return "⚽ BTTS REAL";
+      return "❌ SEM ENTRADA";
     }
-    if (market.includes("cart") || market.includes("card")) return "🟨 CARTÕES AO VIVO";
-    if (market.includes("canto") || market.includes("corner")) return "🚩 CANTOS AO VIVO";
-    return "📊 MONITORAMENTO IA";
+
+    if (market.includes("canto") || market.includes("corner")) {
+      if (totalCorners >= 5 || totalDanger >= 28) return "🚩 CANTOS REAL";
+      return "❌ SEM ENTRADA";
+    }
+
+    if (market.includes("cart") || market.includes("card")) {
+      if (totalCards >= 2 || min >= 55) return "🟨 CARTÕES REAL";
+      return "❌ SEM ENTRADA";
+    }
+
+    if (confidence >= 70 && (jogoStatsReal(item) || jogoEventosReal(item))) return "✅ SINAL REAL";
+    return "📊 MONITORANDO REAL";
   }
 
   function categoriaMercado(item) {
@@ -206,56 +302,132 @@ export default function App() {
   }
 
   function isVip(item) {
-    return (item.confidence || 70) >= 82 || String(item.alert || "").includes("GOL");
+    return sinalReal(item) && (Number(item.confidence || item.confianca || 0) >= 70 || String(item.alert || "").includes("REAL"));
+  }
+
+  function normalizarEventoTimeline(event = {}, times, homeColor, awayColor) {
+    const minute = Math.max(1, Math.min(90, toNumber(event.minute ?? event.elapsed ?? event.time?.elapsed, 1)));
+    const sideRaw = String(event.side || event.teamSide || "").toLowerCase();
+    const teamName = normalizar(event.teamName || event.team?.name || "");
+    let team = "home";
+
+    if (sideRaw.includes("away") || sideRaw.includes("fora")) team = "away";
+    if (sideRaw.includes("home") || sideRaw.includes("casa")) team = "home";
+    if (!sideRaw && teamName) {
+      if (teamName === normalizar(times.fora)) team = "away";
+      if (teamName === normalizar(times.casa)) team = "home";
+    }
+
+    const text = `${event.icon || ""} ${event.type || ""} ${event.detail || ""} ${event.category || ""}`.toLowerCase();
+    const icon =
+      event.icon ||
+      (text.includes("goal") || text.includes("gol") ? "⚽" :
+        text.includes("red") || text.includes("vermelho") ? "🟥" :
+          text.includes("card") || text.includes("yellow") || text.includes("cart") ? "🟨" :
+            text.includes("corner") || text.includes("canto") ? "🚩" : "");
+
+    const level = icon === "⚽" || icon === "🟥" ? 3 : icon === "🟨" || icon === "🚩" ? 2 : 1;
+
+    return {
+      m: minute,
+      team,
+      level,
+      icon,
+      color: team === "home" ? homeColor : awayColor,
+      real: true
+    };
   }
 
   function timelineEvents(item, index, homeColor, awayColor) {
+    if (!jogoAoVivoReal(item)) return [];
+
+    const current = Math.min(90, Math.max(1, minuto(item) || 1));
     const stats = statsDoJogo(item);
-    const current = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
+    const times = timesDoJogo(item);
+    const eventosReais = Array.isArray(item.matchEvents) ? item.matchEvents : [];
 
-    const iconsByMinute = {
-      12: "⚽",
-      27: "🚩",
-      38: "⚽",
-      52: "🟨",
-      69: "⚽",
-      75: "🚩",
-      84: "🟨"
-    };
+    const eventos = eventosReais
+      .map((ev) => normalizarEventoTimeline(ev, times, homeColor, awayColor))
+      .filter((ev) => ev.m <= current);
 
-    return Array.from({ length: 90 }, (_, i) => {
+    // Mantém a cronologia visual do script, mas remove eventos inventados.
+    // Sem stats reais: exibe apenas eventos reais da API.
+    if (!stats.real) return eventos;
+
+    const eventMap = new Map(eventos.map((ev) => [ev.m, ev]));
+
+    const homeWeight =
+      stats.home.ataques +
+      stats.home.perigosos * 1.5 +
+      stats.home.finalizacoes * 2.2 +
+      stats.home.noGol * 5 +
+      stats.home.cantos * 2.5;
+
+    const awayWeight =
+      stats.away.ataques +
+      stats.away.perigosos * 1.5 +
+      stats.away.finalizacoes * 2.2 +
+      stats.away.noGol * 5 +
+      stats.away.cantos * 2.5;
+
+    const totalWeight = Math.max(1, homeWeight + awayWeight);
+    const homeBias = (homeWeight - awayWeight) / totalWeight;
+
+    return Array.from({ length: current }, (_, i) => {
       const minute = i + 1;
 
-      // Um ataque por vez: em cada minuto só existe casa OU fora.
-      // Nunca desenha os dois times atacando ao mesmo tempo.
-      const wave = Math.sin((minute + index * 7) / 4) + Math.cos((minute + stats.home.ataques) / 7);
+      if (eventMap.has(minute)) {
+        return eventMap.get(minute);
+      }
+
+      const wave =
+        Math.sin((minute + index * 7) / 4) +
+        Math.cos((minute + stats.home.ataques + stats.away.perigosos) / 8) +
+        homeBias * 1.4;
+
       const team = wave >= 0 ? "home" : "away";
+      const active = team === "home" ? stats.home : stats.away;
+      const passive = team === "home" ? stats.away : stats.home;
 
-      const dangerSeed = Math.abs(Math.sin((minute * 3.7 + stats.home.perigosos + index * 11) / 9));
-      const level = dangerSeed > 0.84 ? 3 : dangerSeed > 0.55 ? 2 : 1;
+      const activeForce =
+        active.perigosos * 1.5 +
+        active.noGol * 5 +
+        active.finalizacoes * 2 +
+        active.cantos * 2.2 +
+        active.ataques * 0.35;
 
-      // Minutos sem ataque ficam bem baixos, apenas cruzando o meio-campo.
-      const quiet = (minute + index) % 6 === 0;
-      const finalLevel = quiet && !iconsByMinute[minute] ? 1 : level;
+      const passiveForce =
+        passive.perigosos * 1.2 +
+        passive.noGol * 4 +
+        passive.finalizacoes * 1.5 +
+        passive.cantos * 1.6 +
+        passive.ataques * 0.25;
+
+      const balance = activeForce / Math.max(1, activeForce + passiveForce);
+      const seed = Math.abs(Math.sin((minute * 3.17 + active.perigosos * 1.9 + index * 13) / 7));
+      const fieldDepth = balance * 0.58 + seed * 0.42;
+      const level = fieldDepth > 0.72 ? 3 : fieldDepth > 0.38 ? 2 : 1;
 
       return {
         m: minute,
         team,
-        level: finalLevel,
-        icon: iconsByMinute[minute] || "",
-        color: team === "home" ? homeColor : awayColor
+        level,
+        icon: "",
+        color: team === "home" ? homeColor : awayColor,
+        real: false
       };
-    }).filter((ev) => ev.m <= Math.max(90, current));
+    });
   }
 
   const sinaisFiltrados = useMemo(() => {
     return signals
+      .filter(sinalReal)
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
         const cat = categoriaMercado(item);
         if (filtro === "TODOS") return true;
-        if (filtro === "LIVE") return item.type === "live";
+        if (filtro === "LIVE") return jogoAoVivoReal(item);
         if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
         if (filtro === "OVER05") return cat === "OVER 0,5";
         if (filtro === "OVER15") return cat === "OVER 1,5";
@@ -266,14 +438,14 @@ export default function App() {
         if (filtro === "BTTS") return cat === "BTTS";
         if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
         if (filtro === "VIP") return isVip(item);
-        if (filtro === "HISTORICO") return item.type !== "live";
+        if (filtro === "HISTORICO") return false;
         return true;
       })
       .sort((a, b) => (b.confidence || 70) + (b.pressure || 70) - ((a.confidence || 70) + (a.pressure || 70)));
   }, [signals, busca, filtro]);
 
-  const liveCount = signals.filter((s) => s.type === "live").length;
-  const alertCount = signals.filter((s) => mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨")).length;
+  const liveCount = signals.filter(sinalReal).length;
+  const alertCount = signals.filter((s) => sinalReal(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
 
   return (
     <div className="page">
@@ -293,7 +465,7 @@ export default function App() {
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando base IA/histórico enquanto monitora automaticamente.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo com sinal real disponível agora. Sem demo, sem base, sem pré-live e sem estatística inventada.</div>
       )}
 
       <div className="filters">
@@ -301,7 +473,7 @@ export default function App() {
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
           ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["HISTORICO", "🕘 HISTÓRICO"]
+          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["HISTORICO", "✅ REAIS"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -322,7 +494,7 @@ export default function App() {
             const times = timesDoJogo(item);
             const homeColor = teamColor(times.casa, "#22c55e");
             const awayColor = teamColor(times.fora, "#6366f1");
-            const currentMinute = Math.min(90, Math.max(1, minuto(item) || (index === 3 ? 65 : index === 4 ? 50 : index === 5 ? 80 : 72)));
+            const currentMinute = Math.min(90, Math.max(1, minuto(item) || 1));
             const events = timelineEvents(item, index, homeColor, awayColor);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
 
@@ -346,7 +518,7 @@ export default function App() {
                 </div>
 
                 <div className="badges">
-                  <span className="base">{liveReal ? "AO VIVO" : "BASE"}</span>
+                  <span className="base">{liveReal ? "AO VIVO REAL" : "IGNORADO"}</span>
                   {vip && <span className="vip">VIP</span>}
                   <span className="market">{cat}</span>
                 </div>
@@ -458,7 +630,7 @@ export default function App() {
                 </div>
 
                 <div className="marketLine">
-                  <div><b>{item.market}</b><span>Status: {status}</span><strong>Odd: {item.odd || "1.72"}</strong></div>
+                  <div><b>{item.market}</b><span>Status: {status}</span><strong>Odd: {item.odd || "—"}</strong></div>
                   <div><b>IA {item.confidence || 70}%</b><span className="bar"><i style={{ width: `${item.confidence || 70}%` }}></i></span><small>Pressão {item.pressure || 70}%</small></div>
                 </div>
 
