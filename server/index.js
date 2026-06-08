@@ -12,9 +12,10 @@ const API_KEYS = [
 ].filter(Boolean);
 
 const API_KEY = API_KEYS[0] || "";
-const CACHE_TTL_MS = 60000;
+
+const CACHE_TTL_MS = 10000;
 const REQUEST_TIMEOUT_MS = 12000;
-const MAX_LIVE_GAMES = 12;
+const MAX_LIVE_GAMES = 50;
 const MAX_PRELIVE_GAMES = 30;
 const PRELIVE_HOURS = 24;
 const TIMEZONE = "America/Sao_Paulo";
@@ -30,7 +31,11 @@ const toNumber = (v, fb = 0) => {
 };
 
 function normalize(v = "") {
-  return String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return String(v)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function setCors(res) {
@@ -69,44 +74,74 @@ function fixtureStartDate(row = {}) {
 function isFutureFixture(row = {}) {
   const short = String(row?.fixture?.status?.short || "").toUpperCase();
   if (isLive(short) || isFinished(short)) return false;
+
   const d = fixtureStartDate(row);
   if (!d) return ["NS", "TBD"].includes(short);
+
   return d.getTime() >= Date.now() - 15 * 60 * 1000;
 }
 
 function isWithin24h(row = {}) {
   const d = fixtureStartDate(row);
   if (!d) return true;
+
   const hours = (d.getTime() - Date.now()) / 36e5;
   return hours >= -0.25 && hours <= PRELIVE_HOURS;
 }
 
 function fixtureKey(row = {}) {
-  return String(row?.fixture?.id || `${row?.teams?.home?.name}-${row?.teams?.away?.name}-${row?.fixture?.date}`);
+  return String(
+    row?.fixture?.id ||
+      `${row?.teams?.home?.name}-${row?.teams?.away?.name}-${row?.fixture?.date}`
+  );
 }
 
 function uniqueFixtures(rows = []) {
   const map = new Map();
+
   rows.filter(Boolean).forEach((row) => {
     const key = fixtureKey(row);
     if (key && !map.has(key)) map.set(key, row);
   });
+
   return Array.from(map.values());
 }
 
 function supportedFixture(row = {}) {
-  const text = normalize([
-    row?.league?.name,
-    row?.league?.country,
-    row?.teams?.home?.name,
-    row?.teams?.away?.name,
-  ].filter(Boolean).join(" "));
+  const text = normalize(
+    [
+      row?.league?.name,
+      row?.league?.country,
+      row?.teams?.home?.name,
+      row?.teams?.away?.name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
 
   const blocked = [
-    "women", "woman", "feminino", "femenino", "feminina",
-    "u17", "u18", "u19", "u20", "u21", "u23",
-    "youth", "junior", "juniors", "reserve", "reserves",
-    "development", "amateur", "virtual", "simulation", "cyber", "esoccer",
+    "women",
+    "woman",
+    "feminino",
+    "femenino",
+    "feminina",
+    "u17",
+    "u18",
+    "u19",
+    "u20",
+    "u21",
+    "u23",
+    "youth",
+    "junior",
+    "juniors",
+    "reserve",
+    "reserves",
+    "development",
+    "amateur",
+    "virtual",
+    "simulation",
+    "cyber",
+    "esoccer",
   ];
 
   return !blocked.some((term) => text.includes(term));
@@ -114,12 +149,27 @@ function supportedFixture(row = {}) {
 
 function leaguePriority(row = {}) {
   const text = normalize(`${row?.league?.name || ""} ${row?.league?.country || ""}`);
+
   const elite = [
-    "world cup", "euro", "copa america", "champions league", "libertadores",
-    "sudamericana", "premier league", "la liga", "serie a", "bundesliga",
-    "ligue 1", "eredivisie", "primeira liga", "brasileirao",
-    "brasileiro serie a", "argentina primera", "mls",
+    "world cup",
+    "euro",
+    "copa america",
+    "champions league",
+    "libertadores",
+    "sudamericana",
+    "premier league",
+    "la liga",
+    "serie a",
+    "bundesliga",
+    "ligue 1",
+    "eredivisie",
+    "primeira liga",
+    "brasileirao",
+    "brasileiro serie a",
+    "argentina primera",
+    "mls",
   ];
+
   if (elite.some((x) => text.includes(normalize(x)))) return 100;
   return 50;
 }
@@ -129,11 +179,14 @@ function fixtureSortScore(row = {}, type = "live") {
   const elapsed = toNumber(row?.fixture?.status?.elapsed, 0);
   const start = fixtureStartDate(row)?.getTime() || Date.now();
   const hours = Math.abs((start - Date.now()) / 36e5);
+
   return p * 1000 + (type === "live" ? elapsed * 2 : Math.max(0, 24 - hours) * 8);
 }
 
 async function apiFootballGet(path) {
-  if (!API_KEYS.length) throw new Error("API_FOOTBALL_KEY ausente no Render");
+  if (!API_KEYS.length) {
+    throw new Error("API_FOOTBALL_KEY ausente no Render");
+  }
 
   let lastError = null;
 
@@ -152,7 +205,10 @@ async function apiFootballGet(path) {
       });
 
       const data = await response.json().catch(() => ({}));
-      const hasErrors = data?.errors && typeof data.errors === "object" && Object.keys(data.errors).length;
+      const hasErrors =
+        data?.errors &&
+        typeof data.errors === "object" &&
+        Object.keys(data.errors).length;
 
       if (!response.ok || hasErrors) {
         lastError = new Error(`API erro ${response.status}`);
@@ -173,16 +229,27 @@ async function apiFootballGet(path) {
 function pickStat(row, names, fb = 0) {
   const wanted = names.map(normalize);
   const stats = Array.isArray(row?.statistics) ? row.statistics : [];
+
   const exact = stats.find((s) => wanted.includes(normalize(s?.type || "")));
   if (exact) return toNumber(exact.value, fb);
-  const partial = stats.find((s) => wanted.some((w) => normalize(s?.type || "").includes(w)));
+
+  const partial = stats.find((s) =>
+    wanted.some((w) => normalize(s?.type || "").includes(w))
+  );
+
   return partial ? toNumber(partial.value, fb) : fb;
 }
 
 function totalShots(row) {
   const total = pickStat(row, ["Total Shots"], null);
+
   if (Number.isFinite(total)) return total;
-  return pickStat(row, ["Shots on Goal"], 0) + pickStat(row, ["Shots off Goal"], 0) + pickStat(row, ["Blocked Shots"], 0);
+
+  return (
+    pickStat(row, ["Shots on Goal"], 0) +
+    pickStat(row, ["Shots off Goal"], 0) +
+    pickStat(row, ["Blocked Shots"], 0)
+  );
 }
 
 function buildRealStats(fixtureRow, statsRows = []) {
@@ -191,8 +258,11 @@ function buildRealStats(fixtureRow, statsRows = []) {
   const homeId = fixtureRow?.teams?.home?.id;
   const awayId = fixtureRow?.teams?.away?.id;
 
-  const homeRow = statsRows.find((r) => String(r?.team?.id) === String(homeId)) || statsRows[0];
-  const awayRow = statsRows.find((r) => String(r?.team?.id) === String(awayId)) || statsRows[1];
+  const homeRow =
+    statsRows.find((r) => String(r?.team?.id) === String(homeId)) || statsRows[0];
+
+  const awayRow =
+    statsRows.find((r) => String(r?.team?.id) === String(awayId)) || statsRows[1];
 
   const hp = pickStat(homeRow, ["Ball Possession"], 50);
   const ap = pickStat(awayRow, ["Ball Possession"], 100 - hp);
@@ -236,15 +306,42 @@ function buildRealStats(fixtureRow, statsRows = []) {
     faltas: af,
   };
 
-  return { home, away, hasRealStats: true, source: "real" };
+  return {
+    home,
+    away,
+    hasRealStats: true,
+    source: "real",
+  };
 }
 
-function emptyStatsPack() {
+function buildEmptyStats() {
   return {
-    home: { posse: 0, finalizacoes: 0, noGol: 0, ataques: 0, perigosos: 0, cantos: 0, cartoes: 0, amarelos: 0, vermelhos: 0, faltas: 0 },
-    away: { posse: 0, finalizacoes: 0, noGol: 0, ataques: 0, perigosos: 0, cantos: 0, cartoes: 0, amarelos: 0, vermelhos: 0, faltas: 0 },
+    home: {
+      posse: 0,
+      finalizacoes: 0,
+      noGol: 0,
+      ataques: 0,
+      perigosos: 0,
+      cantos: 0,
+      cartoes: 0,
+      amarelos: 0,
+      vermelhos: 0,
+      faltas: 0,
+    },
+    away: {
+      posse: 0,
+      finalizacoes: 0,
+      noGol: 0,
+      ataques: 0,
+      perigosos: 0,
+      cantos: 0,
+      cartoes: 0,
+      amarelos: 0,
+      vermelhos: 0,
+      faltas: 0,
+    },
     hasRealStats: false,
-    source: "none"
+    source: "none",
   };
 }
 
@@ -252,29 +349,49 @@ function buildEvents(fixtureRow, rows = []) {
   const homeId = fixtureRow?.teams?.home?.id;
   const awayId = fixtureRow?.teams?.away?.id;
 
-  const matchEvents = Array.isArray(rows) ? rows.map((ev) => {
-    const elapsed = toNumber(ev?.time?.elapsed, 0);
-    const extra = toNumber(ev?.time?.extra, 0);
-    const teamId = ev?.team?.id;
-    const side = String(teamId) === String(homeId) ? "home" : String(teamId) === String(awayId) ? "away" : "neutral";
-    const text = normalize(`${ev?.type || ""} ${ev?.detail || ""}`);
-    const icon = text.includes("goal") ? "⚽" : text.includes("red") ? "🟥" : text.includes("card") ? "🟨" : text.includes("subst") ? "🔁" : "•";
+  const matchEvents = Array.isArray(rows)
+    ? rows
+        .map((ev) => {
+          const elapsed = toNumber(ev?.time?.elapsed, 0);
+          const extra = toNumber(ev?.time?.extra, 0);
+          const teamId = ev?.team?.id;
 
-    return {
-      minute: elapsed + extra,
-      elapsed,
-      extra,
-      teamId,
-      teamName: ev?.team?.name || "",
-      side,
-      type: ev?.type || "",
-      detail: ev?.detail || "",
-      comments: ev?.comments || "",
-      icon,
-      player: ev?.player?.name || "",
-      assist: ev?.assist?.name || "",
-    };
-  }).sort((a, b) => a.minute - b.minute) : [];
+          const side =
+            String(teamId) === String(homeId)
+              ? "home"
+              : String(teamId) === String(awayId)
+                ? "away"
+                : "neutral";
+
+          const text = normalize(`${ev?.type || ""} ${ev?.detail || ""}`);
+
+          const icon = text.includes("goal")
+            ? "⚽"
+            : text.includes("red")
+              ? "🟥"
+              : text.includes("card")
+                ? "🟨"
+                : text.includes("subst")
+                  ? "🔁"
+                  : "•";
+
+          return {
+            minute: elapsed + extra,
+            elapsed,
+            extra,
+            teamId,
+            teamName: ev?.team?.name || "",
+            side,
+            type: ev?.type || "",
+            detail: ev?.detail || "",
+            comments: ev?.comments || "",
+            icon,
+            player: ev?.player?.name || "",
+            assist: ev?.assist?.name || "",
+          };
+        })
+        .sort((a, b) => a.minute - b.minute)
+    : [];
 
   return {
     matchEvents,
@@ -283,7 +400,27 @@ function buildEvents(fixtureRow, rows = []) {
   };
 }
 
-function calcPressure(home, away, goals, minute, type) {
+function goalsNeeded(category = "") {
+  if (category === "OVER05") return 1;
+  if (category === "OVER15") return 2;
+  if (category === "OVER25") return 3;
+  if (category === "OVER35") return 4;
+  return null;
+}
+
+function calcPressure(home, away, goals, minute, type, hasRealStats) {
+  if (!hasRealStats) {
+    let basic = 35 + goals * 8;
+
+    if (type === "live") {
+      if (minute >= 60) basic += 6;
+      if (minute >= 75) basic += 4;
+      if (minute <= 15) basic -= 5;
+    }
+
+    return Math.round(clamp(basic, 25, 70));
+  }
+
   let pressure =
     28 +
     (home.finalizacoes + away.finalizacoes) * 0.9 +
@@ -296,31 +433,23 @@ function calcPressure(home, away, goals, minute, type) {
     if (minute >= 60) pressure += 5;
     if (minute <= 15) pressure -= 8;
   } else {
-    pressure += 8;
+    pressure += 4;
   }
 
-  return Math.round(clamp(pressure, 30, 95));
-}
-
-function goalsNeeded(category = "") {
-  if (category === "OVER05") return 1;
-  if (category === "OVER15") return 2;
-  if (category === "OVER25") return 3;
-  if (category === "OVER35") return 4;
-  return null;
+  return Math.round(clamp(pressure, 25, 95));
 }
 
 function liveDecay(raw, category, ctx) {
-  if (ctx.type !== "live") return Math.round(clamp(raw, 35, 94));
+  if (ctx.type !== "live") return Math.round(clamp(raw, 35, 84));
 
   const target = goalsNeeded(category);
-  if (!target) return Math.round(clamp(raw, 25, 92));
+  if (!target) return Math.round(clamp(raw, 25, 88));
 
   const needed = Math.max(0, target - ctx.totalGoals);
   if (needed <= 0) return 0;
 
   const minute = ctx.minute;
-  let cap = 92;
+  let cap = 90;
 
   if (needed >= 1 && minute >= 75) cap = Math.min(cap, 74);
   if (needed >= 1 && minute >= 85) cap = Math.min(cap, 62);
@@ -331,6 +460,7 @@ function liveDecay(raw, category, ctx) {
   if (needed >= 3 && minute >= 65) cap = Math.min(cap, 36);
 
   const penalty = Math.max(0, minute - 12) * needed * (target >= 3 ? 0.55 : 0.38);
+
   return Math.round(clamp(raw - penalty + Math.min(10, ctx.pressure / 12), 0, cap));
 }
 
@@ -343,6 +473,7 @@ function lineCorners(ctx) {
   if (m <= 35) return total <= 4 ? 6.5 : total <= 6 ? 8.5 : 9.5;
   if (m <= 55) return total <= 6 ? 8.5 : total <= 8 ? 9.5 : 10.5;
   if (m <= 75) return total <= 8 ? 9.5 : total <= 10 ? 10.5 : 11.5;
+
   return total <= 10 ? 10.5 : 11.5;
 }
 
@@ -354,11 +485,22 @@ function lineCards(ctx) {
   if (m <= 25) return total <= 1 ? 2.5 : 3.5;
   if (m <= 45) return total <= 2 ? 3.5 : 4.5;
   if (m <= 65) return total <= 3 ? 4.5 : 5.5;
+
   return total <= 4 ? 5.5 : 6.5;
 }
 
 function confidence(category, ctx) {
-  const { totalGoals, homeGoals, awayGoals, minute, pressure, home, away, type } = ctx;
+  const {
+    totalGoals,
+    homeGoals,
+    awayGoals,
+    minute,
+    pressure,
+    home,
+    away,
+    type,
+    hasRealStats,
+  } = ctx;
 
   const shots = home.finalizacoes + away.finalizacoes;
   const onGoal = home.noGol + away.noGol;
@@ -366,26 +508,72 @@ function confidence(category, ctx) {
   const corners = home.cantos + away.cantos;
   const cards = home.cartoes + away.cartoes;
   const fouls = home.faltas + away.faltas;
-  const pre = type === "prelive" ? 7 : 0;
+
+  if (!hasRealStats) {
+    if (category === "MAIS_GOL") return Math.round(clamp(pressure + totalGoals * 4, 35, 68));
+
+    if (category === "OVER05") {
+      if (totalGoals >= 1) return 0;
+      return liveDecay(42 + pressure * 0.2, category, ctx);
+    }
+
+    if (category === "OVER15") {
+      if (totalGoals >= 2) return 0;
+      return liveDecay(36 + pressure * 0.18 + totalGoals * 8, category, ctx);
+    }
+
+    if (category === "OVER25") {
+      if (totalGoals >= 3) return 0;
+      return liveDecay(28 + pressure * 0.15 + totalGoals * 7, category, ctx);
+    }
+
+    if (category === "OVER35") {
+      if (totalGoals >= 4) return 0;
+      return liveDecay(20 + pressure * 0.12 + totalGoals * 6, category, ctx);
+    }
+
+    if (category === "BTTS") {
+      if (homeGoals > 0 && awayGoals > 0) return 0;
+      return Math.round(clamp(35 + pressure * 0.12, 28, 58));
+    }
+
+    return 0;
+  }
 
   if (category === "OVER05") {
     if (totalGoals >= 1) return 0;
-    return liveDecay(34 + pressure * 0.28 + onGoal * 3 + shots * 0.45 + dangerous * 0.12 + pre, category, ctx);
+    return liveDecay(
+      34 + pressure * 0.28 + onGoal * 3 + shots * 0.45 + dangerous * 0.12,
+      category,
+      ctx
+    );
   }
 
   if (category === "OVER15") {
     if (totalGoals >= 2) return 0;
-    return liveDecay(28 + pressure * 0.26 + totalGoals * 9 + onGoal * 2.5 + shots * 0.38 + dangerous * 0.1 + pre, category, ctx);
+    return liveDecay(
+      28 + pressure * 0.26 + totalGoals * 9 + onGoal * 2.5 + shots * 0.38 + dangerous * 0.1,
+      category,
+      ctx
+    );
   }
 
   if (category === "OVER25") {
     if (totalGoals >= 3) return 0;
-    return liveDecay(22 + pressure * 0.23 + totalGoals * 8 + onGoal * 1.9 + shots * 0.3 + dangerous * 0.08 + pre, category, ctx);
+    return liveDecay(
+      22 + pressure * 0.23 + totalGoals * 8 + onGoal * 1.9 + shots * 0.3 + dangerous * 0.08,
+      category,
+      ctx
+    );
   }
 
   if (category === "OVER35") {
     if (totalGoals >= 4) return 0;
-    return liveDecay(16 + pressure * 0.19 + totalGoals * 7 + onGoal * 1.45 + shots * 0.22 + dangerous * 0.05 + pre, category, ctx);
+    return liveDecay(
+      16 + pressure * 0.19 + totalGoals * 7 + onGoal * 1.45 + shots * 0.22 + dangerous * 0.05,
+      category,
+      ctx
+    );
   }
 
   if (category === "BTTS") {
@@ -396,8 +584,7 @@ function confidence(category, ctx) {
       Math.min(home.perigosos, away.perigosos) * 1.1 +
       Math.min(home.finalizacoes, away.finalizacoes) * 0.9 +
       Math.min(home.noGol, away.noGol) * 4 +
-      onGoal * 0.7 +
-      pre;
+      onGoal * 0.7;
 
     if (type === "live") {
       if (minute >= 70 && (homeGoals === 0 || awayGoals === 0)) raw -= 14;
@@ -408,33 +595,28 @@ function confidence(category, ctx) {
   }
 
   if (category === "MAIS_GOL") {
-    const raw = 35 + pressure * 0.33 + onGoal * 2.5 + shots * 0.35 + dangerous * 0.16 + pre;
-    return Math.round(clamp(type === "live" && minute >= 82 ? raw - 12 : raw, 35, type === "live" && minute >= 88 ? 68 : 90));
+    const raw = 35 + pressure * 0.33 + onGoal * 2.5 + shots * 0.35 + dangerous * 0.16;
+
+    return Math.round(
+      clamp(type === "live" && minute >= 82 ? raw - 12 : raw, 35, type === "live" && minute >= 88 ? 68 : 90)
+    );
   }
 
   if (category === "CANTOS_FT") {
     const line = lineCorners(ctx);
     if (corners > line) return 0;
-    return Math.round(clamp(32 + corners * 5 + pressure * 0.18 + dangerous * 0.08 + pre, 35, 88));
+
+    return Math.round(clamp(32 + corners * 5 + pressure * 0.18 + dangerous * 0.08, 35, 88));
   }
 
   if (category === "CARTOES_FT") {
     const line = lineCards(ctx);
     if (cards > line) return 0;
-    return Math.round(clamp(28 + cards * 10 + fouls * 1.1 + (minute >= 55 ? 6 : 0) + pre, 30, 86));
+
+    return Math.round(clamp(28 + cards * 10 + fouls * 1.1 + (minute >= 55 ? 6 : 0), 30, 86));
   }
 
-  if (category === "VITORIA" || category === "HANDICAP") {
-    if (type === "live") return 0;
-
-    const homePower = home.finalizacoes * 2 + home.noGol * 5 + home.perigosos * 1.4 + home.cantos * 1.5 + home.ataques * 0.25 + home.posse * 0.12;
-    const awayPower = away.finalizacoes * 2 + away.noGol * 5 + away.perigosos * 1.4 + away.cantos * 1.5 + away.ataques * 0.25 + away.posse * 0.12;
-    const edge = Math.abs(homePower - awayPower) / Math.max(1, homePower + awayPower);
-
-    return Math.round(clamp(52 + edge * 70 + pre + (category === "HANDICAP" ? 4 : 0), 52, category === "HANDICAP" ? 88 : 84));
-  }
-
-  return Math.round(clamp((pressure + 60) / 2, 45, 88));
+  return Math.round(clamp((pressure + 60) / 2, 35, 88));
 }
 
 function marketLabel(category, ctx) {
@@ -444,12 +626,11 @@ function marketLabel(category, ctx) {
   if (category === "OVER15") return ctx.type === "live" ? `Próximo gol / Over 1.5 ${scope}` : "Mais de 1.5 gols";
   if (category === "OVER25") return ctx.type === "live" ? `Próximo gol / Over 2.5 ${scope}` : "Mais de 2.5 gols";
   if (category === "OVER35") return ctx.type === "live" ? `Próximo gol / Over 3.5 ${scope}` : "Mais de 3.5 gols";
-  if (category === "BTTS") return ctx.type === "live" ? `Ambas marcam próximo ${scope}` : "Ambas marcam";
+  if (category === "BTTS") return ctx.type === "live" ? `Ambas marcam ${scope}` : "Ambas marcam";
   if (category === "MAIS_GOL") return ctx.type === "live" ? `Mais gol até o fim ${scope}` : "Mais gol na partida";
   if (category === "CANTOS_FT") return `Mais de ${String(lineCorners(ctx)).replace(".", ",")} cantos ${scope}`;
   if (category === "CARTOES_FT") return `Mais de ${String(lineCards(ctx)).replace(".", ",")} cartões ${scope}`;
-  if (category === "VITORIA") return "Vitória provável";
-  if (category === "HANDICAP") return "Handicap / Dupla chance";
+
   return "Top IA";
 }
 
@@ -457,8 +638,8 @@ function alertText(category, conf, ctx, market) {
   if (conf <= 0) return "";
 
   if (ctx.type === "prelive") {
-    if (conf >= 84) return "🔐 VIP PRÉ-LIVE • FORTE";
-    if (conf >= 72) return "🔐 VIP PRÉ-LIVE • BOM";
+    if (conf >= 78) return "🔐 VIP PRÉ-LIVE • FORTE";
+    if (conf >= 65) return "🔐 VIP PRÉ-LIVE • BOM";
     return "🔐 VIP PRÉ-LIVE • OBSERVAR";
   }
 
@@ -468,6 +649,7 @@ function alertText(category, conf, ctx, market) {
   if (conf >= 78) return `🔥 ${scope} SINAL FORTE`;
   if (category === "CANTOS_FT") return `🚩 ${scope} ${market}`;
   if (category === "CARTOES_FT") return `🟨 ${scope} ${market}`;
+
   return `📊 ${scope} MONITORANDO`;
 }
 
@@ -486,19 +668,29 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, statsPack = null
   const awayGoals = type === "live" ? toNumber(goals?.away, 0) : 0;
   const totalGoals = homeGoals + awayGoals;
 
-  // Regra V5: jogo AO VIVO só entra se tiver estatísticas reais da API.
-  // Isso evita stats falsas, desalinhamento visual e sinais baseados em dado inventado.
-  if (type === "live" && !statsPack?.hasRealStats) return [];
-
-  // Pré-live continua aparecendo como oportunidade, mas sem estatística falsa.
-  // O frontend deve mostrar apenas o sinal VIP, sem cronologia e sem barras de stats.
-  const realStats = statsPack?.hasRealStats ? statsPack : emptyStatsPack();
+  const realStats = statsPack || buildEmptyStats();
   const { home, away } = realStats;
 
-  const safeEvents = eventsPack || { matchEvents: [], hasRealEvents: false, eventsMode: "none" };
-  const pressure = calcPressure(home, away, totalGoals, minute, type);
+  const safeEvents = eventsPack || {
+    matchEvents: [],
+    hasRealEvents: false,
+    eventsMode: "none",
+  };
 
-  const ctx = { totalGoals, homeGoals, awayGoals, minute, pressure, home, away, type };
+  const pressure = calcPressure(home, away, totalGoals, minute, type, realStats.hasRealStats);
+
+  const ctx = {
+    totalGoals,
+    homeGoals,
+    awayGoals,
+    minute,
+    pressure,
+    home,
+    away,
+    type,
+    hasRealStats: Boolean(realStats.hasRealStats),
+  };
+
   const fixtureId = fixture?.id || `fixture-${index}`;
 
   const base = {
@@ -521,96 +713,107 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, statsPack = null
     status: type === "live" ? "AO VIVO" : "PRÉ-LIVE",
     type,
     source: "api-football",
-    statsMode: realStats.hasRealStats ? "real" : "estimated",
+    statsMode: realStats.hasRealStats ? "real" : "none",
     realStats: Boolean(realStats.hasRealStats),
+    hasRealStats: Boolean(realStats.hasRealStats),
     eventsMode: safeEvents.eventsMode || "none",
     hasRealEvents: Boolean(safeEvents.hasRealEvents),
-    matchEvents: safeEvents.matchEvents || [],
-    eventsCount: safeEvents.matchEvents?.length || 0,
+    matchEvents: type === "live" ? safeEvents.matchEvents || [] : [],
+    eventsCount: type === "live" ? safeEvents.matchEvents?.length || 0 : 0,
     oddsMode: "none",
     hasRealOdds: false,
     realOdd: false,
     odd: "—",
     bookmaker: "",
-    possession: home.posse,
-    possessionAway: away.posse,
-    shots: home.finalizacoes,
-    shotsAway: away.finalizacoes,
-    shotsOnGoal: home.noGol,
-    shotsOnGoalAway: away.noGol,
-    attacks: home.ataques,
-    attacksAway: away.ataques,
-    dangerousAttacks: home.perigosos,
-    dangerousAttacksAway: away.perigosos,
-    corners: home.cantos,
-    cornersAway: away.cantos,
-    cards: home.cartoes,
-    cardsAway: away.cartoes,
-    yellowCards: home.amarelos ?? home.cartoes,
-    yellowCardsAway: away.amarelos ?? away.cartoes,
-    redCards: home.vermelhos ?? 0,
-    redCardsAway: away.vermelhos ?? 0,
-    fouls: home.faltas,
-    foulsAway: away.faltas,
-    stats: { home, away },
+    possession: realStats.hasRealStats ? home.posse : null,
+    possessionAway: realStats.hasRealStats ? away.posse : null,
+    shots: realStats.hasRealStats ? home.finalizacoes : null,
+    shotsAway: realStats.hasRealStats ? away.finalizacoes : null,
+    shotsOnGoal: realStats.hasRealStats ? home.noGol : null,
+    shotsOnGoalAway: realStats.hasRealStats ? away.noGol : null,
+    attacks: realStats.hasRealStats ? home.ataques : null,
+    attacksAway: realStats.hasRealStats ? away.ataques : null,
+    dangerousAttacks: realStats.hasRealStats ? home.perigosos : null,
+    dangerousAttacksAway: realStats.hasRealStats ? away.perigosos : null,
+    corners: realStats.hasRealStats ? home.cantos : null,
+    cornersAway: realStats.hasRealStats ? away.cantos : null,
+    cards: realStats.hasRealStats ? home.cartoes : null,
+    cardsAway: realStats.hasRealStats ? away.cartoes : null,
+    yellowCards: realStats.hasRealStats ? home.amarelos ?? home.cartoes : null,
+    yellowCardsAway: realStats.hasRealStats ? away.amarelos ?? away.cartoes : null,
+    redCards: realStats.hasRealStats ? home.vermelhos ?? 0 : null,
+    redCardsAway: realStats.hasRealStats ? away.vermelhos ?? 0 : null,
+    fouls: realStats.hasRealStats ? home.faltas : null,
+    foulsAway: realStats.hasRealStats ? away.faltas : null,
+    stats: realStats.hasRealStats ? { home, away } : null,
   };
 
-  const liveMarkets = ["MAIS_GOL", "OVER05", "OVER15", "OVER25", "OVER35", "BTTS", "CANTOS_FT", "CARTOES_FT"];
-  const preliveMarkets = ["OVER15", "OVER25", "OVER35", "BTTS", "MAIS_GOL", "CANTOS_FT", "CARTOES_FT", "VITORIA", "HANDICAP"];
+  const liveMarkets = ["MAIS_GOL", "OVER05", "OVER15", "OVER25", "OVER35", "BTTS"];
+
+  const preliveMarkets = ["OVER15", "OVER25", "BTTS", "MAIS_GOL"];
+
   const categories = type === "live" ? liveMarkets : preliveMarkets;
 
-  const signals = categories.map((category) => {
-    const market = marketLabel(category, ctx);
-    const conf = confidence(category, ctx);
+  const signals = categories
+    .map((category) => {
+      const market = marketLabel(category, ctx);
+      const conf = confidence(category, ctx);
 
-    return {
-      ...base,
-      id: `${fixtureId}-${category}`,
-      signalId: `${fixtureId}-${category}`,
-      market,
-      mercado: market,
-      rawMarket: market,
-      category,
-      categoria: category,
-      categoryLabel: category,
-      signalScope: type === "live" ? (minute > 0 && minute <= 45 ? "HT" : "FT") : "PRELIVE",
-      confidence: conf,
-      confianca: conf,
-      pressure,
-      pressao: pressure,
-      alert: alertText(category, conf, ctx, market),
-      backtest: Math.round(clamp(conf - 2 + leaguePriority(fixtureRow) / 20, 50, 97)),
-    };
-  }).filter((s) => {
-    if (s.confidence <= 0) return false;
-    return s.type === "live" ? s.confidence >= 45 : s.confidence >= 55;
-  }).sort((a, b) => b.confidence - a.confidence);
+      return {
+        ...base,
+        id: `${fixtureId}-${category}`,
+        signalId: `${fixtureId}-${category}`,
+        market,
+        mercado: market,
+        rawMarket: market,
+        category,
+        categoria: category,
+        categoryLabel: category,
+        signalScope: type === "live" ? (minute > 0 && minute <= 45 ? "HT" : "FT") : "PRELIVE",
+        confidence: conf,
+        confianca: conf,
+        pressure,
+        pressao: pressure,
+        alert: alertText(category, conf, ctx, market),
+        backtest: Math.round(clamp(conf - 2 + leaguePriority(fixtureRow) / 20, 45, 97)),
+      };
+    })
+    .filter((s) => {
+      if (s.confidence <= 0) return false;
+      return s.type === "live" ? s.confidence >= 35 : s.confidence >= 50;
+    })
+    .sort((a, b) => b.confidence - a.confidence);
 
   if (!signals.length && type === "live") {
-    return [{
-      ...base,
-      id: `${fixtureId}-MAIS_GOL-FALLBACK`,
-      signalId: `${fixtureId}-MAIS_GOL-FALLBACK`,
-      market: "Mais gol até o fim",
-      mercado: "Mais gol até o fim",
-      category: "MAIS_GOL",
-      categoria: "MAIS_GOL",
-      categoryLabel: "MAIS GOL",
-      confidence: Math.round(clamp(pressure, 45, 78)),
-      confianca: Math.round(clamp(pressure, 45, 78)),
-      pressure,
-      pressao: pressure,
-      alert: "📊 MONITORANDO",
-      backtest: Math.round(clamp(pressure - 3, 45, 80)),
-    }];
+    return [
+      {
+        ...base,
+        id: `${fixtureId}-MAIS_GOL-FALLBACK`,
+        signalId: `${fixtureId}-MAIS_GOL-FALLBACK`,
+        market: "Mais gol até o fim",
+        mercado: "Mais gol até o fim",
+        category: "MAIS_GOL",
+        categoria: "MAIS_GOL",
+        categoryLabel: "MAIS GOL",
+        confidence: Math.round(clamp(pressure, 35, 68)),
+        confianca: Math.round(clamp(pressure, 35, 68)),
+        pressure,
+        pressao: pressure,
+        alert: "📊 MONITORANDO AO VIVO",
+        backtest: Math.round(clamp(pressure - 3, 35, 75)),
+      },
+    ];
   }
 
-  return signals.slice(0, type === "prelive" ? 9 : 5);
+  return signals.slice(0, type === "prelive" ? 4 : 5);
 }
 
 async function fetchLiveFixtures() {
   try {
     const rows = await apiFootballGet("/fixtures?live=all");
+
+    console.log("LIVE API-FOOTBALL ENCONTRADOS:", rows.length);
+
     return rows
       .filter(supportedFixture)
       .filter((row) => isLive(row?.fixture?.status?.short))
@@ -627,7 +830,10 @@ async function fetchPreliveFixtures() {
 
   for (let i = 0; i <= 1; i += 1) {
     try {
-      const daily = await apiFootballGet(`/fixtures?date=${todayISO(i)}&timezone=${encodeURIComponent(TIMEZONE)}`);
+      const daily = await apiFootballGet(
+        `/fixtures?date=${todayISO(i)}&timezone=${encodeURIComponent(TIMEZONE)}`
+      );
+
       rows.push(...daily);
     } catch (e) {
       console.log(`Erro prelive dia ${i}:`, e.message);
@@ -636,7 +842,11 @@ async function fetchPreliveFixtures() {
 
   if (!rows.length) {
     try {
-      rows.push(...await apiFootballGet(`/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=${encodeURIComponent(TIMEZONE)}`));
+      rows.push(
+        ...(await apiFootballGet(
+          `/fixtures?next=${MAX_PRELIVE_GAMES}&timezone=${encodeURIComponent(TIMEZONE)}`
+        ))
+      );
     } catch (e) {
       console.log("Erro prelive next:", e.message);
     }
@@ -682,30 +892,36 @@ function buildScannerOpportunities(activeSignals = []) {
 
   activeSignals.forEach((s) => {
     const key = `${s.fixtureId}-${s.category}-${s.market}`;
+
     if (!map.has(key)) {
       map.set(key, {
         ...s,
         scannerRankScore:
           Number(s.confidence || 0) * 1.25 +
           Number(s.pressure || 0) * 0.55 +
-          (s.realStats ? 10 : 0) +
-          (s.type === "prelive" ? 2 : 0) +
+          (s.realStats ? 8 : 0) +
+          (s.hasRealEvents ? 5 : 0) +
+          (s.type === "prelive" ? 2 : 8) +
           leaguePriority({
             league: { name: s.league, country: s.country },
-            teams: { home: { name: s.homeTeam }, away: { name: s.awayTeam } },
-          }) / 10,
+            teams: {
+              home: { name: s.homeTeam },
+              away: { name: s.awayTeam },
+            },
+          }) /
+            10,
       });
     }
   });
 
   return Array.from(map.values())
-    .filter((s) => Number(s.confidence || 0) >= 55)
+    .filter((s) => Number(s.confidence || 0) >= 50)
     .sort((a, b) => b.scannerRankScore - a.scannerRankScore)
     .slice(0, 50)
     .map((s, index) => ({
       ...s,
       rank: index + 1,
-      backtest: s.backtest || Math.round(clamp(Number(s.confidence || 0) - 2, 50, 97)),
+      backtest: s.backtest || Math.round(clamp(Number(s.confidence || 0) - 2, 45, 97)),
     }));
 }
 
@@ -713,7 +929,10 @@ async function getSignalsPayload() {
   const now = Date.now();
 
   if (cache.payload && now - cache.timestamp < CACHE_TTL_MS) {
-    return { ...cache.payload, cache: true };
+    return {
+      ...cache.payload,
+      cache: true,
+    };
   }
 
   const [liveFixtures, preliveFixtures] = await Promise.all([
@@ -733,9 +952,18 @@ async function getSignalsPayload() {
   }
 
   const liveGames = new Set(activeSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)).size;
+
   const preliveGames = new Set(activeSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)).size;
+
   const realStatsGames = new Set(activeSignals.filter((s) => s.realStats).map((s) => s.fixtureId)).size;
+
   const realEventsGames = new Set(activeSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)).size;
+
+  const realGames = new Set(
+    activeSignals
+      .filter((s) => s.realStats || s.hasRealEvents)
+      .map((s) => s.fixtureId)
+  ).size;
 
   const payload = {
     ok: true,
@@ -744,7 +972,7 @@ async function getSignalsPayload() {
     apiStatus: API_KEY ? "online" : "missing-key",
     message: activeSignals.length
       ? "Sinais carregados."
-      : "Nenhum sinal forte encontrado agora. Verifique jogos ao vivo/pré-live e limite da API.",
+      : "Nenhum sinal encontrado agora. Verifique jogos ao vivo/pré-live e limite da API.",
     activeSignals,
     scannerOpportunities: buildScannerOpportunities(activeSignals),
     liveGames,
@@ -755,13 +983,18 @@ async function getSignalsPayload() {
     realStatsGames,
     eventsMode: realEventsGames ? "real" : "none",
     realEventsGames,
+    realGames,
     oddsMode: "none",
     realOddsGames: 0,
     oddsEnabled: false,
     updatedAt: new Date().toISOString(),
   };
 
-  cache = { timestamp: now, payload };
+  cache = {
+    timestamp: now,
+    payload,
+  };
+
   return payload;
 }
 
@@ -777,7 +1010,11 @@ const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
   try {
-    if (requestUrl.pathname === "/" || requestUrl.pathname === "/health" || requestUrl.pathname === "/api/health") {
+    if (
+      requestUrl.pathname === "/" ||
+      requestUrl.pathname === "/health" ||
+      requestUrl.pathname === "/api/health"
+    ) {
       sendJson(res, 200, {
         ok: true,
         service: "mekinebet-api",
@@ -795,12 +1032,14 @@ const server = http.createServer(async (req, res) => {
 
     if (requestUrl.pathname === "/api/scanner") {
       const payload = await getSignalsPayload();
+
       sendJson(res, 200, {
         ok: true,
         scannerOpportunities: payload.scannerOpportunities || [],
         total: payload.scannerOpportunities?.length || 0,
         updatedAt: payload.updatedAt,
       });
+
       return;
     }
 
