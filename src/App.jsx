@@ -63,7 +63,7 @@ export default function App() {
 
       // Somente jogos/sinais reais vindos da API/backend.
       // Sem DEMO, sem BASE, sem histórico e sem pré-live.
-      const reais = lista.filter(sinalReal);
+      const reais = lista.filter(sinalAceito);
       setSignals(reais);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
     } catch (e) {
@@ -619,6 +619,43 @@ export default function App() {
     return normalizar(`${t.casa}-${t.fora}-${data}-${item.league || ""}`);
   }
 
+
+  function mercadoCumprido(item) {
+    const status = mercadoStatus(item);
+    if (status.includes("GREEN")) return true;
+
+    const gols = totalGols(item);
+    const market = String(item.market || item.mercado || "").toLowerCase();
+
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) return true;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) return true;
+
+    return false;
+  }
+
+  function sinalPreLiveVip(item) {
+    const type = String(item.type || item.tipo || "").toLowerCase();
+    const status = String(item.status || item.estado || "").toUpperCase();
+    const isPrelive = type.includes("pre") || status.includes("PRE");
+    const conf = Number(item.confidence || item.confianca || 0);
+    const pressure = Number(item.pressure || item.pressao || 0);
+    const mercado = String(item.market || item.mercado || "").trim();
+
+    return (
+      isPrelive &&
+      jogoFonteReal(item) &&
+      mercado !== "" &&
+      conf >= 62 &&
+      pressure >= 35
+    );
+  }
+
+  function sinalAceito(item) {
+    return sinalReal(item) || sinalPreLiveVip(item);
+  }
+
   function mercadoPeso(item) {
     const cat = categoriaMercado(item);
     const conf = Number(item.confidence || item.confianca || 0);
@@ -672,7 +709,11 @@ export default function App() {
         })
         .sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
 
-      const melhorMercado = mercadosAtivos[0] || item;
+      const melhorMercado =
+        mercadosAtivos.find((m) => !mercadoCumprido(m)) ||
+        mercadosAtivos[0] ||
+        item;
+
       const melhorStats = [atual, item, ...mercadosAtivos]
         .slice()
         .sort((a, b) => statsScore(b) - statsScore(a))[0] || atual;
@@ -695,13 +736,13 @@ export default function App() {
 
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
-      .filter(sinalReal)
+      .filter(sinalAceito)
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
         const cat = categoriaMercado(item);
         if (filtro === "TODOS") return true;
-        if (filtro === "LIVE") return jogoAoVivoReal(item);
+        if (filtro === "LIVE") return sinalReal(item);
         if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
         if (filtro === "OVER05") return cat === "OVER 0,5";
         if (filtro === "OVER15") return cat === "OVER 1,5";
@@ -712,7 +753,7 @@ export default function App() {
         if (filtro === "BTTS") return cat === "BTTS";
         if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
         if (filtro === "VIP") return isVip(item);
-        if (filtro === "HISTORICO") return false;
+        if (filtro === "PRELIVEVIP") return sinalPreLiveVip(item);
         return true;
       })
       .sort((a, b) => (b.confidence || 70) + (b.pressure || 70) - ((a.confidence || 70) + (a.pressure || 70)));
@@ -720,8 +761,8 @@ export default function App() {
     return juntarSinaisDoMesmoJogo(filtrados).sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
   }, [signals, busca, filtro]);
 
-  const liveCount = signals.filter(sinalReal).length;
-  const alertCount = signals.filter((s) => sinalReal(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
+  const liveCount = signals.filter(sinalAceito).length;
+  const alertCount = signals.filter((s) => sinalAceito(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
 
   return (
     <div className="page">
@@ -736,12 +777,13 @@ export default function App() {
           <span className="pill">🟢 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
           <span className="pill">👑 VIP</span>
+          <span className="pill">🔒 Pré-live: {preliveVipCount}</span>
           <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum jogo ao vivo com sinal real disponível agora. Sem demo, sem base, sem pré-live e sem estatística inventada.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo com sinal real disponível agora. Pré-live aparece somente no VIP quando houver oportunidade forte.</div>
       )}
 
       <div className="filters">
@@ -749,7 +791,7 @@ export default function App() {
           ["TODOS", "▣ TODOS"], ["LIVE", "◉ LIVE"], ["ALERTA", "⚠️ ALERTA"], ["OVER05", "⌁ OVER 0,5"],
           ["OVER15", "⌁ OVER 1,5"], ["OVER25", "⌁ OVER 2,5"], ["OVER35", "⌁ OVER 3,5"],
           ["CARTÕES", "🟨 CARTÕES"], ["CANTOS", "🚩 CANTOS"], ["BTTS", "👥 BTTS"],
-          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["HISTORICO", "✅ REAIS"]
+          ["TOP IA", "🧠 TOP IA"], ["VIP", "👑 VIP"], ["PRELIVEVIP", "🔒 PRÉ-LIVE VIP"]
         ].map(([value, label]) => (
           <button key={value} onClick={() => setFiltro(value)} className={filtro === value ? "activeBtn" : ""}>{label}</button>
         ))}
@@ -793,7 +835,7 @@ export default function App() {
                 </div>
 
                 <div className="badges">
-                  <span className="base">{liveReal ? "AO VIVO REAL" : "IGNORADO"}</span>
+                  <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE VIP"}</span>
                   {vip && <span className="vip">VIP</span>}
                   <span className="market">{cat}</span>
                 </div>
@@ -810,28 +852,45 @@ export default function App() {
                 )}
 
                 <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
-                  <div className="statsTopGrid bet365TopStats">
-                    <StatLineBet365
-                      label="ATAQUES"
-                      home={stats.home.ataques}
-                      away={stats.away.ataques}
-                      homeColor={homeColor}
-                      awayColor={awayColor}
-                    />
-                    <StatLineBet365
-                      label="ATAQUES PERIGOSOS"
-                      home={stats.home.perigosos}
-                      away={stats.away.perigosos}
-                      homeColor={homeColor}
-                      awayColor={awayColor}
-                    />
-                    <StatLineBet365
-                      label="% POSSE"
-                      home={stats.home.posse}
-                      away={stats.away.posse}
-                      homeColor={homeColor}
-                      awayColor={awayColor}
-                    />
+                  <div className="statsTopGrid">
+                    <div className="metricPair">
+                      <small>ATAQUES</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.ataques}</b>
+                        <span className="metricVs"></span>
+                        <b style={{ color: awayColor }}>{stats.away.ataques}</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${pctStat(stats.home.ataques, stats.away.ataques).home}%`, background: homeColor }}></i>
+                        <em style={{ width: `${pctStat(stats.home.ataques, stats.away.ataques).away}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
+
+                    <div className="metricPair">
+                      <small>ATAQUES PERIGOSOS</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
+                        <span className="metricVs danger"></span>
+                        <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${pctStat(stats.home.perigosos, stats.away.perigosos).home}%`, background: homeColor }}></i>
+                        <em style={{ width: `${pctStat(stats.home.perigosos, stats.away.perigosos).away}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
+
+                    <div className="metricPair posseMetric">
+                      <small>% POSSE</small>
+                      <div className="metricNumbers">
+                        <b style={{ color: homeColor }}>{stats.home.posse}%</b>
+                        <span className="metricVs ball"></span>
+                        <b style={{ color: awayColor }}>{stats.away.posse}%</b>
+                      </div>
+                      <div className="dualMiniBar">
+                        <i style={{ width: `${pctStat(stats.home.posse, stats.away.posse).home}%`, background: homeColor }}></i>
+                        <em style={{ width: `${pctStat(stats.home.posse, stats.away.posse).away}%`, background: awayColor }}></em>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="statsMiddleRow">
@@ -1389,5 +1448,52 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 .proStats{
   min-height:128px!important;
 }
+
+
+/* ===== AJUSTE FINAL PEDIDO ===== */
+.marketLine{
+  border:1px solid rgba(250,204,21,.75)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.16),rgba(0,0,0,.32))!important;
+  box-shadow:0 0 16px rgba(250,204,21,.20)!important;
+}
+.marketLine div:first-child b{
+  font-size:15px!important;
+  color:#fff!important;
+  text-transform:uppercase!important;
+}
+.marketLine div:first-child span{
+  font-size:12px!important;
+  color:#fff!important;
+  font-weight:900!important;
+}
+.marketLine div:first-child strong{
+  color:#facc15!important;
+  font-size:16px!important;
+}
+.marketLine div:last-child b{
+  color:#22ff88!important;
+  font-size:13px!important;
+}
+.bar i{
+  background:linear-gradient(90deg,#22c55e,#facc15)!important;
+}
+.metricPair{
+  min-height:44px!important;
+}
+.dualMiniBar{
+  height:5px!important;
+  display:flex!important;
+  gap:0!important;
+  background:#0b1117!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+}
+.dualMiniBar i,
+.dualMiniBar em{
+  display:block!important;
+  height:100%!important;
+  min-width:0!important;
+}
+.dualMiniBar i{border-radius:999px 0 0 999px!important}
+.dualMiniBar em{border-radius:0 999px 999px 0!important}
 
 `;
