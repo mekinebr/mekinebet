@@ -9,7 +9,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 
 // Limpa Service Worker/cache antigo apenas em desenvolvimento.
-// Em produção isso evita apagar cache útil e melhora o carregamento.
 if (import.meta.env.DEV && "serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
