@@ -378,7 +378,8 @@ export default function App() {
     return (
       jogoAoVivoReal(item) &&
       jogoFonteReal(item) &&
-      (jogoStatsReal(item) || jogoEventosReal(item)) &&
+      jogoStatsReal(item) &&
+      temEstatisticasNumericas(item) &&
       mercado !== "" &&
       conf >= 30
     );
@@ -414,6 +415,21 @@ export default function App() {
     if (away.posse > 0 && home.posse === 0) home.posse = Math.max(0, 100 - away.posse);
 
     return { home, away, real };
+  }
+
+
+  function temEstatisticasNumericas(item) {
+    const s = statsDoJogo(item);
+
+    const total =
+      s.home.ataques + s.away.ataques +
+      s.home.perigosos + s.away.perigosos +
+      s.home.finalizacoes + s.away.finalizacoes +
+      s.home.noGol + s.away.noGol +
+      s.home.cantos + s.away.cantos +
+      s.home.posse + s.away.posse;
+
+    return Boolean(s.real && total > 0);
   }
 
   function mercadoStatus(item) {
@@ -741,7 +757,7 @@ export default function App() {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
         const cat = categoriaMercado(item);
-        if (filtro === "TODOS") return true;
+        if (filtro === "TODOS") return sinalReal(item);
         if (filtro === "LIVE") return sinalReal(item);
         if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
         if (filtro === "OVER05") return cat === "OVER 0,5";
@@ -752,7 +768,7 @@ export default function App() {
         if (filtro === "CANTOS") return cat.includes("CANTOS");
         if (filtro === "BTTS") return cat === "BTTS";
         if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
-        if (filtro === "VIP") return isVip(item);
+        if (filtro === "VIP") return isVip(item) || sinalPreLiveVip(item);
         if (filtro === "PRELIVEVIP") return sinalPreLiveVip(item);
         return true;
       })
@@ -763,7 +779,7 @@ export default function App() {
 
   const liveCount = signals.filter(sinalAceito).length;
   const preliveVipCount = signals.filter((s) => typeof sinalPreLiveVip === 'function' && sinalPreLiveVip(s)).length;
-  const alertCount = signals.filter((s) => sinalAceito(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
+  const alertCount = signals.filter((s) => sinalReal(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
 
   return (
     <div className="page">
@@ -772,7 +788,7 @@ export default function App() {
       <header className="topBar">
         <div>
           <h1>MekineBet AO VIVO <span className="liveDot"></span></h1>
-          <div className="subTitle">🟢 Scanner live • odds • pressão • mercados</div>
+          <div className="subTitle">🟢 Scanner live • estatísticas reais • pressão • mercados</div>
         </div>
         <div className="statusWrap">
           <span className="pill">🟢 Live: {liveCount}</span>
@@ -784,7 +800,7 @@ export default function App() {
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum jogo ao vivo com sinal real disponível agora. Pré-live aparece somente no VIP quando houver oportunidade forte.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo com estatísticas reais disponível agora. A MekineBet não exibe jogos com dados zerados ou incompletos.</div>
       )}
 
       <div className="filters">
