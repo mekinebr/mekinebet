@@ -275,8 +275,28 @@ export default function App() {
     );
   }
 
+  function statsArrayValue(list, teamName, wantedNames = []) {
+    if (!Array.isArray(list)) return undefined;
+    const teamNorm = normalizar(teamName || "");
+
+    const teamBlock = list.find((row) => {
+      const name = normalizar(row?.team?.name || row?.teamName || row?.name || "");
+      return name && teamNorm && (name === teamNorm || name.includes(teamNorm) || teamNorm.includes(name));
+    });
+
+    const statsList = teamBlock?.statistics || teamBlock?.stats || [];
+    if (!Array.isArray(statsList)) return undefined;
+
+    const wanted = wantedNames.map(normalizar);
+    const stat = statsList.find((s) => wanted.includes(normalizar(s?.type || s?.name || s?.key || "")));
+    return stat?.value ?? stat?.total;
+  }
+
+
   function statNumber(item, side, keys, fallback = 0) {
     const teamStats = side === "home" ? apiHomeStats(item) : apiAwayStats(item);
+    const times = timesDoJogo(item);
+    const teamName = side === "home" ? times.casa : times.fora;
     const prefix = side === "home" ? ["", "Home", "Casa"] : ["Away", "Fora", "Visitante"];
     const directKeys = [];
 
@@ -291,7 +311,11 @@ export default function App() {
       ...directKeys.map((k) => item[k]),
       ...keys.map((k) => teamStats[k]),
       ...keys.map((k) => nested(teamStats, [k, `${k}.value`, `${k}.total`])),
-      ...keys.map((k) => nested(item, [`stats.${side}.${k}`, `statistics.${side}.${k}`, `realStats.${side}.${k}`]))
+      ...keys.map((k) => nested(item, [`stats.${side}.${k}`, `statistics.${side}.${k}`, `realStats.${side}.${k}`])),
+      statsArrayValue(item.statistics, teamName, keys),
+      statsArrayValue(item.stats, teamName, keys),
+      statsArrayValue(item.realStats, teamName, keys),
+      statsArrayValue(item.matchStats, teamName, keys)
     ];
 
     return toNumber(pickValue(...candidates), fallback);
@@ -364,25 +388,25 @@ export default function App() {
     const real = jogoStatsReal(item);
 
     const home = {
-      posse: real ? statNumber(item, "home", ["posse", "possession", "ballPossession"], 0) : 0,
-      finalizacoes: real ? statNumber(item, "home", ["finalizacoes", "finalizações", "shots", "totalShots", "chutes"], 0) : 0,
-      noGol: real ? statNumber(item, "home", ["noGol", "shotsOnGoal", "chutesNoGol", "onGoal", "shotsOnTarget"], 0) : 0,
-      ataques: real ? statNumber(item, "home", ["ataques", "attacks"], 0) : 0,
-      cantos: real ? statNumber(item, "home", ["cantos", "corners", "escanteios"], 0) : 0,
-      cartoes: real ? statNumber(item, "home", ["cartoes", "cartões", "yellowCards", "cards"], 0) : 0,
-      vermelhos: real ? statNumber(item, "home", ["vermelhos", "redCards", "cartoesVermelhos"], 0) : 0,
-      perigosos: real ? statNumber(item, "home", ["perigosos", "dangerousAttacks", "ataquesPerigosos"], 0) : 0
+      posse: real ? statNumber(item, "home", ["posse", "possession", "ballPossession", "Ball Possession"], 0) : 0,
+      finalizacoes: real ? statNumber(item, "home", ["finalizacoes", "finalizações", "shots", "totalShots", "chutes", "Total Shots", "Shots total"], 0) : 0,
+      noGol: real ? statNumber(item, "home", ["noGol", "shotsOnGoal", "chutesNoGol", "onGoal", "shotsOnTarget", "Shots on Goal"], 0) : 0,
+      ataques: real ? statNumber(item, "home", ["ataques", "attacks", "Attacks"], 0) : 0,
+      cantos: real ? statNumber(item, "home", ["cantos", "corners", "escanteios", "Corner Kicks"], 0) : 0,
+      cartoes: real ? statNumber(item, "home", ["cartoes", "cartões", "yellowCards", "cards", "Yellow Cards"], 0) : 0,
+      vermelhos: real ? statNumber(item, "home", ["vermelhos", "redCards", "cartoesVermelhos", "Red Cards"], 0) : 0,
+      perigosos: real ? statNumber(item, "home", ["perigosos", "dangerousAttacks", "ataquesPerigosos", "Dangerous Attacks"], 0) : 0
     };
 
     const away = {
-      posse: real ? statNumber(item, "away", ["posse", "possession", "ballPossession"], 0) : 0,
-      finalizacoes: real ? statNumber(item, "away", ["finalizacoes", "finalizações", "shots", "totalShots", "chutes"], 0) : 0,
-      noGol: real ? statNumber(item, "away", ["noGol", "shotsOnGoal", "chutesNoGol", "onGoal", "shotsOnTarget"], 0) : 0,
-      ataques: real ? statNumber(item, "away", ["ataques", "attacks"], 0) : 0,
-      cantos: real ? statNumber(item, "away", ["cantos", "corners", "escanteios"], 0) : 0,
-      cartoes: real ? statNumber(item, "away", ["cartoes", "cartões", "yellowCards", "cards"], 0) : 0,
-      vermelhos: real ? statNumber(item, "away", ["vermelhos", "redCards", "cartoesVermelhos"], 0) : 0,
-      perigosos: real ? statNumber(item, "away", ["perigosos", "dangerousAttacks", "ataquesPerigosos"], 0) : 0
+      posse: real ? statNumber(item, "away", ["posse", "possession", "ballPossession", "Ball Possession"], 0) : 0,
+      finalizacoes: real ? statNumber(item, "away", ["finalizacoes", "finalizações", "shots", "totalShots", "chutes", "Total Shots", "Shots total"], 0) : 0,
+      noGol: real ? statNumber(item, "away", ["noGol", "shotsOnGoal", "chutesNoGol", "onGoal", "shotsOnTarget", "Shots on Goal"], 0) : 0,
+      ataques: real ? statNumber(item, "away", ["ataques", "attacks", "Attacks"], 0) : 0,
+      cantos: real ? statNumber(item, "away", ["cantos", "corners", "escanteios", "Corner Kicks"], 0) : 0,
+      cartoes: real ? statNumber(item, "away", ["cartoes", "cartões", "yellowCards", "cards", "Yellow Cards"], 0) : 0,
+      vermelhos: real ? statNumber(item, "away", ["vermelhos", "redCards", "cartoesVermelhos", "Red Cards"], 0) : 0,
+      perigosos: real ? statNumber(item, "away", ["perigosos", "dangerousAttacks", "ataquesPerigosos", "Dangerous Attacks"], 0) : 0
     };
 
     // Se a API mandar só posse de casa, calcula a posse de fora. Se mandar as duas, respeita os números reais.
@@ -612,6 +636,19 @@ export default function App() {
     return peso;
   }
 
+
+  function statsScore(item) {
+    const s = statsDoJogo(item);
+    return (
+      s.home.ataques + s.away.ataques +
+      s.home.perigosos + s.away.perigosos +
+      s.home.finalizacoes + s.away.finalizacoes +
+      s.home.noGol + s.away.noGol +
+      s.home.cantos + s.away.cantos +
+      s.home.posse + s.away.posse
+    );
+  }
+
   function juntarSinaisDoMesmoJogo(lista = []) {
     const mapa = new Map();
 
@@ -636,9 +673,13 @@ export default function App() {
         .sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
 
       const melhorMercado = mercadosAtivos[0] || item;
+      const melhorStats = [atual, item, ...mercadosAtivos]
+        .slice()
+        .sort((a, b) => statsScore(b) - statsScore(a))[0] || atual;
 
       mapa.set(key, {
         ...atual,
+        ...melhorStats,
         ...melhorMercado,
         mercadosAtivos,
         melhorMercado,
@@ -769,45 +810,28 @@ export default function App() {
                 )}
 
                 <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
-                  <div className="statsTopGrid">
-                    <div className="metricPair">
-                      <small>ATAQUES</small>
-                      <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.ataques}</b>
-                        <span className="metricVs"></span>
-                        <b style={{ color: awayColor }}>{stats.away.ataques}</b>
-                      </div>
-                      <div className="dualMiniBar">
-                        <i style={{ width: `${Math.min(100, (stats.home.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: homeColor }}></i>
-                        <em style={{ width: `${Math.min(100, (stats.away.ataques / Math.max(1, stats.home.ataques + stats.away.ataques)) * 100)}%`, background: awayColor }}></em>
-                      </div>
-                    </div>
-
-                    <div className="metricPair">
-                      <small>ATAQUES PERIGOSOS</small>
-                      <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
-                        <span className="metricVs danger"></span>
-                        <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
-                      </div>
-                      <div className="dualMiniBar">
-                        <i style={{ width: `${Math.min(100, (stats.home.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: homeColor }}></i>
-                        <em style={{ width: `${Math.min(100, (stats.away.perigosos / Math.max(1, stats.home.perigosos + stats.away.perigosos)) * 100)}%`, background: awayColor }}></em>
-                      </div>
-                    </div>
-
-                    <div className="metricPair posseMetric">
-                      <small>% POSSE</small>
-                      <div className="metricNumbers">
-                        <b style={{ color: homeColor }}>{stats.home.posse}%</b>
-                        <span className="metricVs ball"></span>
-                        <b style={{ color: awayColor }}>{stats.away.posse}%</b>
-                      </div>
-                      <div className="dualMiniBar">
-                        <i style={{ width: `${stats.home.posse}%`, background: homeColor }}></i>
-                        <em style={{ width: `${stats.away.posse}%`, background: awayColor }}></em>
-                      </div>
-                    </div>
+                  <div className="statsTopGrid bet365TopStats">
+                    <StatLineBet365
+                      label="ATAQUES"
+                      home={stats.home.ataques}
+                      away={stats.away.ataques}
+                      homeColor={homeColor}
+                      awayColor={awayColor}
+                    />
+                    <StatLineBet365
+                      label="ATAQUES PERIGOSOS"
+                      home={stats.home.perigosos}
+                      away={stats.away.perigosos}
+                      homeColor={homeColor}
+                      awayColor={awayColor}
+                    />
+                    <StatLineBet365
+                      label="% POSSE"
+                      home={stats.home.posse}
+                      away={stats.away.posse}
+                      homeColor={homeColor}
+                      awayColor={awayColor}
+                    />
                   </div>
 
                   <div className="statsMiddleRow">
@@ -1342,6 +1366,28 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .shotBoxPro{
   min-height:48px!important;
+}
+
+
+/* ===== TOP STATS EM LINHAS PROPORCIONAIS ===== */
+.bet365TopStats{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+  padding:4px!important;
+}
+.bet365TopStats .bet365StatLine{
+  grid-template-columns:38px 1fr 38px!important;
+  background:rgba(0,0,0,.16)!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:6px!important;
+  padding:3px 5px!important;
+}
+.bet365TopStats .bet365LineCenter small{
+  font-size:6.7px!important;
+}
+.proStats{
+  min-height:128px!important;
 }
 
 `;
