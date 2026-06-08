@@ -896,42 +896,23 @@ export default function App() {
       }
     });
 
-    // Cronologia minuto a minuto.
-    // Sem stats reais: mostra TODOS os minutos até o atual em nível neutro/baixo,
-    // e destaca apenas eventos reais recebidos da API. Não inventa estatística.
+    // Cronologia deve funcionar mesmo quando a API não envia estatísticas reais.
+    // Sem stats reais, mostramos apenas eventos reais recebidos da API, sem simular pressão.
     if (!statsRealTimeline) {
-      return Array.from({ length: current }, (_, i) => {
-        const minute = i + 1;
-        const realEvent = eventosPorMinuto.get(minute);
-        const fallbackTeam = minute % 2 === 0 ? "home" : "away";
-
-        if (realEvent) {
-          return {
-            m: minute,
-            team: realEvent.team || fallbackTeam,
-            level: Math.max(2, realEvent.level || 2),
-            icon: realEvent.icon || "•",
-            color: (realEvent.team || fallbackTeam) === "away" ? awayColor : homeColor,
-            real: true,
-            title: realEvent.title || `${minute}' ${realEvent.teamName || ""} ${realEvent.detail || realEvent.type || "Evento real"}`.trim(),
-            label: realEvent.detail || realEvent.type || "Evento real",
-            prelive: false
-          };
-        }
-
-        return {
-          m: minute,
-          team: fallbackTeam,
-          level: 1,
-          icon: "",
-          color: fallbackTeam === "away" ? awayColor : homeColor,
-          real: false,
-          muted: true,
-          title: `${minute}' leitura minuto a minuto`,
-          label: "Minuto sem evento real",
+      return Array.from(eventosPorMinuto.values())
+        .filter((ev) => Number(ev.minute || ev.m || 0) <= current)
+        .map((ev) => ({
+          m: ev.minute,
+          team: ev.team,
+          level: Math.max(2, ev.level || 2),
+          icon: ev.icon || "•",
+          color: ev.team === "away" ? awayColor : homeColor,
+          real: true,
+          title: ev.title || `${ev.minute}' ${ev.teamName || ""} ${ev.detail || ev.type || "Evento real"}`.trim(),
+          label: ev.detail || ev.type || "Evento real",
           prelive: false
-        };
-      });
+        }))
+        .sort((a, b) => a.m - b.m);
     }
 
     const homeWeight =
@@ -1803,6 +1784,43 @@ ${css}
 .statsOverlayNotice { display:none!important; }
 .gameMinute::before,.gameMinute::after,.preliveMinute::before,.preliveMinute::after,.heroCenter strong::before,.heroCenter strong::after{content:""!important;display:none!important;}
 
+
+/* V15 - Scanner com mesmo visual limpo do AO VIVO */
+.scannerVipPanel{
+  padding:8px!important;
+  margin:0 0 8px!important;
+  border-radius:10px!important;
+}
+.scannerHead h2{font-size:15px!important;margin:2px 0!important}
+.scannerHead p{display:none!important}
+.scannerControls{gap:6px!important;margin-top:6px!important}
+.scannerControls label select{height:30px!important;font-size:11px!important}
+.scannerRanking{display:none!important}
+.card.scannerCardLive{min-height:390px!important;padding:8px!important}
+.card.scannerCardLive .matchHero{min-height:78px!important}
+.card.scannerCardLive .highlightSignal{margin-top:6px!important;margin-bottom:6px!important}
+.card.scannerCardLive .flowCard{margin-top:6px!important}
+.card.scannerCardLive .flowWrap{height:94px!important}
+.card.scannerCardLive .flowLegend{font-size:8px!important;margin-top:4px!important}
+.card.scannerCardLive .marketsPanel{margin-top:6px!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}
+.card.scannerCardLive .signalChip{min-height:54px!important;padding:6px!important}
+.card.scannerCardLive .bookies{display:none!important}
+.scannerCompactNote{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:8px;
+  align-items:center;
+  border:1px solid rgba(34,197,94,.35);
+  background:rgba(3,20,16,.82);
+  border-radius:8px;
+  padding:5px 8px;
+  margin:5px 0 6px;
+  font-size:10px;
+  font-weight:900;
+}
+.scannerCompactNote b{color:#22ff8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scannerCompactNote em{font-style:normal;color:#93c5fd;font-size:9px}
+
 `}</style>
 
       <header className="topBar">
@@ -1970,7 +1988,8 @@ ${css}
             const events = liveReal ? timelineEvents(item, index, homeColor, awayColor) : [];
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
-            const liveMap = liveReal && statsReal ? buildLiveMapState(item, index) : null;
+            const scannerMode = filtro === "SCANNER";
+            const liveMap = liveReal && statsReal && !scannerMode ? buildLiveMapState(item, index) : null;
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
             const statText = (v, suffix = "") => {
               if (!statsReal) return "—";
@@ -1996,7 +2015,7 @@ ${css}
             const onGoalHomePct = pctValue(stats.home.noGol, stats.away.noGol);
 
             return (
-              <section key={item.id || index} className="card" data-live={liveReal ? "true" : "false"} data-stats-real={statsReal ? "true" : "false"}>
+              <section key={item.id || index} className={`card ${scannerMode ? "scannerCardLive" : ""}`} data-live={liveReal ? "true" : "false"} data-stats-real={statsReal ? "true" : "false"} data-scanner={scannerMode ? "true" : "false"}>
                 <div className="matchHero">
                   <div className="teamSide">
                     <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
@@ -2051,7 +2070,15 @@ ${css}
                   </div>
                 </div>
 
-                {statsReal && (
+                {scannerMode && (
+                  <div className="scannerCompactNote">
+                    <span>⚡ Scanner ativo</span>
+                    <b>{labelMercadoScanner()}</b>
+                    <em>{jogoEventosReal(item) ? "Eventos reais" : "Sem eventos"}</em>
+                  </div>
+                )}
+
+                {statsReal && !scannerMode && (
                 <div className="betStats proStats statsRealBox" style={{ "--home": homeColor, "--away": awayColor }}>
 
                   <div className="statsTopGrid">
@@ -2129,7 +2156,7 @@ ${css}
                 </div>
                 )}
 
-                {liveReal && statsReal && liveMap && (
+                {liveReal && statsReal && liveMap && !scannerMode && (
                 <div className={`miniMap weather-${weather.cls}`}>
                   <div className={`livePulse ${liveMap.intensity} ${liveMap.side}`}>
                     <b>
@@ -2226,7 +2253,7 @@ ${css}
                     {events.map((ev, i) => (
                       <React.Fragment key={i}>
                         <span
-                          className={`flowSpike ${ev.team} level-${ev.level} ${ev.real ? "realMinute" : ""} ${ev.muted ? "muted" : ""}`}
+                          className={`flowSpike ${ev.team} level-${ev.level} ${ev.real ? "realMinute" : ""}`}
                           style={{
                             left: timelineLeft(ev.m),
                             height: `${ev.level === 3 ? 30 : ev.level === 2 ? 18 : 7}px`,
@@ -4598,183 +4625,5 @@ h1{font-size:28px!important}.subTitle{font-size:10px!important}.liveDot{width:10
 .marketsPanel{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important;margin-top:5px!important}.signalChip{min-height:34px!important;padding:4px 5px!important;border-radius:7px!important}.signalChip b{font-size:9px!important}.signalChip span,.signalChip em{font-size:7px!important}.signalChip strong{font-size:11px!important}.bookies{display:none!important}.card[data-live="false"] .flowCard,.card[data-live="false"] .miniMap,.card[data-live="false"] .betStats{display:none!important}.card[data-stats-real="false"] .betStats,.card[data-stats-real="false"] .miniMap{display:none!important}.estimatedStatsBadge{background:rgba(75,85,99,.75)!important;color:#d1d5db!important}.realStatsBadge{background:#16a34a!important;color:#fff!important}.notice{font-size:10px!important;padding:6px 8px!important;margin-bottom:6px!important}
 @media(max-width:1180px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.statusWrap{grid-template-columns:repeat(4,minmax(72px,1fr))!important}.filters{grid-template-columns:repeat(6,minmax(76px,1fr))!important}.topBar{grid-template-columns:1fr!important}}
 @media(max-width:720px){.page{padding:5px!important}.grid{grid-template-columns:1fr!important}.statusWrap{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}.filters button{font-size:8px!important}.matchHero{grid-template-columns:54px 1fr 54px!important}.heroLogo{width:34px!important;height:34px!important}.heroCenter b{font-size:26px!important}.statsTopGrid{grid-template-columns:1fr!important}.statsMiddleRow{grid-template-columns:1fr!important}.sideCounters{grid-template-columns:repeat(3,1fr)!important}.shotBoxPro{grid-template-columns:42px minmax(0,1fr) 42px!important}.marketsPanel{grid-template-columns:1fr!important}}
-
-/* ===== V13 CRONOLOGIA MINUTO A MINUTO + MENU COMPACTO ===== */
-.topBar{
-  gap:8px!important;
-  padding:6px 4px!important;
-  margin-bottom:6px!important;
-}
-.statusWrap{
-  display:grid!important;
-  grid-template-columns:repeat(7,minmax(92px,1fr))!important;
-  gap:7px!important;
-  width:min(80vw,1080px)!important;
-}
-.pill{
-  height:31px!important;
-  padding:0 10px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  border-radius:999px!important;
-  font-size:12px!important;
-  white-space:nowrap!important;
-}
-.filters{
-  display:flex!important;
-  gap:6px!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  padding:6px 2px 8px!important;
-  margin:0 0 8px!important;
-  scrollbar-width:thin!important;
-}
-.filters button{
-  flex:0 0 auto!important;
-  height:31px!important;
-  min-width:auto!important;
-  padding:0 11px!important;
-  border-radius:999px!important;
-  font-size:10px!important;
-  line-height:1!important;
-}
-.searchBox,.searchInput,input[type="search"]{
-  height:32px!important;
-  font-size:12px!important;
-}
-.grid{
-  gap:8px!important;
-}
-.card{
-  min-height:auto!important;
-  padding:7px!important;
-  border-radius:10px!important;
-}
-.matchHero{
-  min-height:76px!important;
-  grid-template-columns:68px 1fr 68px!important;
-  gap:6px!important;
-}
-.heroLogo{width:46px!important;height:46px!important}
-.heroCenter b{font-size:30px!important;line-height:1!important}
-.heroCenter p{font-size:9px!important;margin:0 0 3px!important}
-.heroCenter strong{font-size:11px!important;padding:2px 8px!important}
-.badges{gap:4px!important;margin:5px 0!important}
-.badges span{font-size:8px!important;padding:3px 6px!important}
-.highlightSignal{
-  min-height:54px!important;
-  padding:8px 10px!important;
-  margin:6px 0!important;
-}
-.highlightSignalText small{font-size:8px!important}
-.highlightSignalText b{font-size:16px!important;letter-spacing:.3px!important}
-.highlightSignalText span{font-size:10px!important}
-.highlightSignalMeta strong{font-size:24px!important}
-.flowCard{
-  display:block!important;
-  padding:6px!important;
-  margin-top:6px!important;
-  border-radius:8px!important;
-}
-.flowCard h3{
-  font-size:10px!important;
-  margin:0 0 3px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:6px!important;
-}
-.flowMinuteScale{
-  padding:0 18px 2px 38px!important;
-  font-size:8px!important;
-}
-.flowWrap{
-  height:76px!important;
-  padding-left:38px!important;
-  border-radius:7px!important;
-}
-.flowWrap:before{
-  left:38px!important;
-  right:4px!important;
-  background:
-    repeating-linear-gradient(90deg,rgba(255,255,255,.12) 0 1px,transparent 1px calc((100% - 42px)/90))!important;
-}
-.teamMini{
-  width:34px!important;
-  font-size:8px!important;
-}
-.teamMini img{width:22px!important;height:22px!important}
-.homeMini{top:7px!important}
-.awayMini{bottom:7px!important}
-.middleLine{
-  left:38px!important;
-  right:4px!important;
-}
-.nowLine{
-  width:2px!important;
-  box-shadow:0 0 10px rgba(239,68,68,.7)!important;
-}
-.nowLine b{
-  font-size:8px!important;
-  top:0!important;
-  transform:translateX(-45%)!important;
-}
-.flowSpike{
-  width:3px!important;
-  min-height:5px!important;
-  border-radius:4px!important;
-}
-.flowSpike.level-1{
-  opacity:.35!important;
-  height:8px!important;
-  box-shadow:none!important;
-}
-.flowSpike.level-2{
-  opacity:.8!important;
-}
-.flowSpike.level-3{
-  opacity:1!important;
-  width:4px!important;
-}
-.flowSpike.muted{
-  opacity:.22!important;
-  filter:saturate(.7)!important;
-}
-.flowIcon{
-  font-size:12px!important;
-  filter:drop-shadow(0 0 4px rgba(0,0,0,.9))!important;
-}
-.flowIcon.home{bottom:calc(50% + 22px)!important}
-.flowIcon.away{top:calc(50% + 22px)!important}
-.flowLegend{
-  display:flex!important;
-  justify-content:center!important;
-  gap:8px!important;
-  flex-wrap:wrap!important;
-  font-size:8px!important;
-  margin-top:4px!important;
-}
-.marketsPanel{
-  margin-top:6px!important;
-  gap:5px!important;
-}
-.signalChip{
-  min-height:44px!important;
-  padding:6px 8px!important;
-}
-.signalChip b{font-size:10px!important}
-.signalChip span{font-size:8px!important}
-.signalChip strong{font-size:14px!important}
-.signalChip em{font-size:8px!important}
-@media(max-width:1100px){
-  .grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-  .statusWrap{grid-template-columns:repeat(4,minmax(88px,1fr))!important;width:100%!important}
-}
-@media(max-width:720px){
-  .topBar{display:block!important}
-  .statusWrap{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-top:8px!important}
-  .grid{grid-template-columns:1fr!important}
-}
 
 `;
