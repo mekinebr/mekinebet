@@ -8,25 +8,20 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   </React.StrictMode>
 );
 
-// Limpa Service Worker antigo
-if ("serviceWorker" in navigator) {
+// Limpa Service Worker/cache antigo apenas em desenvolvimento.
+// Em produção isso evita apagar cache útil e melhora o carregamento.
+if (import.meta.env.DEV && "serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
-
-      for (const registration of registrations) {
-        await registration.unregister();
-      }
+      await Promise.all(registrations.map((registration) => registration.unregister()));
 
       if ("caches" in window) {
         const cacheNames = await caches.keys();
-
-        for (const cacheName of cacheNames) {
-          await caches.delete(cacheName);
-        }
+        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
       }
 
-      console.log("MekineBet cache limpo");
+      console.log("MekineBet cache limpo em DEV");
     } catch (error) {
       console.error("Erro ao limpar cache:", error);
     }
