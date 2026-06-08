@@ -866,8 +866,9 @@ export default function App() {
   }
 
   function timelineEvents(item, index, homeColor, awayColor) {
-    if (!jogoAoVivo(item) || !jogoStatsReal(item)) return [];
+    if (!jogoAoVivo(item)) return [];
     const stats = statsDoJogo(item);
+    const statsRealTimeline = jogoStatsReal(item);
     const live = item.type === "live";
     const current = live ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
     const eventosReais = eventosDoJogo(item);
@@ -883,7 +884,10 @@ export default function App() {
         minute,
         team,
         priority: eventoPrioridade(event),
-        level: eventoLevel(event)
+        level: eventoLevel(event),
+        real: true,
+        color: team === "home" ? homeColor : awayColor,
+        title: `${minute}' ${event.teamName || ""} ${event.player || ""} ${event.detail || event.type || ""}`.trim()
       };
 
       const atual = eventosPorMinuto.get(minute);
@@ -891,6 +895,25 @@ export default function App() {
         eventosPorMinuto.set(minute, normalizedEvent);
       }
     });
+
+    // Cronologia deve funcionar mesmo quando a API não envia estatísticas reais.
+    // Sem stats reais, mostramos apenas eventos reais recebidos da API, sem simular pressão.
+    if (!statsRealTimeline) {
+      return Array.from(eventosPorMinuto.values())
+        .filter((ev) => Number(ev.minute || ev.m || 0) <= current)
+        .map((ev) => ({
+          m: ev.minute,
+          team: ev.team,
+          level: Math.max(2, ev.level || 2),
+          icon: ev.icon || "•",
+          color: ev.team === "away" ? awayColor : homeColor,
+          real: true,
+          title: ev.title || `${ev.minute}' ${ev.teamName || ""} ${ev.detail || ev.type || "Evento real"}`.trim(),
+          label: ev.detail || ev.type || "Evento real",
+          prelive: false
+        }))
+        .sort((a, b) => a.m - b.m);
+    }
 
     const homeWeight =
       stats.home.ataques +
@@ -1925,7 +1948,7 @@ ${css}
             const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
             const statsReal = jogoStatsReal(item);
-            const events = liveReal && statsReal ? timelineEvents(item, index, homeColor, awayColor) : [];
+            const events = liveReal ? timelineEvents(item, index, homeColor, awayColor) : [];
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
             const liveMap = liveReal && statsReal ? buildLiveMapState(item, index) : null;
@@ -2171,7 +2194,7 @@ ${css}
                 {liveReal && (
                 <div className="flowCard">
                   <h3>
-                    "CRONOLOGIA DA PARTIDA"
+                    CRONOLOGIA DA PARTIDA
                     {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}
                     {!liveReal && <span className="flowPreliveTag">PROJEÇÃO IA</span>}
                   </h3>
