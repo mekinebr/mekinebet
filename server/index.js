@@ -12,9 +12,9 @@ const API_KEYS = [
 ].filter(Boolean);
 
 const API_KEY = API_KEYS[0] || "";
-const CACHE_TTL_MS = 30000;
+const CACHE_TTL_MS = 60000;
 const REQUEST_TIMEOUT_MS = 12000;
-const MAX_LIVE_GAMES = 18;
+const MAX_LIVE_GAMES = 12;
 const MAX_PRELIVE_GAMES = 30;
 const PRELIVE_HOURS = 24;
 const TIMEZONE = "America/Sao_Paulo";
@@ -239,34 +239,13 @@ function buildRealStats(fixtureRow, statsRows = []) {
   return { home, away, hasRealStats: true, source: "real" };
 }
 
-function fakeStats(i = 0, type = "prelive") {
-  const home = {
-    posse: 52 + (i % 8),
-    finalizacoes: type === "live" ? 7 + i : 6 + (i % 5),
-    noGol: type === "live" ? 2 + (i % 3) : 1 + (i % 2),
-    ataques: type === "live" ? 28 + i * 2 : 20 + i,
-    perigosos: type === "live" ? 14 + i : 9 + i,
-    cantos: type === "live" ? 2 + (i % 4) : 1 + (i % 2),
-    cartoes: 1,
-    amarelos: 1,
-    vermelhos: 0,
-    faltas: 7 + i,
+function emptyStatsPack() {
+  return {
+    home: { posse: 0, finalizacoes: 0, noGol: 0, ataques: 0, perigosos: 0, cantos: 0, cartoes: 0, amarelos: 0, vermelhos: 0, faltas: 0 },
+    away: { posse: 0, finalizacoes: 0, noGol: 0, ataques: 0, perigosos: 0, cantos: 0, cartoes: 0, amarelos: 0, vermelhos: 0, faltas: 0 },
+    hasRealStats: false,
+    source: "none"
   };
-
-  const away = {
-    posse: 100 - home.posse,
-    finalizacoes: Math.max(3, Math.round(home.finalizacoes * 0.7)),
-    noGol: Math.max(0, Math.round(home.noGol * 0.7)),
-    ataques: Math.max(10, Math.round(home.ataques * 0.75)),
-    perigosos: Math.max(5, Math.round(home.perigosos * 0.75)),
-    cantos: Math.max(0, Math.round(home.cantos * 0.7)),
-    cartoes: 1,
-    amarelos: 1,
-    vermelhos: 0,
-    faltas: 7 + i,
-  };
-
-  return { home, away, hasRealStats: false, source: "estimated" };
 }
 
 function buildEvents(fixtureRow, rows = []) {
@@ -507,7 +486,13 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, statsPack = null
   const awayGoals = type === "live" ? toNumber(goals?.away, 0) : 0;
   const totalGoals = homeGoals + awayGoals;
 
-  const realStats = statsPack || fakeStats(index, type);
+  // Regra V5: jogo AO VIVO só entra se tiver estatísticas reais da API.
+  // Isso evita stats falsas, desalinhamento visual e sinais baseados em dado inventado.
+  if (type === "live" && !statsPack?.hasRealStats) return [];
+
+  // Pré-live continua aparecendo como oportunidade, mas sem estatística falsa.
+  // O frontend deve mostrar apenas o sinal VIP, sem cronologia e sem barras de stats.
+  const realStats = statsPack?.hasRealStats ? statsPack : emptyStatsPack();
   const { home, away } = realStats;
 
   const safeEvents = eventsPack || { matchEvents: [], hasRealEvents: false, eventsMode: "none" };
@@ -703,8 +688,8 @@ function buildScannerOpportunities(activeSignals = []) {
         scannerRankScore:
           Number(s.confidence || 0) * 1.25 +
           Number(s.pressure || 0) * 0.55 +
-          (s.realStats ? 8 : 0) +
-          (s.type === "prelive" ? 4 : 0) +
+          (s.realStats ? 10 : 0) +
+          (s.type === "prelive" ? 2 : 0) +
           leaguePriority({
             league: { name: s.league, country: s.country },
             teams: { home: { name: s.homeTeam }, away: { name: s.awayTeam } },
@@ -766,7 +751,7 @@ async function getSignalsPayload() {
     preliveGames,
     totalGames: new Set(activeSignals.map((s) => s.fixtureId)).size,
     totalSignals: activeSignals.length,
-    statsMode: realStatsGames ? "real" : "estimated",
+    statsMode: realStatsGames ? "real" : "none",
     realStatsGames,
     eventsMode: realEventsGames ? "real" : "none",
     realEventsGames,
