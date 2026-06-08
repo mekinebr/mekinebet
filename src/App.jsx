@@ -1723,7 +1723,6 @@ ${css}
   .teamSide small{width:84px!important;max-width:84px!important;font-size:10px!important}
 }
 
-`}
 
 /* V5 ajustes finais */
 .gameMinute::before, .gameMinute::after,
@@ -1751,7 +1750,7 @@ ${css}
 .card[data-live="false"] .flowCard {
   display: none !important;
 }
-</style>
+`}</style>
 
       <header className="topBar">
         <div>
