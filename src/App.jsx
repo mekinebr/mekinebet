@@ -514,6 +514,7 @@ export default function App() {
 
   function buildLiveMapState(item, index = 0) {
     const live = item.type === "live";
+    if (!live || !jogoStatsReal(item)) return null;
     const times = timesDoJogo(item);
     const stats = statsDoJogo(item);
     const current = live ? limitar(minuto(item) || 1, 1, 90) : 0;
@@ -865,7 +866,7 @@ export default function App() {
   }
 
   function timelineEvents(item, index, homeColor, awayColor) {
-    if (!jogoAoVivo(item)) return [];
+    if (!jogoAoVivo(item) || !jogoStatsReal(item)) return [];
     const stats = statsDoJogo(item);
     const live = item.type === "live";
     const current = live ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
@@ -1792,11 +1793,11 @@ ${css}
       )}
 
       {apiInfo.mode !== "fallback-ia" && liveCount > 0 && apiInfo.statsMode !== "real" && (
-        <div className="notice">📊 Jogos reais carregados. Algumas partidas ainda estão sem estatísticas detalhadas da API, então o painel calcula uma estimativa temporária.</div>
+        <div className="notice">📊 Jogos reais carregados. Quando a API não entregar estatísticas reais, o painel oculta os números para manter precisão.</div>
       )}
 
       {liveCount === 0 && apiInfo.mode !== "fallback-ia" && (
-        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando jogos pré-live/histórico enquanto monitora automaticamente.</div>
+        <div className="notice">📊 Nenhum LIVE real disponível agora. Mostrando jogos pré-live enquanto monitora automaticamente.</div>
       )}
 
       {apiInfo.mode !== "fallback-ia" && liveCount > 0 && oddsCount === 0 && apiInfo.realOddsGames === 0 && (
@@ -1924,7 +1925,7 @@ ${css}
             const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
             const statsReal = jogoStatsReal(item);
-            const events = liveReal ? timelineEvents(item, index, homeColor, awayColor) : [];
+            const events = liveReal && statsReal ? timelineEvents(item, index, homeColor, awayColor) : [];
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
             const liveMap = liveReal && statsReal ? buildLiveMapState(item, index) : null;
@@ -1953,7 +1954,7 @@ ${css}
             const onGoalHomePct = pctValue(stats.home.noGol, stats.away.noGol);
 
             return (
-              <section key={item.id || index} className="card" data-live={liveReal ? "true" : "false"}>
+              <section key={item.id || index} className="card" data-live={liveReal ? "true" : "false"} data-stats-real={statsReal ? "true" : "false"}>
                 <div className="matchHero">
                   <div className="teamSide">
                     <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
@@ -4538,5 +4539,22 @@ h1{
 }
 .scannerHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.scannerHead small{color:#facc15;font-weight:900}.scannerHead h2{margin:2px 0;color:#fff;font-size:18px}.scannerHead p{margin:0;color:#d1d5db;font-size:12px;font-weight:700}.scannerHead strong{background:#facc15;color:#111827;border-radius:999px;padding:7px 12px;font-weight:900;white-space:nowrap}.scannerControls{display:grid;grid-template-columns:180px 160px 1fr;gap:8px;margin-bottom:10px}.scannerControls label{display:grid;gap:4px;color:#d1d5db;font-size:11px;font-weight:900}.scannerControls select{height:34px;border-radius:8px;border:1px solid #0f7a3e;background:#07141a;color:#fff;font-weight:900;padding:0 8px}.scannerTarget{border:1px solid rgba(34,197,94,.45);border-radius:8px;background:#06110d;padding:7px 10px;display:grid;align-content:center}.scannerTarget span{font-size:10px;color:#9ca3af;font-weight:900}.scannerTarget b{color:#58f5a5;font-size:14px}.scannerRanking{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.scannerResult{display:grid;grid-template-columns:40px 1fr 54px 76px 88px;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.13);background:rgba(0,0,0,.26);border-radius:10px;padding:8px}.scannerResult .rank{background:#facc15;color:#111827;border-radius:999px;font-weight:900;text-align:center;padding:5px 0}.scannerResult b{display:block;color:#fff;font-size:12px}.scannerResult small{display:block;color:#d1d5db;font-size:10px;font-weight:800}.scannerResult em{display:block;color:#58f5a5;font-style:normal;font-weight:900;font-size:11px}.scannerResult strong{font-size:20px;color:#22c55e;text-align:center}.scannerResult .backtest{color:#facc15;text-align:center}.scannerResult button{border:0;background:#1ccc67;color:#001b0b;border-radius:8px;padding:7px;font-weight:900;cursor:pointer;font-size:10px}
 @media(max-width:1100px){.scannerControls{grid-template-columns:1fr 1fr}.scannerTarget{grid-column:1/-1}.scannerRanking{grid-template-columns:1fr}.scannerResult{grid-template-columns:36px 1fr 48px}.scannerResult .backtest,.scannerResult button{grid-column:2/-1}.filters button{flex:0 0 92px!important}}
+
+
+/* ===== V11 VISUAL AO VIVO COMPACTO + STATS PRECISAS ===== */
+.page{padding:7px!important}
+.topBar{display:grid!important;grid-template-columns:minmax(190px,260px) 1fr!important;gap:8px!important;align-items:center!important;margin:-7px -7px 7px!important;padding:7px!important}
+h1{font-size:28px!important}.subTitle{font-size:10px!important}.liveDot{width:10px!important;height:10px!important}.statusWrap{display:grid!important;grid-template-columns:repeat(8,minmax(72px,1fr))!important;gap:5px!important;width:100%!important}.pill{height:28px!important;padding:5px 7px!important;border-radius:999px!important;font-size:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.filters{display:grid!important;grid-template-columns:repeat(9,minmax(76px,1fr))!important;gap:4px!important;overflow:visible!important;padding:0!important;margin:5px 0 7px!important}.filters button{height:28px!important;min-width:0!important;padding:4px 5px!important;border-radius:7px!important;font-size:8.5px!important;letter-spacing:-.2px!important;line-height:1!important}.search{height:30px!important;padding:6px 9px!important;margin-bottom:7px!important;font-size:11px!important}
+.grid{gap:8px!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}.card{min-height:auto!important;padding:7px!important;border-radius:10px!important}.matchHero{height:72px!important;min-height:72px!important;grid-template-columns:62px minmax(0,1fr) 62px!important;gap:5px!important}.heroLogo{width:38px!important;height:38px!important}.teamSide small{font-size:10px!important;line-height:1.05!important;max-width:70px!important}.heroCenter p{font-size:8.5px!important;margin:2px 0!important}.heroCenter b{font-size:30px!important;letter-spacing:.5px!important}.heroCenter strong{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;margin-top:3px!important;background:rgba(239,68,68,.18)!important;border:1px solid rgba(239,68,68,.45)!important;color:#fff!important;border-radius:999px!important;padding:2px 8px!important;font-size:10px!important;line-height:1!important}.heroCenter strong:before,.heroCenter strong:after,.gameMinute:before,.gameMinute:after,.preliveMinute:before,.preliveMinute:after{content:""!important;display:none!important}
+.badges{margin:2px 0 5px!important;min-height:18px!important;display:flex!important;gap:3px!important;align-items:center!important;justify-content:flex-start!important;overflow:hidden!important}.badges span{font-size:7px!important;padding:2px 5px!important}.marketBadges{margin-left:auto!important;gap:3px!important;overflow:hidden!important}.marketBadges .market{font-size:7px!important;max-width:64px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.highlightSignal{display:grid!important;grid-template-columns:minmax(0,1fr) 68px!important;gap:6px!important;padding:7px!important;margin:5px 0 6px!important;border-radius:8px!important;min-height:54px!important;background:linear-gradient(90deg,rgba(16,185,129,.18),rgba(0,0,0,.18))!important;border-color:rgba(34,197,94,.45)!important}.highlightSignal.strong{border-color:rgba(250,204,21,.70)!important;box-shadow:0 0 14px rgba(250,204,21,.10)!important}.highlightSignalText small{font-size:7px!important;color:#facc15!important}.highlightSignalText b{font-size:12px!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-transform:uppercase!important}.highlightSignalText span{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.highlightSignalMeta strong{font-size:20px!important}.highlightSignalMeta em{font-size:7px!important;color:#facc15!important}
+.betStats.proStats,.statsRealBox{display:grid!important;grid-template-columns:1fr!important;gap:4px!important;padding:5px!important;margin:4px 0 5px!important;border-radius:8px!important;min-height:auto!important;background:rgba(0,0,0,.18)!important;border:1px solid rgba(34,197,94,.22)!important}.statsTopGrid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}.metricPair{min-height:34px!important;padding:3px 4px!important;border-radius:6px!important;background:rgba(255,255,255,.025)!important}.metricPair small{height:9px!important;line-height:1!important;font-size:6.4px!important;letter-spacing:-.1px!important;color:#d1d5db!important}.metricNumbers{grid-template-columns:32px 18px 32px!important;gap:3px!important}.metricNumbers b{font-size:11px!important;line-height:1!important}.metricVs{width:18px!important;height:18px!important}.metricVs:after{font-size:8px!important;left:6px!important;top:3px!important}.dualMiniBar{height:3px!important;margin-top:2px!important}
+.statsMiddleRow{display:grid!important;grid-template-columns:44px minmax(0,1fr) 44px!important;gap:4px!important;align-items:center!important}.sideCounters{padding:3px!important;gap:1px!important;min-height:34px!important}.sideCounters strong{font-size:6.5px!important;max-width:34px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.sideCounters span{font-size:8px!important}.sideCounters b{font-size:8px!important}.shotBoxPro{display:grid!important;grid-template-columns:36px minmax(0,1fr) 36px!important;gap:4px!important;align-items:center!important}.shotBoxPro small{font-size:6.5px!important;height:8px!important;grid-column:1/-1!important}.shotBoxPro strong{font-size:12px!important}.shotSplitBars{gap:3px!important}.splitBar{height:3px!important}
+.miniMap{margin:2px auto 4px!important;max-width:none!important;padding:0 4px!important}.livePulse{height:22px!important;padding:3px 7px!important}.livePulse b{font-size:8px!important}.livePulse span{font-size:7px!important}.weatherBadge{transform:scale(.82)!important;transform-origin:right top!important}.stadiumLights{height:10px!important}.field3d{height:54px!important;margin-top:9px!important;border-radius:9px!important;transform:perspective(220px) rotateX(22deg)!important}.centerCircle{width:22px!important;height:22px!important}.boxLeft,.boxRight{width:28px!important}.playerDot{width:5px!important;height:5px!important}.ballDot{width:7px!important;height:7px!important}
+.flowCard{margin-top:5px!important;padding:5px!important;min-height:auto!important}.flowCard h3{font-size:9px!important;margin:0 0 2px!important;height:12px!important}.flowMinuteScale{font-size:7px!important;padding:0 9px 2px 38px!important}.flowWrap{height:58px!important;padding-left:38px!important;border-radius:6px!important}.flowWrap:before{left:38px!important}.middleLine{left:38px!important}.teamMini{width:34px!important;font-size:7px!important}.teamMini img{width:18px!important;height:18px!important}.homeMini{top:5px!important}.awayMini{bottom:5px!important}.flowSpike{width:2px!important}.flowIcon{font-size:10px!important}.flowIcon.home{bottom:calc(50% + 17px)!important}.flowIcon.away{top:calc(50% + 17px)!important}.nowLine b{font-size:7px!important;padding:1px 3px!important}.flowLegend{display:none!important}
+.marketsPanel{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important;margin-top:5px!important}.signalChip{min-height:34px!important;padding:4px 5px!important;border-radius:7px!important}.signalChip b{font-size:9px!important}.signalChip span,.signalChip em{font-size:7px!important}.signalChip strong{font-size:11px!important}.bookies{display:none!important}.card[data-live="false"] .flowCard,.card[data-live="false"] .miniMap,.card[data-live="false"] .betStats{display:none!important}.card[data-stats-real="false"] .betStats,.card[data-stats-real="false"] .miniMap{display:none!important}.estimatedStatsBadge{background:rgba(75,85,99,.75)!important;color:#d1d5db!important}.realStatsBadge{background:#16a34a!important;color:#fff!important}.notice{font-size:10px!important;padding:6px 8px!important;margin-bottom:6px!important}
+@media(max-width:1180px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.statusWrap{grid-template-columns:repeat(4,minmax(72px,1fr))!important}.filters{grid-template-columns:repeat(6,minmax(76px,1fr))!important}.topBar{grid-template-columns:1fr!important}}
+@media(max-width:720px){.page{padding:5px!important}.grid{grid-template-columns:1fr!important}.statusWrap{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:repeat(3,minmax(0,1fr))!important}.filters button{font-size:8px!important}.matchHero{grid-template-columns:54px 1fr 54px!important}.heroLogo{width:34px!important;height:34px!important}.heroCenter b{font-size:26px!important}.statsTopGrid{grid-template-columns:1fr!important}.statsMiddleRow{grid-template-columns:1fr!important}.sideCounters{grid-template-columns:repeat(3,1fr)!important}.shotBoxPro{grid-template-columns:42px minmax(0,1fr) 42px!important}.marketsPanel{grid-template-columns:1fr!important}}
 
 `;
