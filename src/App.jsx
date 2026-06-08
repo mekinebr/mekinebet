@@ -858,7 +858,12 @@ export default function App() {
                       <small>ATAQUES</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.ataques}</b>
-                        <span className="metricVs"></span>
+                        <span
+                          className="metricVs"
+                          style={{
+                            "--circle-bg": `conic-gradient(${homeColor} 0 ${pctStat(stats.home.ataques, stats.away.ataques).home}%, ${awayColor} ${pctStat(stats.home.ataques, stats.away.ataques).home}% 100%)`
+                          }}
+                        ></span>
                         <b style={{ color: awayColor }}>{stats.away.ataques}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -871,7 +876,12 @@ export default function App() {
                       <small>ATAQUES PERIGOSOS</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.perigosos}</b>
-                        <span className="metricVs danger"></span>
+                        <span
+                          className="metricVs danger"
+                          style={{
+                            "--circle-bg": `conic-gradient(${homeColor} 0 ${pctStat(stats.home.perigosos, stats.away.perigosos).home}%, ${awayColor} ${pctStat(stats.home.perigosos, stats.away.perigosos).home}% 100%)`
+                          }}
+                        ></span>
                         <b style={{ color: awayColor }}>{stats.away.perigosos}</b>
                       </div>
                       <div className="dualMiniBar">
@@ -884,7 +894,12 @@ export default function App() {
                       <small>% POSSE</small>
                       <div className="metricNumbers">
                         <b style={{ color: homeColor }}>{stats.home.posse}%</b>
-                        <span className="metricVs ball"></span>
+                        <span
+                          className="metricVs ball"
+                          style={{
+                            "--circle-bg": `conic-gradient(${homeColor} 0 ${pctStat(stats.home.posse, stats.away.posse).home}%, ${awayColor} ${pctStat(stats.home.posse, stats.away.posse).home}% 100%)`
+                          }}
+                        ></span>
                         <b style={{ color: awayColor }}>{stats.away.posse}%</b>
                       </div>
                       <div className="dualMiniBar">
@@ -1078,7 +1093,7 @@ const css = `
   border-radius:50%;
   display:block;
   position:relative;
-  background:conic-gradient(var(--home) 0 55%, rgba(226,232,240,.75) 55% 64%, var(--away) 64% 100%);
+  background:inherit;
   box-shadow:0 0 7px rgba(255,255,255,.10);
 }
 
@@ -1223,7 +1238,7 @@ const css = `
 
 .statsTopGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important}
 .metricPair{border:1px solid rgba(255,255,255,.07)!important;border-radius:7px!important;background:rgba(0,0,0,.16)!important;padding:4px!important}
-.metricVs{background:conic-gradient(var(--home) 0 50%, var(--away) 50% 100%)!important}
+.metricVs{}
 .metricVs:before{background:#07141a!important}
 .dualMiniBar{height:5px!important;background:#101820!important;gap:0!important}
 .dualMiniBar i{border-radius:999px 0 0 999px!important}
@@ -1292,7 +1307,7 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 .statsTopGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}
 .metricPair{padding:3px 4px!important;border-radius:5px!important;background:rgba(255,255,255,.018)!important;border:1px solid rgba(255,255,255,.055)!important;min-height:44px!important}
 .metricPair small{font-size:6.8px!important;height:12px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#fff!important;font-weight:800!important}
-.metricNumbers{grid-template-columns:1fr 20px 1fr!important;min-height:22px!important}.metricNumbers b{font-size:14px!important}.metricVs{width:20px!important;height:20px!important;background:conic-gradient(var(--home) 0 50%, var(--away) 50% 100%)!important}.metricVs:before{inset:5px!important;background:#07141a!important}.metricVs:after{left:6.5px!important;top:3.2px!important;font-size:9px!important;color:#e5e7eb!important}.metricVs.danger:after{left:6px!important}.metricVs.ball:after{left:7px!important;top:4px!important;font-size:7px!important}.dualMiniBar{height:3px!important;margin-top:1px!important;gap:0!important;background:#0b1117!important}
+.metricNumbers{grid-template-columns:1fr 20px 1fr!important;min-height:22px!important}.metricNumbers b{font-size:14px!important}.metricVs{width:20px!important;height:20px!important;background:inherit!important}.metricVs:before{inset:5px!important;background:#07141a!important}.metricVs:after{left:6.5px!important;top:3.2px!important;font-size:9px!important;color:#e5e7eb!important}.metricVs.danger:after{left:6px!important}.metricVs.ball:after{left:7px!important;top:4px!important;font-size:7px!important}.dualMiniBar{height:3px!important;margin-top:1px!important;gap:0!important;background:#0b1117!important}
 .statsMiddleRow{grid-template-columns:45px minmax(0,1fr) 45px!important;gap:5px!important}.sideCounters{font-size:8px!important;padding:2px!important;border-radius:5px!important}.sideCounters strong{font-size:6.8px!important;max-width:38px!important}.sideCounters b{font-size:8px!important}.sideCounters span{font-size:9px!important}
 .shotBoxPro{grid-template-columns:34px minmax(0,1fr) 34px!important;padding:4px 5px!important;border-radius:5px!important;gap:4px!important}.shotBoxPro small{font-size:6.8px!important;line-height:1!important}.shotBoxPro small:after{content:''!important}.shotBoxPro strong{font-size:13px!important}.shotBoxPro .shotBars{gap:3px!important}.shotBoxPro .shotBars span,.shotBoxPro .shotBars em{height:4px!important;border-radius:999px!important}
 
@@ -1496,5 +1511,21 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .dualMiniBar i{border-radius:999px 0 0 999px!important}
 .dualMiniBar em{border-radius:0 999px 999px 0!important}
+
+
+/* ===== CÍRCULOS PROPORCIONAIS ÀS ESTATÍSTICAS ===== */
+.metricVs{
+  background:var(--circle-bg)!important;
+}
+.metricVs:before{
+  content:""!important;
+  position:absolute!important;
+  inset:5px!important;
+  border-radius:50%!important;
+  background:#07141a!important;
+}
+.metricVs:after{
+  z-index:2!important;
+}
 
 `;
