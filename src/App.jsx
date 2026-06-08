@@ -684,7 +684,7 @@ export default function App() {
     if (inicio && jogoAoVivo(item)) {
       const diff = Math.floor((agora.getTime() - inicio.getTime()) / 1000);
       if (Number.isFinite(diff) && diff >= 0) {
-        return Math.min(99 * 60 + 59, Math.max(minApi * 60, diff));
+        return Math.min(95 * 60 + 59, Math.max(minApi * 60, diff));
       }
     }
 
@@ -865,6 +865,7 @@ export default function App() {
   }
 
   function timelineEvents(item, index, homeColor, awayColor) {
+    if (!jogoAoVivo(item)) return [];
     const stats = statsDoJogo(item);
     const live = item.type === "live";
     const current = live ? Math.min(90, Math.max(1, minuto(item) || 1)) : 90;
@@ -1598,8 +1599,8 @@ ${css}
   border:1px solid rgba(34,197,94,.65)!important;box-shadow:0 0 14px rgba(34,197,94,.24)!important;
   font-variant-numeric:tabular-nums!important;letter-spacing:.3px!important;
 }
-.heroCenter strong.gameMinute::before{content:"⏱ ";color:#22c55e!important}
-.heroCenter strong.gameMinute::after{content:none!important}
+.heroCenter strong.gameMinute::before{content:""!important;display:none!important}
+.heroCenter strong.gameMinute::after{content:""!important}
 .highlightSignal:not(.strong){border-color:rgba(34,197,94,.38)!important}
 .statsOverlayNotice{z-index:8!important}
 .sideCounters span:nth-child(4){display:none!important} /* remove a bola/quadrado vermelho de cartão vermelho abaixo do placar */
@@ -1728,7 +1729,7 @@ ${css}
 .gameMinute::before, .gameMinute::after,
 .preliveMinute::before, .preliveMinute::after,
 .heroCenter strong::before, .heroCenter strong::after {
-  content: none !important;
+  content: "" !important;
   display: none !important;
 }
 .betStats {
@@ -1750,6 +1751,15 @@ ${css}
 .card[data-live="false"] .flowCard {
   display: none !important;
 }
+
+/* Ajustes finais seguros: pré-live sem cronologia/campo e sem estatística falsa */
+.card[data-live="false"] .flowCard,
+.card[data-live="false"] .miniMap,
+.card[data-live="false"] .betStats,
+.statsEstimatedBox,
+.statsOverlayNotice { display:none!important; }
+.gameMinute::before,.gameMinute::after,.preliveMinute::before,.preliveMinute::after,.heroCenter strong::before,.heroCenter strong::after{content:""!important;display:none!important;}
+
 `}</style>
 
       <header className="topBar">
@@ -1913,12 +1923,12 @@ ${css}
             const { homeColor, awayColor } = teamColorPair(times.casa, times.fora);
             const currentMinute = liveReal ? Math.min(90, Math.max(1, minuto(item) || 1)) : 0;
             const weather = climaDoJogo(item, index);
-            const events = timelineEvents(item, index, homeColor, awayColor);
+            const statsReal = jogoStatsReal(item);
+            const events = liveReal ? timelineEvents(item, index, homeColor, awayColor) : [];
             const hasOdds = jogoOddReal(item);
             const strongest = melhorMercadoDoFiltro(item);
-            const liveMap = buildLiveMapState(item, index);
+            const liveMap = liveReal && statsReal ? buildLiveMapState(item, index) : null;
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
-            const statsReal = jogoStatsReal(item);
             const statText = (v, suffix = "") => {
               if (!statsReal) return "—";
               const n = Number(v || 0);
@@ -1998,13 +2008,8 @@ ${css}
                   </div>
                 </div>
 
-                <div className={`betStats proStats ${statsReal ? "statsRealBox" : "statsEstimatedBox"}`} style={{ "--home": homeColor, "--away": awayColor }}>
-                  {!statsReal && (
-                    <div className="statsOverlayNotice">
-                      AGUARDANDO STATS REAIS
-                      <small>sem números estimados/imprecisos</small>
-                    </div>
-                  )}
+                {statsReal && (
+                <div className="betStats proStats statsRealBox" style={{ "--home": homeColor, "--away": awayColor }}>
 
                   <div className="statsTopGrid">
                     <div className="metricPair">
@@ -2079,7 +2084,9 @@ ${css}
                     </div>
                   </div>
                 </div>
+                )}
 
+                {liveReal && statsReal && liveMap && (
                 <div className={`miniMap weather-${weather.cls}`}>
                   <div className={`livePulse ${liveMap.intensity} ${liveMap.side}`}>
                     <b>
@@ -2153,16 +2160,17 @@ ${css}
                   </div>
 
                   <div className="mapStats compact">
-                    <span>{liveMap.live ? `Bola: ${sigla(liveMap.possessionTeam)}` : "VIP pré-live"}</span>
+                    <span>{`Bola: ${sigla(liveMap.possessionTeam)}`}</span>
                     <span>{liveMap.label}</span>
-                    <span>{liveMap.live ? `${currentMinute}'` : "Próximo jogo"}</span>
+                    <span>{`${currentMinute}'`}</span>
                   </div>
                 </div>
+                )}
 
                 {liveReal && (
                 <div className="flowCard">
                   <h3>
-                    {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO VIP PRÉ-LIVE"}
+                    "CRONOLOGIA DA PARTIDA"
                     {jogoEventosReal(item) && <span className="flowRealTag">EVENTOS REAIS</span>}
                     {!liveReal && <span className="flowPreliveTag">PROJEÇÃO IA</span>}
                   </h3>
