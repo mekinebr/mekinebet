@@ -16,9 +16,7 @@ self.addEventListener("push", (event) => {
   };
 
   try {
-    if (event.data) {
-      data = { ...data, ...event.data.json() };
-    }
+    if (event.data) data = { ...data, ...event.data.json() };
   } catch (error) {
     console.error("Erro no push:", error);
   }
@@ -29,17 +27,12 @@ self.addEventListener("push", (event) => {
       icon: "/logo192.png",
       badge: "/logo192.png",
       vibrate: [200, 100, 200],
-      data: {
-        url: data.url || "/",
-      },
+      data: { url: data.url || "/" },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-
-  event.waitUntil(
-    clients.openWindow(event.notification.data?.url || "/")
-  );
+  event.waitUntil(clients.openWindow(event.notification.data?.url || "/"));
 });
