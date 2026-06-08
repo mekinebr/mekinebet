@@ -762,6 +762,7 @@ export default function App() {
   }, [signals, busca, filtro]);
 
   const liveCount = signals.filter(sinalAceito).length;
+  const preliveVipCount = signals.filter((s) => typeof sinalPreLiveVip === 'function' && sinalPreLiveVip(s)).length;
   const alertCount = signals.filter((s) => sinalAceito(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
 
   return (
@@ -777,7 +778,7 @@ export default function App() {
           <span className="pill">🟢 Live: {liveCount}</span>
           <span className="pill">🚨 Alertas: {alertCount}</span>
           <span className="pill">👑 VIP</span>
-          <span className="pill">🔒 Pré-live: {preliveVipCount}</span>
+          <span className="pill">🔒 Pré-live: {typeof preliveVipCount !== 'undefined' ? preliveVipCount : 0}</span>
           <span className="pill">🕘 {lastUpdate || "carregando..."}</span>
         </div>
       </header>
