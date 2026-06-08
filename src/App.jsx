@@ -676,10 +676,27 @@ export default function App() {
     return "ACRÉSCIMOS";
   }
 
+  function segundosCorridosDoJogo(item) {
+    const inicio = inicioJogo(item);
+    const minApi = Math.max(0, minuto(item));
+
+    // Quando a API manda o horário real de início, o relógio fica sincronizado.
+    if (inicio && jogoAoVivo(item)) {
+      const diff = Math.floor((agora.getTime() - inicio.getTime()) / 1000);
+      if (Number.isFinite(diff) && diff >= 0) {
+        return Math.min(99 * 60 + 59, Math.max(minApi * 60, diff));
+      }
+    }
+
+    // Fallback seguro: mantém o minuto da API e usa segundos locais só para visual.
+    return minApi * 60 + agora.getSeconds();
+  }
+
   function tempoAoVivoTexto(item) {
-    const m = Math.max(0, minuto(item));
-    const s = String(agora.getSeconds()).padStart(2, "0");
-    return `${periodoDoJogo(item)} • ${m}' ${s}s`;
+    const total = segundosCorridosDoJogo(item);
+    const m = Math.floor(total / 60);
+    const s = String(total % 60).padStart(2, "0");
+    return `${periodoDoJogo(item)} • ${m}:${s}`;
   }
 
   function statsDoJogo(item) {
@@ -1342,19 +1359,21 @@ export default function App() {
 
     const candidates = [];
 
-    // Sinais de gols só entram se ainda NÃO bateram.
-    if (gols < 1) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL • 1º GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 2) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL • +1 GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 3 && min <= 82) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
-    if (gols < 4 && min <= 75) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
-
-    const { homeGoals, awayGoals } = placarPartes(item);
-    if (!(homeGoals > 0 && awayGoals > 0) && min <= 80) {
-      candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4, "🔥 PRÓXIMO SINAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true }));
-    }
-
-    // Cantos e cartões agora mostram a linha que ainda falta acontecer.
+    // Sinais ao vivo só são gerados quando há estatísticas reais.
+    // Sem stats reais, o painel mantém apenas mercados reais recebidos da API.
     if (statsReal) {
+      // Sinais de gols só entram se ainda NÃO bateram.
+      if (gols < 1) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 0.5", "OVER05", pressureScore + 4, "🔥 PRÓXIMO SINAL REAL • 1º GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
+      if (gols < 2) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 1.5", "OVER15", pressureScore + (gols === 1 ? 9 : -1), "🔥 PRÓXIMO SINAL REAL • +1 GOL", { type: "live", status: "AO VIVO", nextSignal: true }));
+      if (gols < 3 && min <= 82) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 2.5", "OVER25", pressureScore + (gols === 2 ? 9 : -8), "🔥 PRÓXIMO SINAL REAL • OVER 2,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+      if (gols < 4 && min <= 75) candidates.push(mercadoSynthetic(item, "Próximo gol / Over 3.5", "OVER35", pressureScore + (gols === 3 ? 10 : -14), "🔥 PRÓXIMO SINAL REAL • OVER 3,5", { type: "live", status: "AO VIVO", nextSignal: true }));
+
+      const { homeGoals, awayGoals } = placarPartes(item);
+      if (!(homeGoals > 0 && awayGoals > 0) && min <= 80) {
+        candidates.push(mercadoSynthetic(item, "Ambas marcam próximo", "BTTS", conf + Math.min(stats.home.perigosos, stats.away.perigosos) * 0.6 + Math.min(stats.home.noGol, stats.away.noGol) * 4, "🔥 PRÓXIMO SINAL REAL • BTTS", { type: "live", status: "AO VIVO", nextSignal: true }));
+      }
+
+      // Cantos e cartões agora mostram a linha que ainda falta acontecer.
       const linhaCantos = linhaCantosAoVivo(item);
       const cantosConf = 42 + corners * 5.2 + press * 0.28 + danger * 0.10 + (min <= 35 ? 5 : 0);
       candidates.push(mercadoSynthetic(item, `Mais de ${String(linhaCantos).replace(".", ",")} cantos`, "CANTOS", cantosConf, `🚩 PRÓXIMO SINAL • +${String(linhaCantos).replace(".", ",")} CANTOS`, { type: "live", status: "AO VIVO", nextSignal: true, oddsLine: linhaCantos }));
@@ -1367,7 +1386,8 @@ export default function App() {
     const baseNaoCumpridos = base.filter((m) => !mercadoCumprido(m, item));
     const finalistas = [...baseNaoCumpridos, ...candidates]
       .filter((m) => !String(m.alert || "").toLowerCase().includes("green"))
-      .filter((m) => !mercadoCumprido(m, item));
+      .filter((m) => !mercadoCumprido(m, item))
+      .filter((m) => statsReal || !m.nextSignal);
 
     return finalistas
       .slice()
@@ -1566,6 +1586,37 @@ export default function App() {
     <div className="page">
       <style>{`
 ${css}
+
+/* ===== PATCH MEKINEBET: SINAL REAL + RELÓGIO LIMPO + MENU PRO ===== */
+.topBar{
+  position:sticky!important;top:0!important;z-index:50!important;
+  background:linear-gradient(180deg,rgba(5,12,15,.98),rgba(5,12,15,.86))!important;
+  backdrop-filter:blur(8px)!important;border-bottom:1px solid rgba(34,197,94,.22)!important;
+  padding:8px 6px!important;margin:-10px -10px 8px!important;
+}
+.statusWrap{gap:6px!important;align-items:center!important;justify-content:flex-end!important}
+.pill{padding:7px 10px!important;border-radius:999px!important;background:rgba(8,18,24,.92)!important;border:1px solid rgba(34,197,94,.35)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)!important;font-size:12px!important}
+.filters{
+  display:flex!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;
+  padding:8px 2px 10px!important;margin-bottom:8px!important;scrollbar-width:thin!important;
+}
+.filters button{
+  flex:0 0 auto!important;min-width:auto!important;height:34px!important;padding:0 12px!important;
+  border-radius:999px!important;background:linear-gradient(180deg,#13202a,#091118)!important;
+  border:1px solid rgba(148,163,184,.24)!important;font-size:10px!important;letter-spacing:.1px!important;
+}
+.filters .activeBtn{background:linear-gradient(180deg,#2af078,#10b85b)!important;color:#02140a!important;border-color:#7dffb2!important;box-shadow:0 0 16px rgba(34,197,94,.28)!important}
+.heroCenter strong.gameMinute{
+  background:linear-gradient(180deg,#071b12,#03110a)!important;color:#8cffb8!important;
+  border:1px solid rgba(34,197,94,.65)!important;box-shadow:0 0 14px rgba(34,197,94,.24)!important;
+  font-variant-numeric:tabular-nums!important;letter-spacing:.3px!important;
+}
+.heroCenter strong.gameMinute::before{content:"⏱ ";color:#22c55e!important}
+.heroCenter strong.gameMinute::after{content:none!important}
+.highlightSignal:not(.strong){border-color:rgba(34,197,94,.38)!important}
+.statsOverlayNotice{z-index:8!important}
+.sideCounters span:nth-child(4){display:none!important} /* remove a bola/quadrado vermelho de cartão vermelho abaixo do placar */
+@media(max-width:900px){.topBar{position:relative!important;margin:-5px -5px 8px!important}.filters{display:flex!important}.pill{font-size:10px!important;padding:6px 8px!important}}
 
 /* ===== AJUSTE FINAL: NOMES, STATS REAIS, MENU, TEMPO ===== */
 .filters{
@@ -1918,7 +1969,7 @@ ${css}
 
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
-                    <small>{liveReal ? "PRÓXIMO SINAL AO VIVO" : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
+                    <small>{liveReal ? (statsReal ? "PRÓXIMO SINAL REAL AO VIVO" : "AGUARDANDO STATS REAIS") : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
                     <b>{strongest.market || strongest.mercado || categoriaMercado(strongest)}</b>
                     <span>{strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
