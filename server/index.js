@@ -57,7 +57,7 @@ function todayISO(offset = 0) {
 }
 
 function isLive(short = "") {
-  return ["1H", "2H", "HT", "ET", "BT", "P", "LIVE"].includes(String(short).toUpperCase());
+  return ["1H", "2H", "HT", "ET", "BT", "P", "LIVE", "INT", "BREAK"].includes(String(short).toUpperCase());
 }
 
 function isFinished(short = "") {
@@ -748,7 +748,7 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, statsPack = null
     stats: realStats.hasRealStats ? { home, away } : null,
   };
 
-  const liveMarkets = ["MAIS_GOL", "OVER05", "OVER15", "OVER25", "OVER35", "BTTS"];
+  const liveMarkets = ["MAIS_GOL", "OVER05", "OVER15", "OVER25", "OVER35", "BTTS", "CANTOS_FT", "CARTOES_FT"];
 
   const preliveMarkets = ["OVER15", "OVER25", "BTTS", "MAIS_GOL"];
 
@@ -915,9 +915,9 @@ function buildScannerOpportunities(activeSignals = []) {
   });
 
   return Array.from(map.values())
-    .filter((s) => Number(s.confidence || 0) >= 50)
+    .filter((s) => Number(s.confidence || 0) >= 65)
     .sort((a, b) => b.scannerRankScore - a.scannerRankScore)
-    .slice(0, 50)
+    .slice(0, 20)
     .map((s, index) => ({
       ...s,
       rank: index + 1,
