@@ -700,44 +700,31 @@ export default function App() {
   }
 
   function statsDoJogo(item) {
-    const conf = Number(item.confidence || 70);
-    const press = Number(item.pressure || 70);
-    const gols = totalGols(item);
     const real = jogoStatsReal(item);
 
-    const estimatedHomePossession = Math.min(72, Math.max(42, conf - 18));
-    const homePossession = usarValor(
-      numero(item.possession, item.posse, item.ballPossession),
-      estimatedHomePossession
-    );
-
-    const awayPossessionRaw = numero(item.possessionAway, item.posseAway, item.posseFora);
-
+    // V5: nunca criar estatística estimada no frontend.
+    // Se a API não mandou stats reais, retorna zeros e a interface mostra "sem stats reais".
     const home = {
-      posse: homePossession,
-      finalizacoes: usarValor(numero(item.shots, item.finalizacoes, item.finalizações, item.chutes), Math.max(6, Math.round(press / 8 + gols * 2))),
-      noGol: usarValor(numero(item.shotsOnGoal, item.chutesNoGol, item.noGol), Math.max(1, Math.round(press / 24 + gols))),
-      ataques: usarValor(numero(item.attacks, item.ataques), Math.max(16, Math.round(press / 2.3))),
-      cantos: usarValor(numero(item.corners, item.cantos, item.escanteios), Math.max(1, Math.round(press / 24))),
-      cartoes: usarValor(numero(item.yellowCards, item.cards, item.cartoes, item.cartões), Math.max(0, Math.round((100 - conf) / 35))),
-      vermelhos: usarValor(numero(item.redCards, item.vermelhos, item.cartoesVermelhos), 0),
-      perigosos: usarValor(numero(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos), Math.max(6, Math.round(press / 3.5)))
+      posse: real ? usarValor(numero(item.possession, item.posse, item.ballPossession), 0) : 0,
+      finalizacoes: real ? usarValor(numero(item.shots, item.finalizacoes, item.finalizações, item.chutes), 0) : 0,
+      noGol: real ? usarValor(numero(item.shotsOnGoal, item.chutesNoGol, item.noGol), 0) : 0,
+      ataques: real ? usarValor(numero(item.attacks, item.ataques), 0) : 0,
+      cantos: real ? usarValor(numero(item.corners, item.cantos, item.escanteios), 0) : 0,
+      cartoes: real ? usarValor(numero(item.yellowCards, item.cards, item.cartoes, item.cartões), 0) : 0,
+      vermelhos: real ? usarValor(numero(item.redCards, item.vermelhos, item.cartoesVermelhos), 0) : 0,
+      perigosos: real ? usarValor(numero(item.dangerousAttacks, item.ataquesPerigosos, item.perigosos), 0) : 0
     };
 
     const away = {
-      posse: usarValor(awayPossessionRaw, Math.max(20, 100 - home.posse)),
-      finalizacoes: usarValor(numero(item.shotsAway, item.finalizacoesAway, item.finalizacoesFora), Math.max(3, Math.round(home.finalizacoes * 0.55))),
-      noGol: usarValor(numero(item.shotsOnGoalAway, item.chutesNoGolAway, item.noGolAway), Math.max(0, Math.round(home.noGol * 0.45))),
-      ataques: usarValor(numero(item.attacksAway, item.ataquesAway, item.ataquesFora), Math.max(10, Math.round(home.ataques * 0.58))),
-      cantos: usarValor(numero(item.cornersAway, item.cantosAway, item.cantosFora), Math.max(0, Math.round(home.cantos * 0.55))),
-      cartoes: usarValor(numero(item.yellowCardsAway, item.cardsAway, item.cartoesAway, item.cartoesFora), Math.max(0, Math.round(home.cartoes * 0.8))),
-      vermelhos: usarValor(numero(item.redCardsAway, item.vermelhosAway, item.cartoesVermelhosAway), 0),
-      perigosos: usarValor(numero(item.dangerousAttacksAway, item.ataquesPerigososAway, item.perigososFora), Math.max(4, Math.round(home.perigosos * 0.55)))
+      posse: real ? usarValor(numero(item.possessionAway, item.posseAway, item.posseFora), Math.max(0, 100 - home.posse)) : 0,
+      finalizacoes: real ? usarValor(numero(item.shotsAway, item.finalizacoesAway, item.finalizacoesFora), 0) : 0,
+      noGol: real ? usarValor(numero(item.shotsOnGoalAway, item.chutesNoGolAway, item.noGolAway), 0) : 0,
+      ataques: real ? usarValor(numero(item.attacksAway, item.ataquesAway, item.ataquesFora), 0) : 0,
+      cantos: real ? usarValor(numero(item.cornersAway, item.cantosAway, item.cantosFora), 0) : 0,
+      cartoes: real ? usarValor(numero(item.yellowCardsAway, item.cardsAway, item.cartoesAway, item.cartoesFora), 0) : 0,
+      vermelhos: real ? usarValor(numero(item.redCardsAway, item.vermelhosAway, item.cartoesVermelhosAway), 0) : 0,
+      perigosos: real ? usarValor(numero(item.dangerousAttacksAway, item.ataquesPerigososAway, item.perigososFora), 0) : 0
     };
-
-    if (awayPossessionRaw === undefined && home.posse + away.posse !== 100) {
-      away.posse = Math.max(20, 100 - home.posse);
-    }
 
     return { home, away, real, display: real };
   }
@@ -1736,7 +1723,35 @@ ${css}
   .teamSide small{width:84px!important;max-width:84px!important;font-size:10px!important}
 }
 
-`}</style>
+`}
+
+/* V5 ajustes finais */
+.gameMinute::before, .gameMinute::after,
+.preliveMinute::before, .preliveMinute::after,
+.heroCenter strong::before, .heroCenter strong::after {
+  content: none !important;
+  display: none !important;
+}
+.betStats {
+  min-height: 230px;
+}
+.statsTopGrid, .statsMiddleRow {
+  align-items: stretch;
+}
+.metricPair, .sideCounters, .shotBoxPro {
+  box-sizing: border-box;
+}
+.statsEstimatedBox .dualMiniBar i,
+.statsEstimatedBox .dualMiniBar em,
+.statsEstimatedBox .metricVs,
+.statsEstimatedBox .shotBars i,
+.statsEstimatedBox .shotBars em {
+  opacity: 0 !important;
+}
+.card[data-live="false"] .flowCard {
+  display: none !important;
+}
+</style>
 
       <header className="topBar">
         <div>
@@ -1951,7 +1966,7 @@ ${css}
                 <div className="badges">
                   <span className="base">{liveReal ? "AO VIVO" : "PRÉ-LIVE VIP"}</span>
                   <span className={jogoStatsReal(item) ? "realStatsBadge" : "estimatedStatsBadge"}>
-                    {jogoStatsReal(item) ? "STATS REAL" : "ESTIMADO"}
+                    {jogoStatsReal(item) ? "STATS REAL" : "SEM STATS REAIS"}
                   </span>
                   <span className={jogoEventosReal(item) ? "realEventsBadge" : "noEventsBadge"}>
                     {jogoEventosReal(item) ? "EVENTOS REAL" : "SEM EVENTOS"}
@@ -1969,7 +1984,7 @@ ${css}
 
                 <div className={`highlightSignal ${alertaForte(strongest) ? "strong" : ""}`}>
                   <div className="highlightSignalText">
-                    <small>{liveReal ? (statsReal ? "PRÓXIMO SINAL REAL AO VIVO" : "AGUARDANDO STATS REAIS") : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
+                    <small>{liveReal ? "PRÓXIMO SINAL REAL AO VIVO" : "MELHOR SINAL VIP PRÉ-LIVE 24H"}</small>
                     <b>{strongest.market || strongest.mercado || categoriaMercado(strongest)}</b>
                     <span>{strongest.alert || mercadoStatus(strongest)}</span>
                   </div>
@@ -2145,6 +2160,7 @@ ${css}
                   </div>
                 </div>
 
+                {liveReal && (
                 <div className="flowCard">
                   <h3>
                     {liveReal ? "CRONOLOGIA DA PARTIDA" : "PROJEÇÃO VIP PRÉ-LIVE"}
@@ -2176,6 +2192,7 @@ ${css}
                     <span><i className="leve"></i>Ataque leve</span><span><i className="perigoso"></i>Ataque perigoso</span><span><i className="clara"></i>Chance clara</span><span>⚽ Gol</span><span>🟨 Cartão</span><span>🚩 Escanteio</span>
                   </div>
                 </div>
+                )}
 
                 <div className="marketsPanel">
                   {mercadosVisiveisNoFiltro(item).map((m, i) => (
