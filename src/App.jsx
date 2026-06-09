@@ -438,6 +438,7 @@ export default function App() {
 
     const stats = statsDoJogo(item);
             const statsOk = temEstatisticasNumericas(item);
+            const statsOk = temEstatisticasNumericas(item);
     const gols = totalGols(item);
     const min = minuto(item);
     const pressure = Number(item.pressure || item.pressao || 0);
@@ -550,6 +551,7 @@ export default function App() {
 
     const current = Math.min(90, Math.max(1, minuto(item) || 1));
     const stats = statsDoJogo(item);
+            const statsOk = temEstatisticasNumericas(item);
     const times = timesDoJogo(item);
     const eventosReais = Array.isArray(item.matchEvents) ? item.matchEvents : [];
 
@@ -823,6 +825,7 @@ export default function App() {
         <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
+            const statsOk = temEstatisticasNumericas(item);
             const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
             const vip = isVip(item);
@@ -858,7 +861,7 @@ export default function App() {
                   <span className="market">{cat}</span>
                 </div>
 
-                {!statsOk && (
+                {!temEstatisticasNumericas(item) && (
                   <div className="statsMissingNotice">📡 Aguardando estatísticas reais da API-Football</div>
                 )}
 
@@ -873,7 +876,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className={`betStats proStats ${!statsOk ? "noRealStats" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                <div className={`betStats proStats ${!temEstatisticasNumericas(item) ? "noRealStats" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
