@@ -378,7 +378,6 @@ export default function App() {
     return (
       jogoAoVivoReal(item) &&
       jogoFonteReal(item) &&
-      temEstatisticasNumericas(item) &&
       mercado !== "" &&
       conf >= 30
     );
@@ -550,7 +549,7 @@ const gols = totalGols(item);
 
     const current = Math.min(90, Math.max(1, minuto(item) || 1));
     const stats = statsDoJogo(item);
-const times = timesDoJogo(item);
+    const times = timesDoJogo(item);
     const eventosReais = Array.isArray(item.matchEvents) ? item.matchEvents : [];
 
     const eventos = eventosReais
@@ -801,7 +800,7 @@ const times = timesDoJogo(item);
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum jogo ao vivo com estatísticas reais disponível agora. Jogos sem estatísticas da API-Football ficam ocultos para evitar dados errados.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo disponível agora. Quando a API não enviar estatísticas, a MekineBet mostra o jogo e aguarda os dados reais.</div>
       )}
 
       <div className="filters">
@@ -823,7 +822,7 @@ const times = timesDoJogo(item);
         <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
-const status = mercadoStatus(item);
+            const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
             const vip = isVip(item);
             const liveReal = item.type === "live";
@@ -857,7 +856,12 @@ const status = mercadoStatus(item);
                   {vip && <span className="vip">VIP</span>}
                   <span className="market">{cat}</span>
                 </div>
-{Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length > 1 && (
+
+                {!temEstatisticasNumericas(item) && (
+                  <div className="statsMissingNotice">📡 Aguardando estatísticas reais da API-Football</div>
+                )}
+
+                {Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length > 1 && (
                   <div className="activeMarkets">
                     {item.mercadosAtivos.slice(0, 4).map((m, idx) => (
                       <span key={idx}>
@@ -868,7 +872,8 @@ const status = mercadoStatus(item);
                   </div>
                 )}
 
-                <div className={`betStats proStats ${!temEstatisticasNumericas(item) ? "noRealStats" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                {temEstatisticasNumericas(item) ? (
+                <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
@@ -958,7 +963,11 @@ const status = mercadoStatus(item);
                     </div>
                   </div>
                 </div>
+                ) : (
+                  <div className="statsMissingNotice">📡 Aguardando estatísticas reais da API-Football</div>
+                )}
 
+                {temEstatisticasNumericas(item) && (
                 <div className="miniMap">
                   <div className="eventBubble"><span>⚽</span><div><b>{status.replace("🔥", "")}</b><small>{item.pressure || 70}% pressão</small></div></div>
                   <div className="field3d">
@@ -967,6 +976,7 @@ const status = mercadoStatus(item);
                   </div>
                   <div className="mapStats"><span>Posse {stats.home.posse}% x {stats.away.posse}%</span><span>Final. {stats.home.finalizacoes} x {stats.away.finalizacoes}</span><span>Atq. {stats.home.ataques} x {stats.away.ataques}</span></div>
                 </div>
+                )}
 
                 <div className="flowCard">
                   <h3>CRONOLOGIA DA PARTIDA</h3>
