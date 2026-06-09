@@ -831,7 +831,7 @@ const gols = totalGols(item);
   }
 
   function mercadoPeso(item) {
-    const cat = categoriaMercado(item);
+    const cat = categoriaMercado(melhorSinal);
     const conf = Number(item.confidence || item.confianca || 0);
     const press = Number(item.pressure || item.pressao || 0);
     const status = mercadoStatus(item);
@@ -980,6 +980,7 @@ const gols = totalGols(item);
         <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
+            const melhorSinal = melhorSinalDoItem(item);
             const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
             const vip = isVip(item);
