@@ -1004,16 +1004,23 @@ async function getSignalsPayload() {
 
   const uniqueSignals = Array.from(bestSignalsByFixture.values()).map(({ __score, ...signal }) => signal);
 
-  const liveGames = new Set(uniqueSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)).size;
+  // No AO VIVO, só envia jogos com estatísticas numéricas reais.
+  // Pré-live continua separado para VIP.
+  const filteredSignals = uniqueSignals.filter((s) => {
+    if (s.type !== "live") return true;
+    return Boolean(s.hasNumericStats && s.realStats);
+  });
 
-  const preliveGames = new Set(uniqueSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)).size;
+  const liveGames = new Set(filteredSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)).size;
 
-  const realStatsGames = new Set(uniqueSignals.filter((s) => s.realStats && s.hasNumericStats).map((s) => s.fixtureId)).size;
+  const preliveGames = new Set(filteredSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)).size;
 
-  const realEventsGames = new Set(uniqueSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)).size;
+  const realStatsGames = new Set(filteredSignals.filter((s) => s.realStats && s.hasNumericStats).map((s) => s.fixtureId)).size;
+
+  const realEventsGames = new Set(filteredSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)).size;
 
   const realGames = new Set(
-    uniqueSignals
+    filteredSignals
       .filter((s) => s.realStats || s.hasRealEvents)
       .map((s) => s.fixtureId)
   ).size;
@@ -1023,15 +1030,15 @@ async function getSignalsPayload() {
     source: API_KEY ? "api-football" : "sem-api-key",
     mode: liveGames ? "live+prelive24h" : "prelive24h",
     apiStatus: API_KEY ? "online" : "missing-key",
-    message: uniqueSignals.length
+    message: filteredSignals.length
       ? "Sinais carregados."
       : "Nenhum sinal encontrado agora. Verifique jogos ao vivo/pré-live e limite da API.",
-    activeSignals: uniqueSignals,
-    scannerOpportunities: buildScannerOpportunities(uniqueSignals),
+    activeSignals: filteredSignals,
+    scannerOpportunities: buildScannerOpportunities(filteredSignals),
     liveGames,
     preliveGames,
-    totalGames: new Set(uniqueSignals.map((s) => s.fixtureId)).size,
-    totalSignals: uniqueSignals.length,
+    totalGames: new Set(filteredSignals.map((s) => s.fixtureId)).size,
+    totalSignals: filteredSignals.length,
     statsMode: realStatsGames ? "real" : "none",
     realStatsGames,
     eventsMode: realEventsGames ? "real" : "none",
