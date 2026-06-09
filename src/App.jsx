@@ -917,6 +917,55 @@ const gols = totalGols(item);
     return Array.from(mapa.values());
   }
 
+
+  function mercadoCumprido(item) {
+    const gols = totalGols(item || {});
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
+
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) return true;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) return true;
+
+    return false;
+  }
+
+  function scoreSinalForte(item) {
+    const conf = Number(item?.confidence || item?.confianca || 0);
+    const pressure = Number(item?.pressure || item?.pressao || 0);
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
+    const gols = totalGols(item || {});
+    let score = conf + pressure * 0.45;
+
+    if (market.includes("mais") || market.includes("gol")) score += 18;
+    if (market.includes("over") || market.includes("0.5") || market.includes("0,5")) score += 14;
+    if (market.includes("1.5") || market.includes("1,5")) score += 12;
+    if (market.includes("2.5") || market.includes("2,5")) score += 10;
+    if (market.includes("btts") || market.includes("ambas")) score += 9;
+    if (market.includes("canto") || market.includes("corner")) score += 7;
+    if (market.includes("cart") || market.includes("card")) score += 5;
+
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) score -= 100;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) score -= 100;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) score -= 100;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) score -= 100;
+
+    return score;
+  }
+
+  function melhorSinalDoItem(item) {
+    const mercados = Array.isArray(item?.mercadosAtivos) && item.mercadosAtivos.length
+      ? item.mercadosAtivos
+      : [item];
+
+    const abertos = mercados.filter((m) => !mercadoCumprido(m));
+    const base = abertos.length ? abertos : mercados;
+
+    return base
+      .slice()
+      .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
+  }
+
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
       .filter(sinalAceito)
