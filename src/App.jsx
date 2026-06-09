@@ -732,123 +732,117 @@ const melhorSinal = melhorSinalDoItem(item);
     const homeGoals = Number(scoreNums[0] || 0);
     const awayGoals = Number(scoreNums[1] || 0);
 
-    const homePower =
-      stats.home.ataques * 0.55 +
-      stats.home.perigosos * 2.6 +
-      stats.home.finalizacoes * 5.6 +
-      stats.home.noGol * 10 +
-      stats.home.cantos * 3.3 +
-      stats.home.posse * 0.16 +
-      homeGoals * 18;
+    const homeTotal =
+      stats.home.ataques * 0.35 +
+      stats.home.perigosos * 1.6 +
+      stats.home.finalizacoes * 4 +
+      stats.home.noGol * 8 +
+      stats.home.cantos * 2 +
+      homeGoals * 10;
 
-    const awayPower =
-      stats.away.ataques * 0.55 +
-      stats.away.perigosos * 2.6 +
-      stats.away.finalizacoes * 5.6 +
-      stats.away.noGol * 10 +
-      stats.away.cantos * 3.3 +
-      stats.away.posse * 0.16 +
-      awayGoals * 18;
+    const awayTotal =
+      stats.away.ataques * 0.35 +
+      stats.away.perigosos * 1.6 +
+      stats.away.finalizacoes * 4 +
+      stats.away.noGol * 8 +
+      stats.away.cantos * 2 +
+      awayGoals * 10;
 
-    const totalPower = Math.max(1, homePower + awayPower);
-    const homeShare = homePower / totalPower;
-    const awayShare = awayPower / totalPower;
+    const total = Math.max(1, homeTotal + awayTotal);
+    const homeBase = homeTotal / total;
+    const awayBase = awayTotal / total;
 
-    const homeAttackRate = stats.home.ataques / Math.max(1, current);
-    const awayAttackRate = stats.away.ataques / Math.max(1, current);
-    const homeDangerRate = stats.home.perigosos / Math.max(1, current);
-    const awayDangerRate = stats.away.perigosos / Math.max(1, current);
-
-    const attackTimeline = [];
-    let lastTeam = homeShare >= awayShare ? "home" : "away";
-    let run = 0;
+    const timeline = [];
+    let lastTeam = homeBase >= awayBase ? "home" : "away";
+    let streak = 0;
 
     for (let minute = 1; minute <= current; minute += 1) {
       const minuteEvents = eventsByMinute.get(minute) || [];
-      const recentEvents = eventos.filter((ev) => ev.m >= minute - 3 && ev.m <= minute);
+      const recentEvents = eventos.filter((ev) => ev.m >= minute - 2 && ev.m <= minute);
 
-      const seedA = Math.sin((minute + index * 13) * 1.91);
-      const seedB = Math.cos((minute + index * 17) * 1.67);
+      const block = Math.floor((minute - 1) / 4);
+      const pulseHome = Math.abs(Math.sin((block + 1) * 2.41 + index * 0.73 + minute * 0.11));
+      const pulseAway = Math.abs(Math.cos((block + 2) * 2.17 + index * 0.61 + minute * 0.13));
 
-      let homeChance =
-        homeShare * 100 +
-        stats.home.posse * 0.08 +
-        stats.home.perigosos * 0.42 +
-        stats.home.finalizacoes * 0.95 +
-        stats.home.noGol * 1.85 +
-        seedA * 22;
+      let homeMinute =
+        homeBase * 55 +
+        stats.home.posse * 0.05 +
+        stats.home.perigosos * 0.08 +
+        stats.home.finalizacoes * 0.26 +
+        stats.home.noGol * 0.75 +
+        pulseHome * 22;
 
-      let awayChance =
-        awayShare * 100 +
-        stats.away.posse * 0.08 +
-        stats.away.perigosos * 0.42 +
-        stats.away.finalizacoes * 0.95 +
-        stats.away.noGol * 1.85 +
-        seedB * 22;
+      let awayMinute =
+        awayBase * 55 +
+        stats.away.posse * 0.05 +
+        stats.away.perigosos * 0.08 +
+        stats.away.finalizacoes * 0.26 +
+        stats.away.noGol * 0.75 +
+        pulseAway * 22;
 
       recentEvents.forEach((ev) => {
-        const boost = ev.icon === "⚽" ? 75 : ev.icon === "🚩" ? 42 : ev.icon === "🟨" ? 8 : 28;
-        if (ev.team === "home") homeChance += boost;
-        if (ev.team === "away") awayChance += boost;
+        const boost = ev.icon === "⚽" ? 55 : ev.icon === "🚩" ? 28 : ev.icon === "🟨" ? 5 : 18;
+        if (ev.team === "home") homeMinute += boost;
+        if (ev.team === "away") awayMinute += boost;
       });
 
       minuteEvents.forEach((ev) => {
-        const boost = ev.icon === "⚽" ? 120 : ev.icon === "🚩" ? 55 : ev.icon === "🟨" ? 10 : 35;
-        if (ev.team === "home") homeChance += boost;
-        if (ev.team === "away") awayChance += boost;
+        const boost = ev.icon === "⚽" ? 95 : ev.icon === "🚩" ? 38 : ev.icon === "🟨" ? 8 : 26;
+        if (ev.team === "home") homeMinute += boost;
+        if (ev.team === "away") awayMinute += boost;
       });
 
-      if (lastTeam === "home") homeChance += 8;
-      if (lastTeam === "away") awayChance += 8;
+      if (lastTeam === "home") homeMinute += 4;
+      if (lastTeam === "away") awayMinute += 4;
 
-      const team = homeChance >= awayChance ? "home" : "away";
-      run = team === lastTeam ? run + 1 : 1;
+      const team = homeMinute >= awayMinute ? "home" : "away";
+      streak = team === lastTeam ? streak + 1 : 1;
       lastTeam = team;
 
-      const active = team === "home" ? stats.home : stats.away;
-      const passive = team === "home" ? stats.away : stats.home;
-      const activeRate = team === "home" ? homeAttackRate : awayAttackRate;
-      const activeDangerRate = team === "home" ? homeDangerRate : awayDangerRate;
+      const activeStats = team === "home" ? stats.home : stats.away;
+      const passiveStats = team === "home" ? stats.away : stats.home;
+      const activeValue = team === "home" ? homeMinute : awayMinute;
+      const passiveValue = team === "home" ? awayMinute : homeMinute;
 
-      const activeChance = Math.max(homeChance, awayChance);
-      const passiveChance = Math.min(homeChance, awayChance);
-      const dominance = activeChance / Math.max(1, activeChance + passiveChance);
+      const diff = Math.max(0, activeValue - passiveValue);
+      const ratio = activeValue / Math.max(1, activeValue + passiveValue);
 
-      // escala principal da linha:
-      // 5-10 = ataque fraco/passou do meio
-      // 11-19 = ataque moderado
-      // 20-29 = ataque perigoso
-      // 30-42 = quase gol/gol/chance clara
-      let danger =
-        5 +
-        (dominance - 0.5) * 34 +
-        activeDangerRate * 18 +
-        activeRate * 2 +
-        active.finalizacoes * 0.55 +
-        active.noGol * 1.8 +
-        active.cantos * 0.75;
+      let level = 5;
 
-      if (active.perigosos > passive.perigosos) danger += 3.5;
-      if (active.finalizacoes > passive.finalizacoes) danger += 3;
-      if (active.noGol > passive.noGol) danger += 5;
-      if (run >= 3) danger += 2;
-      if (run >= 5) danger += 4;
+      if (diff < 6 && ratio < 0.54) {
+        level = 6; // passou do meio / ataque fraco
+      } else if (diff < 14 && ratio < 0.60) {
+        level = 12; // ataque leve
+      } else if (diff < 26 && ratio < 0.68) {
+        level = 19; // ataque moderado
+      } else if (diff < 42 && ratio < 0.76) {
+        level = 27; // ataque perigoso
+      } else {
+        level = 35; // muito perigoso
+      }
+
+      if (activeStats.perigosos > passiveStats.perigosos) level += 2;
+      if (activeStats.finalizacoes > passiveStats.finalizacoes) level += 2;
+      if (activeStats.noGol > passiveStats.noGol) level += 4;
+      if (streak >= 4) level += 2;
+      if (streak >= 7) level += 2;
 
       minuteEvents.forEach((ev) => {
         if (ev.team === team) {
-          if (ev.icon === "⚽") danger = 42;
-          else if (ev.icon === "🚩") danger = Math.max(danger, 28);
-          else if (ev.icon === "🟨") danger = Math.max(danger, 12);
-          else danger = Math.max(danger, 22);
+          if (ev.icon === "⚽") level = 42;
+          else if (ev.icon === "🚩") level = Math.max(level, 26);
+          else if (ev.icon === "🟨") level = Math.max(level, 10);
+          else level = Math.max(level, 22);
         }
       });
 
-      const level = Math.max(5, Math.min(42, Math.round(danger)));
+      level = Math.max(5, Math.min(42, Math.round(level)));
+
       const eventWithIcon = minuteEvents.find((ev) => ev.icon);
       const eventIcon = eventWithIcon?.icon || "";
       const eventTeam = eventWithIcon?.team || "";
 
-      attackTimeline.push({
+      timeline.push({
         m: minute,
         team,
         homeLevel: team === "home" ? level : 0,
@@ -857,11 +851,11 @@ const melhorSinal = melhorSinalDoItem(item);
         awayColor,
         eventIcon,
         eventTeam,
-        dangerLevel: level >= 34 ? "quaseGol" : level >= 24 ? "perigoso" : level >= 13 ? "medio" : "fraco"
+        dangerLevel: level >= 34 ? "quaseGol" : level >= 24 ? "perigoso" : level >= 14 ? "medio" : "fraco"
       });
     }
 
-    return attackTimeline;
+    return timeline;
   }
 
 
@@ -2032,5 +2026,21 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .flowIcon.home{bottom:calc(50% + 39px)!important}
 .flowIcon.away{top:calc(50% + 39px)!important}
+
+
+/* ===== CRONOLOGIA AJUSTE FINO DE INTENSIDADE ===== */
+.flowSpike{
+  width:3px!important;
+  opacity:.96!important;
+  border-radius:2px!important;
+}
+.flowWrap{
+  height:100px!important;
+}
+.flowCard h3:after{
+  content:"  • fraco / médio / perigoso / quase gol";
+  color:#94a3b8;
+  font-size:8px;
+}
 
 `;
