@@ -42,6 +42,42 @@ const DEMO_SIGNALS = [
   { match: "Newcastle United FC vs Everton FC", league: "English Premier League 2024/25", score: "2 - 0", market: "Over 2,5", odd: "1.91", confidence: 86, pressure: 74, type: "base" }
 ];
 
+
+const PT_BR_NAMES = {
+  "peru": "Peru",
+  "spain": "Espanha",
+  "france": "França",
+  "northern ireland": "Irlanda do Norte",
+  "netherlands": "Holanda",
+  "uzbekistan": "Uzbequistão",
+  "brazil": "Brasil",
+  "germany": "Alemanha",
+  "italy": "Itália",
+  "england": "Inglaterra",
+  "portugal": "Portugal",
+  "argentina": "Argentina",
+  "chile": "Chile",
+  "uruguay": "Uruguai",
+  "colombia": "Colômbia",
+  "vila nova": "Vila Nova",
+  "botafogo sp": "Botafogo-SP",
+  "america mineiro": "América Mineiro",
+  "atletico goianiense": "Atlético Goianiense"
+};
+
+function nomePtBr(nome = "") {
+  const raw = String(nome || "").trim();
+  const key = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/\\s+/g, " ")
+    .trim();
+
+  return PT_BR_NAMES[key] || raw;
+}
+
+
 const normalizar = (v = "") =>
   String(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
@@ -95,7 +131,7 @@ export default function App() {
   }
 
   function nomeCurto(nome = "") {
-    return String(nome)
+    return nomePtBr(String(nome))
       .replace(/Football Club/gi, "")
       .replace(/Brighton & Hove Albion/gi, "Brighton")
       .replace(/Crystal Palace/gi, "Crystal")
@@ -662,7 +698,8 @@ const gols = totalGols(item);
 
 
   function mercadoCumprido(item) {
-    const status = mercadoStatus(item);
+    const melhorSinal = melhorSinalDoItem(item);
+            const status = mercadoStatus(melhorSinal);
     if (status.includes("GREEN")) return true;
 
     const gols = totalGols(item);
@@ -695,6 +732,102 @@ const gols = totalGols(item);
 
   function sinalAceito(item) {
     return sinalReal(item) || sinalPreLiveVip(item);
+  }
+
+
+  function scoreSinalForte(item) {
+    const status = mercadoStatus(item);
+    const conf = Number(item.confidence || item.confianca || 0);
+    const pressure = Number(item.pressure || item.pressao || 0);
+    const greenPenalty = status.includes("GREEN") ? -80 : 0;
+    const alertBonus = status.includes("🔥") || status.includes("🚨") ? 20 : 0;
+    const statsBonus = temStatsNumericasReais(item) ? 12 : 0;
+
+    return conf + pressure * 0.45 + alertBonus + statsBonus + greenPenalty;
+  }
+
+  function melhorSinalDoItem(item) {
+    const mercados = Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length
+      ? item.mercadosAtivos
+      : [item];
+
+    const abertos = mercados.filter((m) => !mercadoCumprido(m));
+    return (abertos.length ? abertos : mercados)
+      .slice()
+      .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
+  }
+
+  function ultimoEventoReal(item) {
+    const eventos = Array.isArray(item.matchEvents) ? item.matchEvents : [];
+    if (!eventos.length) return null;
+
+    return eventos
+      .slice()
+      .sort((a, b) => toNumber(b.minute ?? b.elapsed ?? b.time?.elapsed, 0) - toNumber(a.minute ?? a.elapsed ?? a.time?.elapsed, 0))[0];
+  }
+
+  function estadoMiniCampo(item, stats, homeColor, awayColor) {
+    const current = Math.min(90, Math.max(1, minuto(item) || 1));
+    const ev = ultimoEventoReal(item);
+    const evText = `${ev?.type || ""} ${ev?.detail || ""} ${ev?.category || ""}`.toLowerCase();
+    const evMinute = ev ? toNumber(ev.minute ?? ev.elapsed ?? ev.time?.elapsed, current) : current;
+    const recent = ev && Math.abs(current - evMinute) <= 6;
+
+    const homePower =
+      stats.home.ataques +
+      stats.home.perigosos * 1.6 +
+      stats.home.finalizacoes * 3 +
+      stats.home.noGol * 6 +
+      stats.home.cantos * 2.5 +
+      stats.home.posse * 0.25;
+
+    const awayPower =
+      stats.away.ataques +
+      stats.away.perigosos * 1.6 +
+      stats.away.finalizacoes * 3 +
+      stats.away.noGol * 6 +
+      stats.away.cantos * 2.5 +
+      stats.away.posse * 0.25;
+
+    const total = Math.max(1, homePower + awayPower);
+    let homePct = homePower / total;
+
+    if (!temStatsNumericasReais(item)) {
+      homePct = 0.5 + Math.sin(current / 5) * 0.16;
+    }
+
+    const attackingHome = homePct >= 0.5;
+    const direction = attackingHome ? 1 : -1;
+    const wave = Math.sin(Date.now() / 900 + current / 4) * 7;
+    const pressureX = attackingHome ? 52 + homePct * 38 : 48 - (1 - homePct) * 38;
+    const x = Math.max(8, Math.min(92, pressureX + wave));
+    const y = Math.max(18, Math.min(82, 50 + Math.cos(Date.now() / 800 + current / 3) * 18));
+
+    let label = attackingHome ? "Ataque da casa" : "Ataque visitante";
+    let intensity = homePct > 0.62 || homePct < 0.38 ? "high" : "medium";
+
+    if (recent) {
+      if (evText.includes("goal") || evText.includes("gol")) {
+        label = "Gol registrado";
+        intensity = "goal";
+      } else if (evText.includes("corner") || evText.includes("canto")) {
+        label = "Escanteio registrado";
+        intensity = "high";
+      } else if (evText.includes("card") || evText.includes("cart")) {
+        label = "Cartão registrado";
+        intensity = "medium";
+      }
+    }
+
+    return {
+      x,
+      y,
+      color: attackingHome ? homeColor : awayColor,
+      label,
+      intensity,
+      attackingHome,
+      direction
+    };
   }
 
   function mercadoPeso(item) {
@@ -854,11 +987,12 @@ const gols = totalGols(item);
             const times = timesDoJogo(item);
             const { homeColor, awayColor } = coresDoJogo(times.casa, times.fora);
             const currentMinute = Math.min(90, Math.max(1, minuto(item) || 1));
+            const miniEstado = estadoMiniCampo(item, stats, homeColor, awayColor);
             const events = timelineEvents(item, index, homeColor, awayColor);
             const timelineLeft = (m) => `calc(46px + ${(Math.max(0, Math.min(90, m)) / 90) * 100}% - ${((Math.max(0, Math.min(90, m)) / 90) * 51).toFixed(2)}px)`;
 
             return (
-              <section key={item.fixtureId || item.gameId || item.id || index} className="card">
+              <section key={item.fixtureId || item.gameId || item.id || index} className={`card ${scoreSinalForte(melhorSinal) >= 90 ? "strongSignalCard" : ""}`}>
                 <div className="matchHero">
                   <div className="teamSide">
                     <img className="heroLogo" src={logoCasa(item)} alt={times.casa} onError={(e) => (e.currentTarget.src = fallbackLogo(times.casa))} />
@@ -866,7 +1000,7 @@ const gols = totalGols(item);
                   </div>
                   <div className="heroCenter">
                     <h2><span style={{ color: homeColor }}>{nomeCurto(times.casa)}</span> <em>vs</em> <span style={{ color: awayColor }}>{nomeCurto(times.fora)}</span></h2>
-                    <p>{item.league || "Liga"}</p>
+                    <p>{nomePtBr(item.league || "Liga")}</p>
                     <b>{item.score || "0-0"}</b>
                     <strong>{currentMinute}'</strong>
                   </div>
@@ -986,12 +1120,35 @@ const gols = totalGols(item);
                   </div>
                 </div>
 <div className="miniMap">
-                  <div className="eventBubble"><span>⚽</span><div><b>{status.replace("🔥", "")}</b><small>{item.pressure || 70}% pressão</small></div></div>
-                  <div className="field3d">
-                    <div className="grass"></div><div className="shade"></div><div className="midLine"></div><div className="centerCircle"></div><div className="boxLeft"></div><div className="boxRight"></div><div className="goalLeft"></div><div className="goalRight"></div>
-                    <div className="dot d1" style={{ background: homeColor }}></div><div className="dot d2" style={{ background: homeColor }}></div><div className="dot d3" style={{ background: awayColor }}></div><div className="dot d4" style={{ background: awayColor }}></div>
+                  <div className={`livePulse ${miniEstado.intensity}`}>
+                    <b style={{ color: miniEstado.color }}>●</b>
+                    <span>{miniEstado.label}</span>
                   </div>
-                  <div className="mapStats"><span>Posse {stats.home.posse}% x {stats.away.posse}%</span><span>Final. {stats.home.finalizacoes} x {stats.away.finalizacoes}</span><span>Atq. {stats.home.ataques} x {stats.away.ataques}</span></div>
+                  <div className="field3d liveField">
+                    <div className="grass"></div><div className="shade"></div><div className="midLine"></div><div className="centerCircle"></div><div className="boxLeft"></div><div className="boxRight"></div><div className="goalLeft"></div><div className="goalRight"></div>
+                    <div className="attackZone" style={{
+                      left: miniEstado.attackingHome ? "52%" : "6%",
+                      right: miniEstado.attackingHome ? "6%" : "52%",
+                      background: `linear-gradient(90deg, transparent, ${miniEstado.color}44)`
+                    }}></div>
+                    <div className="ballTrail" style={{
+                      left: `${Math.max(6, miniEstado.x - 12)}%`,
+                      top: `${miniEstado.y}%`,
+                      background: `linear-gradient(90deg, transparent, ${miniEstado.color})`
+                    }}></div>
+                    <div className={`liveBall ${miniEstado.intensity}`} style={{ left: `${miniEstado.x}%`, top: `${miniEstado.y}%`, background: miniEstado.color }}></div>
+                    <div className="playerDot h1" style={{ background: homeColor }}></div>
+                    <div className="playerDot h2" style={{ background: homeColor }}></div>
+                    <div className="playerDot h3" style={{ background: homeColor }}></div>
+                    <div className="playerDot a1" style={{ background: awayColor }}></div>
+                    <div className="playerDot a2" style={{ background: awayColor }}></div>
+                    <div className="playerDot a3" style={{ background: awayColor }}></div>
+                  </div>
+                  <div className="mapStats compact">
+                    <span>Posse {stats.home.posse}% x {stats.away.posse}%</span>
+                    <span>Final. {stats.home.finalizacoes} x {stats.away.finalizacoes}</span>
+                    <span>Atq. {stats.home.ataques} x {stats.away.ataques}</span>
+                  </div>
                 </div>
 
                 <div className="flowCard">
@@ -1023,8 +1180,8 @@ const gols = totalGols(item);
                 </div>
 
                 <div className="marketLine">
-                  <div><b>{item.market}</b><span>Status: {status}</span><strong>Odd: {item.odd || "—"}</strong></div>
-                  <div><b>IA {item.confidence || 70}%</b><span className="bar"><i style={{ width: `${item.confidence || 70}%` }}></i></span><small>Pressão {item.pressure || 70}%</small></div>
+                  <div><b>{melhorSinal.market || item.market}</b><span>Status: {status}</span><strong>Odd: {melhorSinal.odd || item.odd || "—"}</strong></div>
+                  <div><b>IA {melhorSinal.confidence || item.confidence || 70}%</b><span className="bar"><i style={{ width: `${melhorSinal.confidence || item.confidence || 70}%` }}></i></span><small>Pressão {melhorSinal.pressure || item.pressure || 70}%</small></div>
                 </div>
 
                 <div className="bookies"><button>Betano</button><button>Novibet</button><button>Bet365</button><button>VIP</button></div>
