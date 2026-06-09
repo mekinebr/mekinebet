@@ -698,12 +698,8 @@ const gols = totalGols(item);
 
 
   function mercadoCumprido(item) {
-    const melhorSinal = melhorSinalDoItem(item);
-            const status = mercadoStatus(melhorSinal);
-    if (status.includes("GREEN")) return true;
-
-    const gols = totalGols(item);
-    const market = String(item.market || item.mercado || "").toLowerCase();
+    const gols = totalGols(item || {});
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
 
     if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
     if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
@@ -736,12 +732,26 @@ const gols = totalGols(item);
 
 
   function scoreSinalForte(item) {
-    const status = mercadoStatus(item);
-    const conf = Number(item.confidence || item.confianca || 0);
-    const pressure = Number(item.pressure || item.pressao || 0);
-    const greenPenalty = status.includes("GREEN") ? -80 : 0;
-    const alertBonus = status.includes("🔥") || status.includes("🚨") ? 20 : 0;
-    const statsBonus = temStatsNumericasReais(item) ? 12 : 0;
+    const conf = Number(item?.confidence || item?.confianca || 0);
+    const pressure = Number(item?.pressure || item?.pressao || 0);
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
+    const gols = totalGols(item || {});
+    const statsBonus = temStatsNumericasReais(item || {}) ? 12 : 0;
+
+    let greenPenalty = 0;
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) greenPenalty = -80;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) greenPenalty = -80;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) greenPenalty = -80;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) greenPenalty = -80;
+
+    const alertText = String(item?.alert || item?.alerta || "").toLowerCase();
+    const alertBonus =
+      alertText.includes("forte") ||
+      alertText.includes("real") ||
+      alertText.includes("🔥") ||
+      alertText.includes("🚨")
+        ? 18
+        : 0;
 
     return conf + pressure * 0.45 + alertBonus + statsBonus + greenPenalty;
   }
