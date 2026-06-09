@@ -733,112 +733,133 @@ const melhorSinal = melhorSinalDoItem(item);
     const awayGoals = Number(scoreNums[1] || 0);
 
     const homePower =
-      stats.home.ataques * 0.9 +
-      stats.home.perigosos * 2.2 +
-      stats.home.finalizacoes * 5 +
-      stats.home.noGol * 8 +
+      stats.home.ataques * 0.75 +
+      stats.home.perigosos * 2.4 +
+      stats.home.finalizacoes * 5.2 +
+      stats.home.noGol * 9 +
       stats.home.cantos * 3 +
-      stats.home.posse * 0.28 +
-      homeGoals * 14;
+      stats.home.posse * 0.24 +
+      homeGoals * 16;
 
     const awayPower =
-      stats.away.ataques * 0.9 +
-      stats.away.perigosos * 2.2 +
-      stats.away.finalizacoes * 5 +
-      stats.away.noGol * 8 +
+      stats.away.ataques * 0.75 +
+      stats.away.perigosos * 2.4 +
+      stats.away.finalizacoes * 5.2 +
+      stats.away.noGol * 9 +
       stats.away.cantos * 3 +
-      stats.away.posse * 0.28 +
-      awayGoals * 14;
+      stats.away.posse * 0.24 +
+      awayGoals * 16;
 
     const totalPower = Math.max(1, homePower + awayPower);
-    const homeDominance = homePower / totalPower;
-    const awayDominance = awayPower / totalPower;
+    const homeShare = homePower / totalPower;
+    const awayShare = awayPower / totalPower;
 
-    const homeEventWeight =
-      eventos.filter((e) => e.team === "home").length +
-      homeGoals * 2 +
-      stats.home.noGol;
+    const homeEvents = eventos.filter((e) => e.team === "home").length + homeGoals * 2 + stats.home.noGol;
+    const awayEvents = eventos.filter((e) => e.team === "away").length + awayGoals * 2 + stats.away.noGol;
 
-    const awayEventWeight =
-      eventos.filter((e) => e.team === "away").length +
-      awayGoals * 2 +
-      stats.away.noGol;
-
-    const pressure = [];
+    const attackTimeline = [];
+    let lastTeam = homeShare >= awayShare ? "home" : "away";
+    let homeRun = 0;
+    let awayRun = 0;
 
     for (let minute = 1; minute <= current; minute += 1) {
-      const period = Math.floor((minute - 1) / 8);
-      const periodSeed = Math.abs(Math.sin((period + 1) * 12.9898 + index * 78.233));
-      const periodSeed2 = Math.abs(Math.cos((period + 3) * 7.13 + index * 19.91));
-
-      let homeBase = homeDominance;
-      let awayBase = awayDominance;
-
-      if (homeEventWeight > awayEventWeight) homeBase += 0.05;
-      if (awayEventWeight > homeEventWeight) awayBase += 0.05;
-
-      const momentHome =
-        homeBase * 0.78 +
-        periodSeed * 0.16 +
-        (minute <= 15 ? stats.home.posse / 100 * 0.05 : 0);
-
-      const momentAway =
-        awayBase * 0.78 +
-        periodSeed2 * 0.16 +
-        (minute > 60 ? stats.away.posse / 100 * 0.05 : 0);
-
       const minuteEvents = eventsByMinute.get(minute) || [];
+      const eventWithIcon = minuteEvents.find((ev) => ev.icon);
       const recentEvents = eventos.filter((ev) => ev.m >= minute - 4 && ev.m <= minute);
 
-      let homePressure = momentHome;
-      let awayPressure = momentAway;
+      let homeChance =
+        homeShare * 100 +
+        stats.home.posse * 0.12 +
+        stats.home.perigosos * 0.32 +
+        stats.home.finalizacoes * 0.75 +
+        stats.home.noGol * 1.35 +
+        homeEvents * 0.8;
+
+      let awayChance =
+        awayShare * 100 +
+        stats.away.posse * 0.12 +
+        stats.away.perigosos * 0.32 +
+        stats.away.finalizacoes * 0.75 +
+        stats.away.noGol * 1.35 +
+        awayEvents * 0.8;
+
+      const block = Math.floor((minute - 1) / 5);
+      homeChance += Math.sin((minute + index * 11) * 2.173 + block * 0.91) * 18;
+      awayChance += Math.cos((minute + index * 7) * 1.733 + block * 1.13) * 18;
 
       recentEvents.forEach((ev) => {
-        const boost =
-          ev.icon === "⚽" ? 0.42 :
-          ev.icon === "🚩" ? 0.26 :
-          ev.icon === "🟨" ? 0.10 :
-          0.18;
-
-        if (ev.team === "home") homePressure += boost;
-        if (ev.team === "away") awayPressure += boost;
+        const boost = ev.icon === "⚽" ? 55 : ev.icon === "🚩" ? 32 : ev.icon === "🟨" ? 10 : 22;
+        if (ev.team === "home") homeChance += boost;
+        if (ev.team === "away") awayChance += boost;
       });
 
-      const totalMinute = Math.max(0.1, homePressure + awayPressure);
-      const homePct = homePressure / totalMinute;
-      const awayPct = awayPressure / totalMinute;
+      minuteEvents.forEach((ev) => {
+        const directBoost = ev.icon === "⚽" ? 90 : ev.icon === "🚩" ? 45 : ev.icon === "🟨" ? 15 : 28;
+        if (ev.team === "home") homeChance += directBoost;
+        if (ev.team === "away") awayChance += directBoost;
+      });
 
-      const totalIntensity =
-        Math.min(1, Math.max(0.22,
-          (stats.home.perigosos + stats.away.perigosos) / Math.max(30, current * 1.2) * 0.55 +
-          (stats.home.finalizacoes + stats.away.finalizacoes) / Math.max(8, current / 8) * 0.25 +
-          (stats.home.noGol + stats.away.noGol) / Math.max(4, current / 18) * 0.20
-        ));
+      if (lastTeam === "home") {
+        homeChance += 7;
+        homeRun += 1;
+        awayRun = 0;
+      } else {
+        awayChance += 7;
+        awayRun += 1;
+        homeRun = 0;
+      }
 
-      const homeLevel = Math.round(5 + Math.min(32, homePct * 34 * totalIntensity + (homePct > 0.58 ? 5 : 0)));
-      const awayLevel = Math.round(5 + Math.min(32, awayPct * 34 * totalIntensity + (awayPct > 0.58 ? 5 : 0)));
+      if (homeRun >= 6) awayChance += 18;
+      if (awayRun >= 6) homeChance += 18;
 
-      const strongHome = homePct >= 0.58;
-      const strongAway = awayPct >= 0.58;
+      const team = homeChance >= awayChance ? "home" : "away";
+      lastTeam = team;
 
-      const eventWithIcon = minuteEvents.find((ev) => ev.icon);
+      const activeStats = team === "home" ? stats.home : stats.away;
+      const opponentStats = team === "home" ? stats.away : stats.home;
+      const activeChance = Math.max(homeChance, awayChance);
+      const opponentChance = Math.min(homeChance, awayChance);
+      const superiority = activeChance / Math.max(1, activeChance + opponentChance);
+
+      let danger =
+        5 +
+        superiority * 18 +
+        activeStats.perigosos * 0.18 +
+        activeStats.finalizacoes * 0.9 +
+        activeStats.noGol * 2.2 +
+        activeStats.cantos * 0.85;
+
+      if (activeStats.ataques > opponentStats.ataques) danger += 2.5;
+      if (activeStats.perigosos > opponentStats.perigosos) danger += 4;
+      if (activeStats.noGol > opponentStats.noGol) danger += 5;
+
+      minuteEvents.forEach((ev) => {
+        if (ev.team === team) {
+          if (ev.icon === "⚽") danger = 38;
+          else if (ev.icon === "🚩") danger += 10;
+          else if (ev.icon === "🟨") danger += 2;
+          else danger += 6;
+        }
+      });
+
+      const level = Math.max(4, Math.min(38, Math.round(danger)));
       const eventIcon = eventWithIcon?.icon || "";
       const eventTeam = eventWithIcon?.team || "";
 
-      pressure.push({
+      attackTimeline.push({
         m: minute,
-        homeLevel: Math.max(4, Math.min(36, strongHome ? homeLevel : Math.round(homeLevel * 0.72))),
-        awayLevel: Math.max(4, Math.min(36, strongAway ? awayLevel : Math.round(awayLevel * 0.72))),
+        team,
+        homeLevel: team === "home" ? level : 0,
+        awayLevel: team === "away" ? level : 0,
         homeColor,
         awayColor,
         eventIcon,
         eventTeam,
-        homeActive: strongHome,
-        awayActive: strongAway
+        dangerLevel: level >= 30 ? "clara" : level >= 21 ? "perigoso" : level >= 11 ? "ataque" : "leve"
       });
     }
 
-    return pressure;
+    return attackTimeline;
   }
 
 
@@ -1963,5 +1984,20 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 .flowSpike.away{top:50%!important;bottom:auto!important;margin-top:1px!important}
 .middleLine{background:rgba(255,255,255,.82)!important;height:2px!important}
 .flowCard h3:after{content:"  • pressão por minuto";color:#94a3b8;font-size:8px}
+
+
+/* ===== CRONOLOGIA MINUTO A MINUTO: UM ATAQUE POR VEZ ===== */
+.flowCard h3:after{content:"  • 1 ataque por minuto";color:#94a3b8;font-size:8px}
+.flowWrap{
+  background:
+    linear-gradient(180deg,rgba(34,197,94,.045),transparent 49%,rgba(255,255,255,.18) 50%,transparent 51%,rgba(99,102,241,.045)),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px calc((100% - 51px)/90))!important;
+}
+.flowSpike{width:3px!important;border-radius:2px!important;opacity:.95!important}
+.flowSpike[style*="height: 0px"],.flowSpike[style*="height: 0"]{display:none!important}
+.flowSpike.home{bottom:50%!important;top:auto!important;margin-bottom:1px!important}
+.flowSpike.away{top:50%!important;bottom:auto!important;margin-top:1px!important}
+.middleLine{height:2px!important;background:rgba(255,255,255,.86)!important}
+.flowIcon{z-index:9!important;filter:drop-shadow(0 0 6px rgba(255,255,255,.85))!important}
 
 `;
