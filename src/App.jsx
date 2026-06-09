@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet.onrender.com").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://mekinebet-api.onrender.com").replace(/\/$/, "");
 const API_URL = `${API_BASE_URL}/api/signals`;
 
 const TEAM_LOGOS = {
@@ -378,8 +378,6 @@ export default function App() {
     return (
       jogoAoVivoReal(item) &&
       jogoFonteReal(item) &&
-      jogoStatsReal(item) &&
-      temEstatisticasNumericas(item) &&
       mercado !== "" &&
       conf >= 30
     );
@@ -439,11 +437,14 @@ export default function App() {
     if (!sinalReal(item)) return "❌ SEM SINAL REAL";
 
     const stats = statsDoJogo(item);
+            const statsOk = temEstatisticasNumericas(item);
     const gols = totalGols(item);
     const min = minuto(item);
     const pressure = Number(item.pressure || item.pressao || 0);
     const confidence = Number(item.confidence || item.confianca || 0);
     const market = String(item.market || item.mercado || "").toLowerCase();
+
+    if (!temEstatisticasNumericas(item)) return "📡 AGUARDANDO STATS REAIS";
 
     const totalDanger = stats.home.perigosos + stats.away.perigosos;
     const totalShots = stats.home.finalizacoes + stats.away.finalizacoes;
@@ -800,7 +801,7 @@ export default function App() {
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum jogo ao vivo com estatísticas reais disponível agora. A MekineBet não exibe jogos com dados zerados ou incompletos.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo disponível agora. Quando a API não enviar estatísticas reais, o card mostra aguardando stats sem inventar dados.</div>
       )}
 
       <div className="filters">
@@ -857,6 +858,10 @@ export default function App() {
                   <span className="market">{cat}</span>
                 </div>
 
+                {!statsOk && (
+                  <div className="statsMissingNotice">📡 Aguardando estatísticas reais da API-Football</div>
+                )}
+
                 {Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length > 1 && (
                   <div className="activeMarkets">
                     {item.mercadosAtivos.slice(0, 4).map((m, idx) => (
@@ -868,7 +873,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
+                <div className={`betStats proStats ${!statsOk ? "noRealStats" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
@@ -1542,6 +1547,35 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .metricVs:after{
   z-index:2!important;
+}
+
+
+/* ===== STATS REAIS: SEM INVENTAR DADOS ===== */
+.statsMissingNotice{
+  margin:4px 0 5px!important;
+  border:1px solid rgba(250,204,21,.55)!important;
+  background:rgba(250,204,21,.10)!important;
+  color:#facc15!important;
+  font-weight:900!important;
+  font-size:10px!important;
+  border-radius:6px!important;
+  padding:5px 7px!important;
+  text-align:center!important;
+}
+.noRealStats{
+  opacity:.78!important;
+  filter:saturate(.75)!important;
+}
+.noRealStats .metricNumbers b,
+.noRealStats .bet365StatLine>b{
+  color:#9ca3af!important;
+}
+.noRealStats .dualMiniBar i,
+.noRealStats .dualMiniBar em,
+.noRealStats .bet365DualLine i,
+.noRealStats .bet365DualLine em{
+  width:0!important;
+  min-width:0!important;
 }
 
 `;
