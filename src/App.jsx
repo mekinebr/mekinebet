@@ -378,6 +378,7 @@ export default function App() {
     return (
       jogoAoVivoReal(item) &&
       jogoFonteReal(item) &&
+      temEstatisticasNumericas(item) &&
       mercado !== "" &&
       conf >= 30
     );
@@ -800,7 +801,7 @@ const times = timesDoJogo(item);
       </header>
 
       {liveCount === 0 && (
-        <div className="notice">📊 Nenhum jogo ao vivo disponível agora. Quando a API não enviar estatísticas reais, o card mostra aguardando stats sem inventar dados.</div>
+        <div className="notice">📊 Nenhum jogo ao vivo com estatísticas reais disponível agora. Jogos sem estatísticas da API-Football ficam ocultos para evitar dados errados.</div>
       )}
 
       <div className="filters">
@@ -856,12 +857,7 @@ const status = mercadoStatus(item);
                   {vip && <span className="vip">VIP</span>}
                   <span className="market">{cat}</span>
                 </div>
-
-                {!temEstatisticasNumericas(item) && (
-                  <div className="statsMissingNotice">📡 Aguardando estatísticas reais da API-Football</div>
-                )}
-
-                {Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length > 1 && (
+{Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length > 1 && (
                   <div className="activeMarkets">
                     {item.mercadosAtivos.slice(0, 4).map((m, idx) => (
                       <span key={idx}>
