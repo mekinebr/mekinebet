@@ -13,7 +13,7 @@ const API_KEYS = [
 
 const API_KEY = API_KEYS[0] || "";
 
-const CACHE_TTL_MS = 10000;
+const CACHE_TTL_MS = 5000;
 const REQUEST_TIMEOUT_MS = 12000;
 const MAX_LIVE_GAMES = 50;
 const MAX_PRELIVE_GAMES = 30;
@@ -253,7 +253,7 @@ function totalShots(row) {
 }
 
 function buildRealStats(fixtureRow, statsRows = []) {
-  if (!Array.isArray(statsRows) || statsRows.length < 2) return null;
+  if (!Array.isArray(statsRows) || statsRows.length < 2) return buildEmptyStats();
 
   const homeId = fixtureRow?.teams?.home?.id;
   const awayId = fixtureRow?.teams?.away?.id;
@@ -343,6 +343,32 @@ function buildEmptyStats() {
     hasRealStats: false,
     source: "none",
   };
+}
+
+
+function hasNumericStatsPack(pack = {}) {
+  const h = pack?.home || {};
+  const a = pack?.away || {};
+
+  const total =
+    toNumber(h.posse) + toNumber(a.posse) +
+    toNumber(h.finalizacoes) + toNumber(a.finalizacoes) +
+    toNumber(h.noGol) + toNumber(a.noGol) +
+    toNumber(h.ataques) + toNumber(a.ataques) +
+    toNumber(h.perigosos) + toNumber(a.perigosos) +
+    toNumber(h.cantos) + toNumber(a.cantos);
+
+  return Boolean(pack?.hasRealStats && total > 0);
+}
+
+function buildSafeStats(fixtureRow, statsRows = []) {
+  const real = buildRealStats(fixtureRow, statsRows);
+
+  if (hasNumericStatsPack(real)) {
+    return real;
+  }
+
+  return buildEmptyStats();
 }
 
 function buildEvents(fixtureRow, rows = []) {
@@ -746,6 +772,7 @@ function buildSignals(fixtureRow, index = 0, forcedType = null, statsPack = null
     fouls: realStats.hasRealStats ? home.faltas : null,
     foulsAway: realStats.hasRealStats ? away.faltas : null,
     stats: realStats.hasRealStats ? { home, away } : null,
+    hasNumericStats: hasNumericStatsPack(realStats),
   };
 
   const liveMarkets = ["MAIS_GOL", "OVER05", "OVER15", "OVER25", "OVER35", "BTTS", "CANTOS_FT", "CARTOES_FT"];
@@ -871,7 +898,7 @@ async function buildFixtureSignals(fixture, index, forcedType = null) {
   if (fixtureId && type === "live") {
     try {
       const statsRows = await apiFootballGet(`/fixtures/statistics?fixture=${fixtureId}`);
-      statsPack = buildRealStats(fixture, statsRows);
+      statsPack = buildSafeStats(fixture, statsRows);
     } catch (e) {
       console.log(`Sem stats reais ${fixtureId}:`, e.message);
     }
@@ -915,7 +942,8 @@ function buildScannerOpportunities(activeSignals = []) {
   });
 
   return Array.from(map.values())
-    .filter((s) => Number(s.confidence || 0) >= 65)
+    .filter((s) => Number(s.confidence || 0) >= 60)
+    .filter((s) => s.type !== "live" || s.hasNumericStats || s.hasRealEvents)
     .sort((a, b) => b.scannerRankScore - a.scannerRankScore)
     .slice(0, 20)
     .map((s, index) => ({
@@ -951,16 +979,41 @@ async function getSignalsPayload() {
     activeSignals.push(...signals);
   }
 
-  const liveGames = new Set(activeSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)).size;
+  const bestSignalsByFixture = new Map();
 
-  const preliveGames = new Set(activeSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)).size;
+  activeSignals.forEach((signal) => {
+    const key = signal.fixtureId || signal.gameId || signal.match;
 
-  const realStatsGames = new Set(activeSignals.filter((s) => s.realStats).map((s) => s.fixtureId)).size;
+    const score =
+      Number(signal.hasNumericStats ? 30 : 0) +
+      Number(signal.realStats ? 20 : 0) +
+      Number(signal.hasRealEvents ? 8 : 0) +
+      Number(signal.confidence || 0) +
+      Number(signal.pressure || 0) * 0.35 +
+      (signal.type === "live" ? 6 : 0);
 
-  const realEventsGames = new Set(activeSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)).size;
+    const current = bestSignalsByFixture.get(key);
+
+    if (!current || score > current.__score) {
+      bestSignalsByFixture.set(key, {
+        ...signal,
+        __score: score,
+      });
+    }
+  });
+
+  const uniqueSignals = Array.from(bestSignalsByFixture.values()).map(({ __score, ...signal }) => signal);
+
+  const liveGames = new Set(uniqueSignals.filter((s) => s.type === "live").map((s) => s.fixtureId)).size;
+
+  const preliveGames = new Set(uniqueSignals.filter((s) => s.type !== "live").map((s) => s.fixtureId)).size;
+
+  const realStatsGames = new Set(uniqueSignals.filter((s) => s.realStats && s.hasNumericStats).map((s) => s.fixtureId)).size;
+
+  const realEventsGames = new Set(uniqueSignals.filter((s) => s.hasRealEvents).map((s) => s.fixtureId)).size;
 
   const realGames = new Set(
-    activeSignals
+    uniqueSignals
       .filter((s) => s.realStats || s.hasRealEvents)
       .map((s) => s.fixtureId)
   ).size;
@@ -970,15 +1023,15 @@ async function getSignalsPayload() {
     source: API_KEY ? "api-football" : "sem-api-key",
     mode: liveGames ? "live+prelive24h" : "prelive24h",
     apiStatus: API_KEY ? "online" : "missing-key",
-    message: activeSignals.length
+    message: uniqueSignals.length
       ? "Sinais carregados."
       : "Nenhum sinal encontrado agora. Verifique jogos ao vivo/pré-live e limite da API.",
-    activeSignals,
-    scannerOpportunities: buildScannerOpportunities(activeSignals),
+    activeSignals: uniqueSignals,
+    scannerOpportunities: buildScannerOpportunities(uniqueSignals),
     liveGames,
     preliveGames,
-    totalGames: new Set(activeSignals.map((s) => s.fixtureId)).size,
-    totalSignals: activeSignals.length,
+    totalGames: new Set(uniqueSignals.map((s) => s.fixtureId)).size,
+    totalSignals: uniqueSignals.length,
     statsMode: realStatsGames ? "real" : "none",
     realStatsGames,
     eventsMode: realEventsGames ? "real" : "none",
@@ -1018,7 +1071,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         service: "mekinebet-api",
-        routes: ["/api/signals", "/api/scanner", "/health", "/api/health"],
+        routes: ["/api/signals", "/api/scanner", "/api/debug", "/health", "/api/health"],
         hasApiKey: Boolean(API_KEY),
         updatedAt: new Date().toISOString(),
       });
@@ -1027,6 +1080,33 @@ const server = http.createServer(async (req, res) => {
 
     if (requestUrl.pathname === "/api/signals") {
       sendJson(res, 200, await getSignalsPayload());
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/debug") {
+      const payload = await getSignalsPayload();
+
+      sendJson(res, 200, {
+        ok: true,
+        liveGames: payload.liveGames,
+        preliveGames: payload.preliveGames,
+        realStatsGames: payload.realStatsGames,
+        realEventsGames: payload.realEventsGames,
+        totalSignals: payload.totalSignals,
+        sample: (payload.activeSignals || []).slice(0, 5).map((s) => ({
+          fixtureId: s.fixtureId,
+          match: s.match,
+          type: s.type,
+          realStats: s.realStats,
+          hasNumericStats: s.hasNumericStats,
+          hasRealEvents: s.hasRealEvents,
+          stats: s.stats,
+          confidence: s.confidence,
+          pressure: s.pressure,
+          market: s.market,
+        })),
+        updatedAt: payload.updatedAt,
+      });
       return;
     }
 
@@ -1046,7 +1126,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 404, {
       ok: false,
       error: "Rota não encontrada",
-      routes: ["/api/signals", "/api/scanner", "/health", "/api/health"],
+      routes: ["/api/signals", "/api/scanner", "/api/debug", "/health", "/api/health"],
     });
   } catch (error) {
     sendJson(res, 500, {
