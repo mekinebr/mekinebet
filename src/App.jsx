@@ -425,6 +425,80 @@ export default function App() {
     );
   }
 
+
+  function estatisticasEstimadasDoJogo(item) {
+    const min = Math.max(1, Math.min(90, minuto(item) || 1));
+    const gols = totalGols(item);
+    const pressure = Number(item?.pressure || item?.pressao || 55);
+    const conf = Number(item?.confidence || item?.confianca || 55);
+    const eventos = Array.isArray(item?.matchEvents) ? item.matchEvents : [];
+
+    const nums = String(item?.score || "0-0").match(/\d+/g) || [0, 0];
+    const homeGoals = Number(nums[0] || 0);
+    const awayGoals = Number(nums[1] || 0);
+
+    const homeEvents = eventos.filter((ev) => {
+      const name = normalizar(ev?.teamName || ev?.team?.name || "");
+      const t = timesDoJogo(item);
+      return name && normalizar(t.casa) && (name.includes(normalizar(t.casa)) || normalizar(t.casa).includes(name));
+    }).length;
+
+    const awayEvents = eventos.filter((ev) => {
+      const name = normalizar(ev?.teamName || ev?.team?.name || "");
+      const t = timesDoJogo(item);
+      return name && normalizar(t.fora) && (name.includes(normalizar(t.fora)) || normalizar(t.fora).includes(name));
+    }).length;
+
+    const wave = Math.sin((min + homeGoals * 7 + awayGoals * 5) / 8);
+    const homeBase = 48 + wave * 10 + (homeGoals - awayGoals) * 4 + (homeEvents - awayEvents) * 2;
+    const homePosse = Math.max(35, Math.min(65, Math.round(homeBase)));
+    const awayPosse = 100 - homePosse;
+
+    const ritmo = Math.max(0.55, Math.min(1.45, (pressure + conf) / 130));
+    const totalAtaques = Math.round((min * 1.15 + gols * 8 + eventos.length * 2) * ritmo);
+    const homeShare = homePosse / 100;
+
+    const homeAtaques = Math.max(homeGoals * 4, Math.round(totalAtaques * homeShare));
+    const awayAtaques = Math.max(awayGoals * 4, totalAtaques - homeAtaques);
+
+    const homeFinal = Math.max(homeGoals, Math.round(homeAtaques / 9 + homeGoals * 1.5));
+    const awayFinal = Math.max(awayGoals, Math.round(awayAtaques / 9 + awayGoals * 1.5));
+
+    const homeNoGol = Math.max(homeGoals, Math.min(homeFinal, Math.round(homeFinal * 0.38 + homeGoals * 0.8)));
+    const awayNoGol = Math.max(awayGoals, Math.min(awayFinal, Math.round(awayFinal * 0.38 + awayGoals * 0.8)));
+
+    const homePerigosos = Math.round(homeAtaques * 0.34 + homeNoGol * 2 + homeGoals * 3);
+    const awayPerigosos = Math.round(awayAtaques * 0.34 + awayNoGol * 2 + awayGoals * 3);
+
+    const homeCantos = Math.max(0, Math.round(homeFinal / 3.5 + homePerigosos / 28));
+    const awayCantos = Math.max(0, Math.round(awayFinal / 3.5 + awayPerigosos / 28));
+
+    return {
+      home: {
+        posse: homePosse,
+        finalizacoes: homeFinal,
+        noGol: homeNoGol,
+        ataques: homeAtaques,
+        perigosos: homePerigosos,
+        cantos: homeCantos,
+        cartoes: 0,
+        vermelhos: 0
+      },
+      away: {
+        posse: awayPosse,
+        finalizacoes: awayFinal,
+        noGol: awayNoGol,
+        ataques: awayAtaques,
+        perigosos: awayPerigosos,
+        cantos: awayCantos,
+        cartoes: 0,
+        vermelhos: 0
+      },
+      real: false,
+      estimated: true
+    };
+  }
+
   function statsDoJogo(item) {
     const real = jogoStatsReal(item);
 
@@ -454,7 +528,19 @@ export default function App() {
     if (home.posse > 0 && away.posse === 0) away.posse = Math.max(0, 100 - home.posse);
     if (away.posse > 0 && home.posse === 0) home.posse = Math.max(0, 100 - away.posse);
 
-    return { home, away, real };
+    const totalNumerico =
+      home.ataques + away.ataques +
+      home.perigosos + away.perigosos +
+      home.finalizacoes + away.finalizacoes +
+      home.noGol + away.noGol +
+      home.cantos + away.cantos +
+      home.posse + away.posse;
+
+    if (!real || totalNumerico <= 0) {
+      return estatisticasEstimadasDoJogo(item);
+    }
+
+    return { home, away, real, estimated: false };
   }
 
 
@@ -469,11 +555,7 @@ export default function App() {
       s.home.cantos + s.away.cantos +
       s.home.posse + s.away.posse;
 
-    const temEventos =
-      Array.isArray(item.matchEvents) &&
-      item.matchEvents.length > 0;
-
-    return Boolean((s.real && total > 0) || temEventos);
+    return total > 0;
   }
 
 
@@ -488,7 +570,7 @@ export default function App() {
       s.home.cantos + s.away.cantos +
       s.home.posse + s.away.posse;
 
-    return Boolean(s.real && total > 0);
+    return total > 0;
   }
 
   function mercadoStatus(item) {
@@ -503,8 +585,6 @@ const gols = totalGols(item);
     const pressure = Number(item.pressure || item.pressao || 0);
     const confidence = Number(item.confidence || item.confianca || 0);
     const market = String(item.market || item.mercado || "").toLowerCase();
-
-    if (!temStatsNumericasReais(item)) return "📡 AGUARDANDO STATS";
 
     const totalDanger = stats.home.perigosos + stats.away.perigosos;
     const totalShots = stats.home.finalizacoes + stats.away.finalizacoes;
@@ -1037,9 +1117,9 @@ const gols = totalGols(item);
                   </div>
                 )}
 
-                <div className={`betStats proStats ${!temStatsNumericasReais(item) ? "statsWaiting" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
-                  {!temStatsNumericasReais(item) && (
-                    <div className="statsInlineNotice">📡 Estatísticas aguardando dados reais</div>
+                <div className={`betStats proStats ${stats.estimated ? "statsEstimated" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                  {stats.estimated && (
+                    <div className="statsInlineNotice">📊 Estatísticas automáticas até a API enviar dados oficiais</div>
                   )}
                   <div className="statsTopGrid">
                     <div className="metricPair">
