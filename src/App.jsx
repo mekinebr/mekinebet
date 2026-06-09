@@ -802,6 +802,28 @@ const gols = totalGols(item);
     return pressure;
   }
 
+
+  function sinalPreLiveVip(item) {
+    const type = String(item.type || item.tipo || "").toLowerCase();
+    const status = String(item.status || item.estado || "").toUpperCase();
+    const isPrelive = type.includes("pre") || status.includes("PRE");
+    const conf = Number(item.confidence || item.confianca || 0);
+    const pressure = Number(item.pressure || item.pressao || 0);
+    const mercado = String(item.market || item.mercado || "").trim();
+
+    return (
+      isPrelive &&
+      jogoFonteReal(item) &&
+      mercado !== "" &&
+      conf >= 60 &&
+      pressure >= 30
+    );
+  }
+
+  function sinalAceito(item) {
+    return sinalReal(item) || sinalPreLiveVip(item);
+  }
+
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
       .filter(sinalAceito)
