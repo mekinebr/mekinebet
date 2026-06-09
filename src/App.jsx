@@ -468,7 +468,7 @@ const gols = totalGols(item);
     const confidence = Number(item.confidence || item.confianca || 0);
     const market = String(item.market || item.mercado || "").toLowerCase();
 
-    if (!temStatsNumericasReais(item)) return "📡 AGUARDANDO STATS REAIS";
+    if (!temStatsNumericasReais(item)) return "📡 AGUARDANDO STATS";
 
     const totalDanger = stats.home.perigosos + stats.away.perigosos;
     const totalShots = stats.home.finalizacoes + stats.away.finalizacoes;
@@ -892,8 +892,10 @@ const gols = totalGols(item);
                   </div>
                 )}
 
-                {temStatsNumericasReais(item) ? (
-                <div className="betStats proStats" style={{ "--home": homeColor, "--away": awayColor }}>
+                <div className={`betStats proStats ${!temStatsNumericasReais(item) ? "statsWaiting" : ""}`} style={{ "--home": homeColor, "--away": awayColor }}>
+                  {!temStatsNumericasReais(item) && (
+                    <div className="statsInlineNotice">📡 Estatísticas aguardando dados reais</div>
+                  )}
                   <div className="statsTopGrid">
                     <div className="metricPair">
                       <small>ATAQUES</small>
@@ -983,12 +985,7 @@ const gols = totalGols(item);
                     </div>
                   </div>
                 </div>
-                ) : (
-                  <div className="statsMissingNotice">📡 Estatísticas não disponíveis para esta partida</div>
-                )}
-
-                {temStatsNumericasReais(item) && (
-                <div className="miniMap">
+<div className="miniMap">
                   <div className="eventBubble"><span>⚽</span><div><b>{status.replace("🔥", "")}</b><small>{item.pressure || 70}% pressão</small></div></div>
                   <div className="field3d">
                     <div className="grass"></div><div className="shade"></div><div className="midLine"></div><div className="centerCircle"></div><div className="boxLeft"></div><div className="boxRight"></div><div className="goalLeft"></div><div className="goalRight"></div>
@@ -996,7 +993,6 @@ const gols = totalGols(item);
                   </div>
                   <div className="mapStats"><span>Posse {stats.home.posse}% x {stats.away.posse}%</span><span>Final. {stats.home.finalizacoes} x {stats.away.finalizacoes}</span><span>Atq. {stats.home.ataques} x {stats.away.ataques}</span></div>
                 </div>
-                )}
 
                 <div className="flowCard">
                   <h3>CRONOLOGIA DA PARTIDA</h3>
