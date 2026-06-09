@@ -693,309 +693,113 @@ const gols = totalGols(item);
     const times = timesDoJogo(item);
     const eventosReais = Array.isArray(item.matchEvents) ? item.matchEvents : [];
 
-    const eventos = eventosReais
+    const eventMap = new Map();
+
+    eventosReais
       .map((ev) => normalizarEventoTimeline(ev, times, homeColor, awayColor))
-      .filter((ev) => ev.m <= current);
-
-    // Mantém a cronologia visual do script, mas remove eventos inventados.
-    // Sem stats reais: exibe apenas eventos reais da API.
-    if (!stats.real) return eventos;
-
-    const eventMap = new Map(eventos.map((ev) => [ev.m, ev]));
-
-    const homeWeight =
-      stats.home.ataques +
-      stats.home.perigosos * 1.5 +
-      stats.home.finalizacoes * 2.2 +
-      stats.home.noGol * 5 +
-      stats.home.cantos * 2.5;
-
-    const awayWeight =
-      stats.away.ataques +
-      stats.away.perigosos * 1.5 +
-      stats.away.finalizacoes * 2.2 +
-      stats.away.noGol * 5 +
-      stats.away.cantos * 2.5;
-
-    const totalWeight = Math.max(1, homeWeight + awayWeight);
-    const homeBias = (homeWeight - awayWeight) / totalWeight;
-
-    return Array.from({ length: current }, (_, i) => {
-      const minute = i + 1;
-
-      if (eventMap.has(minute)) {
-        return eventMap.get(minute);
-      }
-
-      const wave =
-        Math.sin((minute + index * 7) / 4) +
-        Math.cos((minute + stats.home.ataques + stats.away.perigosos) / 8) +
-        homeBias * 1.4;
-
-      const team = wave >= 0 ? "home" : "away";
-      const active = team === "home" ? stats.home : stats.away;
-      const passive = team === "home" ? stats.away : stats.home;
-
-      const activeForce =
-        active.perigosos * 1.5 +
-        active.noGol * 5 +
-        active.finalizacoes * 2 +
-        active.cantos * 2.2 +
-        active.ataques * 0.35;
-
-      const passiveForce =
-        passive.perigosos * 1.2 +
-        passive.noGol * 4 +
-        passive.finalizacoes * 1.5 +
-        passive.cantos * 1.6 +
-        passive.ataques * 0.25;
-
-      const balance = activeForce / Math.max(1, activeForce + passiveForce);
-      const seed = Math.abs(Math.sin((minute * 3.17 + active.perigosos * 1.9 + index * 13) / 7));
-      const fieldDepth = balance * 0.58 + seed * 0.42;
-      const level = fieldDepth > 0.72 ? 3 : fieldDepth > 0.38 ? 2 : 1;
-
-      return {
-        m: minute,
-        team,
-        level,
-        icon: "",
-        color: team === "home" ? homeColor : awayColor,
-        real: false
-      };
-    });
-  }
-
-
-  function jogoKey(item) {
-    const fixtureId = item.fixtureId || item.gameId || item.fixture?.id;
-    if (fixtureId) return `fixture-${fixtureId}`;
-
-    const t = timesDoJogo(item);
-    const data = String(item.fixtureDate || item.startTime || item.date || "").slice(0, 10);
-    return normalizar(`${t.casa}-${t.fora}-${data}-${item.league || ""}`);
-  }
-
-
-  function mercadoCumprido(item) {
-    const gols = totalGols(item || {});
-    const market = String(item?.market || item?.mercado || "").toLowerCase();
-
-    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
-    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
-    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) return true;
-    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) return true;
-
-    return false;
-  }
-
-  function sinalPreLiveVip(item) {
-    const type = String(item.type || item.tipo || "").toLowerCase();
-    const status = String(item.status || item.estado || "").toUpperCase();
-    const isPrelive = type.includes("pre") || status.includes("PRE");
-    const conf = Number(item.confidence || item.confianca || 0);
-    const pressure = Number(item.pressure || item.pressao || 0);
-    const mercado = String(item.market || item.mercado || "").trim();
-
-    return (
-      isPrelive &&
-      jogoFonteReal(item) &&
-      mercado !== "" &&
-      conf >= 62 &&
-      pressure >= 35
-    );
-  }
-
-  function sinalAceito(item) {
-    return sinalReal(item) || sinalPreLiveVip(item);
-  }
-
-
-  function scoreSinalForte(item) {
-    const conf = Number(item?.confidence || item?.confianca || 0);
-    const pressure = Number(item?.pressure || item?.pressao || 0);
-    const market = String(item?.market || item?.mercado || "").toLowerCase();
-    const gols = totalGols(item || {});
-    const statsBonus = temStatsNumericasReais(item || {}) ? 12 : 0;
-
-    let greenPenalty = 0;
-    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) greenPenalty = -80;
-    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) greenPenalty = -80;
-    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) greenPenalty = -80;
-    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) greenPenalty = -80;
-
-    const alertText = String(item?.alert || item?.alerta || "").toLowerCase();
-    const alertBonus =
-      alertText.includes("forte") ||
-      alertText.includes("real") ||
-      alertText.includes("🔥") ||
-      alertText.includes("🚨")
-        ? 18
-        : 0;
-
-    return conf + pressure * 0.45 + alertBonus + statsBonus + greenPenalty;
-  }
-
-  function melhorSinalDoItem(item) {
-    const mercados = Array.isArray(item.mercadosAtivos) && item.mercadosAtivos.length
-      ? item.mercadosAtivos
-      : [item];
-
-    const abertos = mercados.filter((m) => !mercadoCumprido(m));
-    return (abertos.length ? abertos : mercados)
-      .slice()
-      .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
-  }
-
-  function ultimoEventoReal(item) {
-    const eventos = Array.isArray(item.matchEvents) ? item.matchEvents : [];
-    if (!eventos.length) return null;
-
-    return eventos
-      .slice()
-      .sort((a, b) => toNumber(b.minute ?? b.elapsed ?? b.time?.elapsed, 0) - toNumber(a.minute ?? a.elapsed ?? a.time?.elapsed, 0))[0];
-  }
-
-  function estadoMiniCampo(item, stats, homeColor, awayColor) {
-    const current = Math.min(90, Math.max(1, minuto(item) || 1));
-    const ev = ultimoEventoReal(item);
-    const evText = `${ev?.type || ""} ${ev?.detail || ""} ${ev?.category || ""}`.toLowerCase();
-    const evMinute = ev ? toNumber(ev.minute ?? ev.elapsed ?? ev.time?.elapsed, current) : current;
-    const recent = ev && Math.abs(current - evMinute) <= 6;
+      .filter((ev) => ev.m <= current)
+      .forEach((ev) => {
+        const key = `${ev.m}-${ev.team}-${ev.icon || "event"}`;
+        eventMap.set(key, ev);
+      });
 
     const homePower =
-      stats.home.ataques +
-      stats.home.perigosos * 1.6 +
-      stats.home.finalizacoes * 3 +
-      stats.home.noGol * 6 +
-      stats.home.cantos * 2.5 +
-      stats.home.posse * 0.25;
+      stats.home.ataques * 0.8 +
+      stats.home.perigosos * 1.8 +
+      stats.home.finalizacoes * 4.5 +
+      stats.home.noGol * 8 +
+      stats.home.cantos * 3 +
+      stats.home.posse * 0.3;
 
     const awayPower =
-      stats.away.ataques +
-      stats.away.perigosos * 1.6 +
-      stats.away.finalizacoes * 3 +
-      stats.away.noGol * 6 +
-      stats.away.cantos * 2.5 +
-      stats.away.posse * 0.25;
+      stats.away.ataques * 0.8 +
+      stats.away.perigosos * 1.8 +
+      stats.away.finalizacoes * 4.5 +
+      stats.away.noGol * 8 +
+      stats.away.cantos * 3 +
+      stats.away.posse * 0.3;
 
-    const total = Math.max(1, homePower + awayPower);
-    let homePct = homePower / total;
+    const totalPower = Math.max(1, homePower + awayPower);
+    const homeShare = homePower / totalPower;
+    const awayShare = awayPower / totalPower;
 
-    if (!temStatsNumericasReais(item)) {
-      homePct = 0.5 + Math.sin(current / 5) * 0.16;
-    }
+    const scoreNums = String(item.score || "0-0").match(/\\d+/g) || [0, 0];
+    const homeGoals = Number(scoreNums[0] || 0);
+    const awayGoals = Number(scoreNums[1] || 0);
 
-    const attackingHome = homePct >= 0.5;
-    const direction = attackingHome ? 1 : -1;
-    const wave = Math.sin(Date.now() / 900 + current / 4) * 7;
-    const pressureX = attackingHome ? 52 + homePct * 38 : 48 - (1 - homePct) * 38;
-    const x = Math.max(8, Math.min(92, pressureX + wave));
-    const y = Math.max(18, Math.min(82, 50 + Math.cos(Date.now() / 800 + current / 3) * 18));
+    const goalsBias = Math.max(-0.18, Math.min(0.18, (homeGoals - awayGoals) * 0.055));
+    const homeDominance = Math.max(0.12, Math.min(0.88, homeShare + goalsBias));
+    const awayDominance = 1 - homeDominance;
 
-    let label = attackingHome ? "Ataque da casa" : "Ataque visitante";
-    let intensity = homePct > 0.62 || homePct < 0.38 ? "high" : "medium";
-
-    if (recent) {
-      if (evText.includes("goal") || evText.includes("gol")) {
-        label = "Gol registrado";
-        intensity = "goal";
-      } else if (evText.includes("corner") || evText.includes("canto")) {
-        label = "Escanteio registrado";
-        intensity = "high";
-      } else if (evText.includes("card") || evText.includes("cart")) {
-        label = "Cartão registrado";
-        intensity = "medium";
-      }
-    }
-
-    return {
-      x,
-      y,
-      color: attackingHome ? homeColor : awayColor,
-      label,
-      intensity,
-      attackingHome,
-      direction
-    };
-  }
-
-  function mercadoPeso(item) {
-    const cat = categoriaMercado(melhorSinal);
-    const conf = Number(item.confidence || item.confianca || 0);
-    const press = Number(item.pressure || item.pressao || 0);
-    const status = mercadoStatus(item);
-    let peso = conf + press * 0.35;
-
-    if (status.includes("🚨")) peso += 20;
-    if (status.includes("🔥")) peso += 14;
-    if (status.includes("✅")) peso += 8;
-    if (String(item.market || "").toLowerCase().includes("mais gol")) peso += 10;
-    if (cat.includes("OVER")) peso += 7;
-    if (cat === "BTTS") peso += 5;
-    if (cat === "CANTOS") peso += 4;
-    return peso;
-  }
-
-
-  function statsScore(item) {
-    const s = statsDoJogo(item);
-    return (
-      s.home.ataques + s.away.ataques +
-      s.home.perigosos + s.away.perigosos +
-      s.home.finalizacoes + s.away.finalizacoes +
-      s.home.noGol + s.away.noGol +
-      s.home.cantos + s.away.cantos +
-      s.home.posse + s.away.posse
-    );
-  }
-
-  function juntarSinaisDoMesmoJogo(lista = []) {
-    const mapa = new Map();
-
-    lista.forEach((item) => {
-      const key = jogoKey(item);
-      const atual = mapa.get(key);
-
-      if (!atual) {
-        mapa.set(key, {
-          ...item,
-          mercadosAtivos: [item],
-          melhorMercado: item
-        });
-        return;
-      }
-
-      const mercadosAtivos = [...(atual.mercadosAtivos || []), item]
-        .filter((m, idx, arr) => {
-          const assinatura = `${categoriaMercado(m)}-${String(m.market || m.mercado || "").toLowerCase()}`;
-          return arr.findIndex((x) => `${categoriaMercado(x)}-${String(x.market || x.mercado || "").toLowerCase()}` === assinatura) === idx;
-        })
-        .sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
-
-      const melhorMercado =
-        mercadosAtivos.find((m) => !mercadoCumprido(m)) ||
-        mercadosAtivos[0] ||
-        item;
-
-      const melhorStats = [atual, item, ...mercadosAtivos]
-        .slice()
-        .sort((a, b) => statsScore(b) - statsScore(a))[0] || atual;
-
-      mapa.set(key, {
-        ...atual,
-        ...melhorStats,
-        ...melhorMercado,
-        mercadosAtivos,
-        melhorMercado,
-        market: melhorMercado.market || melhorMercado.mercado || atual.market,
-        category: melhorMercado.category || melhorMercado.categoria || atual.category,
-        confidence: Math.max(...mercadosAtivos.map((m) => Number(m.confidence || m.confianca || 0))),
-        pressure: Math.max(...mercadosAtivos.map((m) => Number(m.pressure || m.pressao || 0)))
-      });
+    const eventsByMinute = new Map();
+    Array.from(eventMap.values()).forEach((ev) => {
+      if (!eventsByMinute.has(ev.m)) eventsByMinute.set(ev.m, []);
+      eventsByMinute.get(ev.m).push(ev);
     });
 
-    return Array.from(mapa.values());
+    const pressure = [];
+    let homeMomentum = homeDominance;
+    let awayMomentum = awayDominance;
+
+    for (let minute = 1; minute <= current; minute += 1) {
+      const phase =
+        Math.sin((minute + index * 3) / 5.2) * 0.18 +
+        Math.sin((minute + stats.home.perigosos + 3) / 11) * 0.12 -
+        Math.cos((minute + stats.away.perigosos + 5) / 9) * 0.10;
+
+      const matchSwing = Math.sin((minute / Math.max(1, current)) * Math.PI * 2 + index) * 0.08;
+      let homeMinute = homeDominance + phase + matchSwing;
+      let awayMinute = awayDominance - phase - matchSwing;
+
+      const minuteEvents = eventsByMinute.get(minute) || [];
+
+      minuteEvents.forEach((ev) => {
+        const boost = ev.icon === "⚽" ? 0.42 : ev.icon === "🚩" ? 0.24 : ev.icon === "🟨" ? 0.12 : 0.18;
+        if (ev.team === "home") homeMinute += boost;
+        if (ev.team === "away") awayMinute += boost;
+      });
+
+      const windowStart = Math.max(1, minute - 5);
+      const recentEvents = Array.from(eventsByMinute.entries())
+        .filter(([m]) => m >= windowStart && m <= minute)
+        .flatMap(([, arr]) => arr);
+
+      recentEvents.forEach((ev) => {
+        const boost = ev.icon === "⚽" ? 0.10 : ev.icon === "🚩" ? 0.07 : 0.04;
+        if (ev.team === "home") homeMinute += boost;
+        if (ev.team === "away") awayMinute += boost;
+      });
+
+      homeMinute = Math.max(0.03, homeMinute);
+      awayMinute = Math.max(0.03, awayMinute);
+
+      const totalMinute = homeMinute + awayMinute;
+      homeMomentum = homeMomentum * 0.72 + (homeMinute / totalMinute) * 0.28;
+      awayMomentum = awayMomentum * 0.72 + (awayMinute / totalMinute) * 0.28;
+
+      const homeRaw = homeMomentum * (0.52 + Math.abs(phase) * 0.75);
+      const awayRaw = awayMomentum * (0.52 + Math.abs(phase) * 0.75);
+
+      const homeLevel = Math.max(4, Math.min(34, Math.round(homeRaw * 42)));
+      const awayLevel = Math.max(4, Math.min(34, Math.round(awayRaw * 42)));
+
+      const eventWithIcon = minuteEvents.find((ev) => ev.icon);
+      const eventIcon = eventWithIcon?.icon || "";
+      const eventTeam = eventWithIcon?.team || "";
+
+      pressure.push({
+        m: minute,
+        homeLevel,
+        awayLevel,
+        homeColor,
+        awayColor,
+        eventIcon,
+        eventTeam,
+        events: minuteEvents
+      });
+    }
+
+    return pressure;
   }
 
   const sinaisFiltrados = useMemo(() => {
@@ -1253,15 +1057,28 @@ const gols = totalGols(item);
                     {events.map((ev, i) => (
                       <React.Fragment key={i}>
                         <span
-                          className={`flowSpike ${ev.team}`}
+                          className="flowSpike home"
                           style={{
                             left: timelineLeft(ev.m),
-                            height: `${ev.level === 3 ? 32 : ev.level === 2 ? 23 : 13}px`,
-                            background: ev.color,
-                            boxShadow: `0 0 8px ${ev.color}`
+                            height: `${ev.homeLevel}px`,
+                            background: ev.homeColor,
+                            boxShadow: `0 0 ${ev.homeLevel > 24 ? 10 : 4}px ${ev.homeColor}`
                           }}
                         />
-                        {ev.icon && <span className={`flowIcon ${ev.team}`} style={{ left: timelineLeft(ev.m) }}>{ev.icon}</span>}
+                        <span
+                          className="flowSpike away"
+                          style={{
+                            left: timelineLeft(ev.m),
+                            height: `${ev.awayLevel}px`,
+                            background: ev.awayColor,
+                            boxShadow: `0 0 ${ev.awayLevel > 24 ? 10 : 4}px ${ev.awayColor}`
+                          }}
+                        />
+                        {ev.eventIcon && (
+                          <span className={`flowIcon ${ev.eventTeam || "home"}`} style={{ left: timelineLeft(ev.m) }}>
+                            {ev.eventIcon}
+                          </span>
+                        )}
                       </React.Fragment>
                     ))}
                   </div>
@@ -1846,5 +1663,31 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
   width:0!important;
   min-width:0!important;
 }
+
+
+/* ===== CRONOLOGIA ESTILO SOFASCORE ===== */
+.flowCard{
+  background:linear-gradient(180deg,#07151b,#050b0f)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+}
+.flowWrap{
+  background:
+    linear-gradient(180deg,rgba(34,197,94,.08),transparent 49%,rgba(255,255,255,.10) 50%,transparent 51%,rgba(99,102,241,.08)),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px calc((100% - 51px)/90))!important;
+}
+.flowSpike{
+  width:3px!important;
+  border-radius:2px 2px 0 0!important;
+  opacity:.95!important;
+  transition:height .25s ease!important;
+}
+.flowSpike.home{bottom:50%!important;top:auto!important;margin-bottom:1px!important}
+.flowSpike.away{top:50%!important;bottom:auto!important;margin-top:1px!important;border-radius:0 0 2px 2px!important}
+.flowIcon{filter:drop-shadow(0 0 5px rgba(255,255,255,.85))!important;z-index:9!important}
+.flowIcon.home{bottom:calc(50% + 34px)!important}
+.flowIcon.away{top:calc(50% + 34px)!important}
+.middleLine{height:2px!important;background:rgba(255,255,255,.82)!important;box-shadow:0 0 6px rgba(255,255,255,.22)!important}
+.nowLine{width:2px!important;background:#ef4444!important;box-shadow:0 0 8px #ef4444!important}
+.flowLegend{border-top:1px solid rgba(255,255,255,.06)!important;padding-top:4px!important}
 
 `;
