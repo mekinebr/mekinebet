@@ -966,13 +966,95 @@ const gols = totalGols(item);
       .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
   }
 
+
+  function ultimoEventoReal(item) {
+    const eventos = Array.isArray(item?.matchEvents) ? item.matchEvents : [];
+    if (!eventos.length) return null;
+
+    return eventos
+      .slice()
+      .sort((a, b) => {
+        const mb = toNumber(b?.minute ?? b?.elapsed ?? b?.time?.elapsed, 0);
+        const ma = toNumber(a?.minute ?? a?.elapsed ?? a?.time?.elapsed, 0);
+        return mb - ma;
+      })[0];
+  }
+
+  function estadoMiniCampo(item, stats, homeColor, awayColor) {
+    const current = Math.min(90, Math.max(1, minuto(item) || 1));
+    const ev = ultimoEventoReal(item);
+    const evMinute = ev ? toNumber(ev.minute ?? ev.elapsed ?? ev.time?.elapsed, current) : current;
+    const recent = ev && Math.abs(current - evMinute) <= 6;
+    const evText = `${ev?.type || ""} ${ev?.detail || ""} ${ev?.category || ""} ${ev?.icon || ""}`.toLowerCase();
+
+    const homePower =
+      Number(stats?.home?.ataques || 0) * 0.8 +
+      Number(stats?.home?.perigosos || 0) * 1.8 +
+      Number(stats?.home?.finalizacoes || 0) * 4 +
+      Number(stats?.home?.noGol || 0) * 7 +
+      Number(stats?.home?.cantos || 0) * 2.5 +
+      Number(stats?.home?.posse || 0) * 0.35;
+
+    const awayPower =
+      Number(stats?.away?.ataques || 0) * 0.8 +
+      Number(stats?.away?.perigosos || 0) * 1.8 +
+      Number(stats?.away?.finalizacoes || 0) * 4 +
+      Number(stats?.away?.noGol || 0) * 7 +
+      Number(stats?.away?.cantos || 0) * 2.5 +
+      Number(stats?.away?.posse || 0) * 0.35;
+
+    const total = Math.max(1, homePower + awayPower);
+    let homePct = homePower / total;
+
+    if (!Number.isFinite(homePct) || total <= 1) {
+      homePct = 0.5;
+    }
+
+    const attackingHome = homePct >= 0.5;
+    const dominance = attackingHome ? homePct : 1 - homePct;
+    const waveX = Math.sin(current / 4) * 5;
+    const waveY = Math.cos(current / 5) * 15;
+
+    const x = attackingHome
+      ? Math.max(52, Math.min(92, 50 + dominance * 42 + waveX))
+      : Math.max(8, Math.min(48, 50 - dominance * 42 + waveX));
+
+    const y = Math.max(18, Math.min(82, 50 + waveY));
+
+    let label = attackingHome ? "Ataque da casa" : "Ataque visitante";
+    let intensity = dominance >= 0.62 ? "high" : "medium";
+
+    if (recent) {
+      if (evText.includes("goal") || evText.includes("gol") || evText.includes("⚽")) {
+        label = "Gol registrado";
+        intensity = "goal";
+      } else if (evText.includes("corner") || evText.includes("canto") || evText.includes("🚩")) {
+        label = "Escanteio registrado";
+        intensity = "high";
+      } else if (evText.includes("card") || evText.includes("cart") || evText.includes("🟨") || evText.includes("🟥")) {
+        label = "Cartão registrado";
+        intensity = "medium";
+      }
+    }
+
+    return {
+      x,
+      y,
+      color: attackingHome ? homeColor : awayColor,
+      label,
+      intensity,
+      attackingHome,
+      dominance
+    };
+  }
+
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
       .filter(sinalAceito)
       .filter((item) => {
         const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
-        const cat = categoriaMercado(item);
+        const cat = categoriaMercado(melhorSinal);
         if (filtro === "TODOS") return jogoAoVivoReal(item);
         if (filtro === "LIVE") return jogoAoVivoReal(item);
         if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
@@ -1039,7 +1121,7 @@ const gols = totalGols(item);
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
             const melhorSinal = melhorSinalDoItem(item);
-            const status = mercadoStatus(item);
+            const status = mercadoStatus(melhorSinal);
             const cat = categoriaMercado(item);
             const vip = isVip(item);
             const liveReal = item.type === "live";
