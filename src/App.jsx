@@ -824,6 +824,75 @@ const gols = totalGols(item);
     return sinalReal(item) || sinalPreLiveVip(item);
   }
 
+
+  function statsScore(item) {
+    const s = statsDoJogo(item);
+    return (
+      s.home.ataques + s.away.ataques +
+      s.home.perigosos + s.away.perigosos +
+      s.home.finalizacoes + s.away.finalizacoes +
+      s.home.noGol + s.away.noGol +
+      s.home.cantos + s.away.cantos +
+      s.home.posse + s.away.posse +
+      (s.real ? 1000 : 0)
+    );
+  }
+
+  function chaveJogo(item) {
+    return String(
+      item.fixtureId ||
+      item.gameId ||
+      item.fixture?.id ||
+      item.id ||
+      tituloJogo(item)
+    );
+  }
+
+  function juntarSinaisDoMesmoJogo(lista = []) {
+    const mapa = new Map();
+
+    lista.forEach((item) => {
+      const key = chaveJogo(item);
+      const atual = mapa.get(key);
+
+      if (!atual) {
+        mapa.set(key, {
+          ...item,
+          mercadosAtivos: [item],
+        });
+        return;
+      }
+
+      const mercadosAtivos = [...(atual.mercadosAtivos || []), item]
+        .filter(Boolean)
+        .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a));
+
+      const melhorMercado =
+        mercadosAtivos.find((m) => !mercadoCumprido(m)) ||
+        mercadosAtivos[0] ||
+        item;
+
+      const melhorBase =
+        statsScore(item) > statsScore(atual)
+          ? item
+          : atual;
+
+      mapa.set(key, {
+        ...atual,
+        ...melhorBase,
+        ...melhorMercado,
+        mercadosAtivos,
+        melhorMercado,
+        market: melhorMercado.market || melhorMercado.mercado || atual.market,
+        category: melhorMercado.category || melhorMercado.categoria || atual.category,
+        confidence: Math.max(...mercadosAtivos.map((m) => Number(m.confidence || m.confianca || 0))),
+        pressure: Math.max(...mercadosAtivos.map((m) => Number(m.pressure || m.pressao || 0))),
+      });
+    });
+
+    return Array.from(mapa.values());
+  }
+
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
       .filter(sinalAceito)
