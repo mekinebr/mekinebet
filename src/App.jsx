@@ -437,9 +437,7 @@ export default function App() {
     if (!sinalReal(item)) return "❌ SEM SINAL REAL";
 
     const stats = statsDoJogo(item);
-            const statsOk = temEstatisticasNumericas(item);
-            const statsOk = temEstatisticasNumericas(item);
-    const gols = totalGols(item);
+const gols = totalGols(item);
     const min = minuto(item);
     const pressure = Number(item.pressure || item.pressao || 0);
     const confidence = Number(item.confidence || item.confianca || 0);
@@ -551,8 +549,7 @@ export default function App() {
 
     const current = Math.min(90, Math.max(1, minuto(item) || 1));
     const stats = statsDoJogo(item);
-            const statsOk = temEstatisticasNumericas(item);
-    const times = timesDoJogo(item);
+const times = timesDoJogo(item);
     const eventosReais = Array.isArray(item.matchEvents) ? item.matchEvents : [];
 
     const eventos = eventosReais
@@ -825,8 +822,7 @@ export default function App() {
         <main className="grid">
           {sinaisFiltrados.map((item, index) => {
             const stats = statsDoJogo(item);
-            const statsOk = temEstatisticasNumericas(item);
-            const status = mercadoStatus(item);
+const status = mercadoStatus(item);
             const cat = categoriaMercado(item);
             const vip = isVip(item);
             const liveReal = item.type === "live";
