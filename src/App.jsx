@@ -636,6 +636,30 @@ const gols = totalGols(item);
     return "📊 MONITORANDO REAL";
   }
 
+
+  function mercadoPeso(item) {
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
+    const conf = Number(item?.confidence || item?.confianca || 0);
+    const pressure = Number(item?.pressure || item?.pressao || 0);
+    const gols = totalGols(item || {});
+    let peso = conf + pressure * 0.4;
+
+    if (market.includes("mais") || market.includes("gol")) peso += 18;
+    if (market.includes("over") || market.includes("0.5") || market.includes("0,5")) peso += 14;
+    if (market.includes("1.5") || market.includes("1,5")) peso += 12;
+    if (market.includes("2.5") || market.includes("2,5")) peso += 10;
+    if (market.includes("btts") || market.includes("ambas")) peso += 9;
+    if (market.includes("canto") || market.includes("corner")) peso += 7;
+    if (market.includes("cart") || market.includes("card")) peso += 5;
+
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) peso -= 100;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) peso -= 100;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) peso -= 100;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) peso -= 100;
+
+    return peso;
+  }
+
   function categoriaMercado(item) {
     const market = String(item.market || "").toLowerCase();
     if (market.includes("0.5") || market.includes("0,5")) return "OVER 0,5";
