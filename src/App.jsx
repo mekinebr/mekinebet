@@ -732,43 +732,27 @@ const melhorSinal = melhorSinalDoItem(item);
     const homeGoals = Number(scoreNums[0] || 0);
     const awayGoals = Number(scoreNums[1] || 0);
 
-    const homeBase =
+    const homeIndex =
       stats.home.ataques * 0.12 +
-      stats.home.perigosos * 1.15 +
+      stats.home.perigosos * 1.25 +
       stats.home.finalizacoes * 2.8 +
       stats.home.noGol * 6.5 +
-      stats.home.cantos * 1.8 +
+      stats.home.cantos * 1.7 +
       stats.home.posse * 0.05 +
-      homeGoals * 10;
+      homeGoals * 9;
 
-    const awayBase =
+    const awayIndex =
       stats.away.ataques * 0.12 +
-      stats.away.perigosos * 1.15 +
+      stats.away.perigosos * 1.25 +
       stats.away.finalizacoes * 2.8 +
       stats.away.noGol * 6.5 +
-      stats.away.cantos * 1.8 +
+      stats.away.cantos * 1.7 +
       stats.away.posse * 0.05 +
-      awayGoals * 10;
+      awayGoals * 9;
 
-    const totalBase = Math.max(1, homeBase + awayBase);
-    const homeShare = homeBase / totalBase;
-    const awayShare = awayBase / totalBase;
-
-    const homeRates = {
-      atq: stats.home.ataques / Math.max(1, current),
-      per: stats.home.perigosos / Math.max(1, current),
-      fin: stats.home.finalizacoes / Math.max(1, current),
-      gol: stats.home.noGol / Math.max(1, current),
-      canto: stats.home.cantos / Math.max(1, current)
-    };
-
-    const awayRates = {
-      atq: stats.away.ataques / Math.max(1, current),
-      per: stats.away.perigosos / Math.max(1, current),
-      fin: stats.away.finalizacoes / Math.max(1, current),
-      gol: stats.away.noGol / Math.max(1, current),
-      canto: stats.away.cantos / Math.max(1, current)
-    };
+    const totalIndex = Math.max(1, homeIndex + awayIndex);
+    const homeShare = homeIndex / totalIndex;
+    const awayShare = awayIndex / totalIndex;
 
     const timeline = [];
     let lastTeam = homeShare >= awayShare ? "home" : "away";
@@ -776,54 +760,42 @@ const melhorSinal = melhorSinalDoItem(item);
 
     for (let minute = 1; minute <= current; minute += 1) {
       const minuteEvents = eventsByMinute.get(minute) || [];
-      const recentEvents = eventos.filter((ev) => ev.m >= minute - 3 && ev.m <= minute);
+      const recentEvents = eventos.filter((ev) => ev.m >= minute - 2 && ev.m <= minute);
 
-      const block = Math.floor((minute - 1) / 5);
-      const homePulse = Math.abs(Math.sin((block + 1) * 1.37 + index * 0.51 + minute * 0.09));
-      const awayPulse = Math.abs(Math.cos((block + 2) * 1.29 + index * 0.43 + minute * 0.10));
+      const group = Math.floor((minute - 1) / 3);
+      const homePulse = Math.abs(Math.sin(group * 1.13 + index * 0.47 + minute * 0.05));
+      const awayPulse = Math.abs(Math.cos(group * 1.07 + index * 0.39 + minute * 0.06));
 
       let homeMoment =
-        homeShare * 50 +
-        homeRates.atq * 3 +
-        homeRates.per * 24 +
-        homeRates.fin * 24 +
-        homeRates.gol * 46 +
-        homeRates.canto * 15 +
-        homePulse * 15;
+        homeShare * 54 +
+        (stats.home.ataques / Math.max(1, current)) * 2 +
+        (stats.home.perigosos / Math.max(1, current)) * 26 +
+        (stats.home.finalizacoes / Math.max(1, current)) * 30 +
+        (stats.home.noGol / Math.max(1, current)) * 65 +
+        homePulse * 13;
 
       let awayMoment =
-        awayShare * 50 +
-        awayRates.atq * 3 +
-        awayRates.per * 24 +
-        awayRates.fin * 24 +
-        awayRates.gol * 46 +
-        awayRates.canto * 15 +
-        awayPulse * 15;
+        awayShare * 54 +
+        (stats.away.ataques / Math.max(1, current)) * 2 +
+        (stats.away.perigosos / Math.max(1, current)) * 26 +
+        (stats.away.finalizacoes / Math.max(1, current)) * 30 +
+        (stats.away.noGol / Math.max(1, current)) * 65 +
+        awayPulse * 13;
 
       recentEvents.forEach((ev) => {
-        const boost =
-          ev.icon === "⚽" ? 65 :
-          ev.icon === "🚩" ? 26 :
-          ev.icon === "🟨" ? 4 :
-          18;
-
+        const boost = ev.icon === "⚽" ? 45 : ev.icon === "🚩" ? 20 : ev.icon === "🟨" ? 2 : 12;
         if (ev.team === "home") homeMoment += boost;
         if (ev.team === "away") awayMoment += boost;
       });
 
       minuteEvents.forEach((ev) => {
-        const boost =
-          ev.icon === "⚽" ? 100 :
-          ev.icon === "🚩" ? 38 :
-          ev.icon === "🟨" ? 6 :
-          28;
-
+        const boost = ev.icon === "⚽" ? 80 : ev.icon === "🚩" ? 30 : ev.icon === "🟨" ? 4 : 20;
         if (ev.team === "home") homeMoment += boost;
         if (ev.team === "away") awayMoment += boost;
       });
 
-      if (lastTeam === "home") homeMoment += 4;
-      if (lastTeam === "away") awayMoment += 4;
+      if (lastTeam === "home") homeMoment += 2;
+      if (lastTeam === "away") awayMoment += 2;
 
       const team = homeMoment >= awayMoment ? "home" : "away";
       streak = team === lastTeam ? streak + 1 : 1;
@@ -831,48 +803,44 @@ const melhorSinal = melhorSinalDoItem(item);
 
       const active = team === "home" ? stats.home : stats.away;
       const passive = team === "home" ? stats.away : stats.home;
-      const activeRates = team === "home" ? homeRates : awayRates;
       const activeMoment = team === "home" ? homeMoment : awayMoment;
       const passiveMoment = team === "home" ? awayMoment : homeMoment;
 
       const ratio = activeMoment / Math.max(1, activeMoment + passiveMoment);
       const diff = activeMoment - passiveMoment;
 
-      let level = 8;
+      const dangerScore =
+        Math.max(0, diff) * 0.45 +
+        (active.perigosos > passive.perigosos ? 8 : 0) +
+        (active.finalizacoes > passive.finalizacoes ? 8 : 0) +
+        (active.noGol > passive.noGol ? 14 : 0) +
+        (streak >= 4 ? 4 : 0) +
+        ratio * 22;
+
+      let level = 6;
       let levelName = "fraco";
 
-      const goalThreat =
-        activeRates.gol * 100 +
-        activeRates.fin * 38 +
-        activeRates.per * 32 +
-        activeRates.canto * 18 +
-        Math.max(0, diff) * 0.35 +
-        (active.noGol > passive.noGol ? 8 : 0) +
-        (active.finalizacoes > passive.finalizacoes ? 5 : 0) +
-        (active.perigosos > passive.perigosos ? 4 : 0) +
-        (streak >= 4 ? 4 : 0);
-
-      if (goalThreat >= 38 || ratio >= 0.78 || activeRates.gol >= 0.08) {
-        level = 36;
+      if (dangerScore >= 44 || active.noGol >= passive.noGol + 3) {
+        level = 34;
         levelName = "quaseGol";
-      } else if (goalThreat >= 25 || ratio >= 0.68 || activeRates.fin >= 0.16) {
-        level = 27;
+      } else if (dangerScore >= 32) {
+        level = 25;
         levelName = "clara";
-      } else if (goalThreat >= 14 || ratio >= 0.58 || activeRates.per >= 0.28) {
-        level = 18;
+      } else if (dangerScore >= 22) {
+        level = 16;
         levelName = "perigoso";
       }
 
       minuteEvents.forEach((ev) => {
         if (ev.team === team) {
           if (ev.icon === "⚽") {
-            level = 42;
+            level = 38;
             levelName = "gol";
           } else if (ev.icon === "🚩") {
-            level = Math.max(level, 27);
-            levelName = levelName === "fraco" || levelName === "perigoso" ? "clara" : levelName;
+            level = Math.max(level, 25);
+            if (levelName === "fraco" || levelName === "perigoso") levelName = "clara";
           } else if (ev.icon !== "🟨") {
-            level = Math.max(level, 22);
+            level = Math.max(level, 16);
             if (levelName === "fraco") levelName = "perigoso";
           }
         }
@@ -2126,5 +2094,41 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .flowIcon.home{bottom:calc(50% + 37px)!important}
 .flowIcon.away{top:calc(50% + 37px)!important}
+
+
+/* ===== CRONOLOGIA MAIS CLARA E LEGÍVEL ===== */
+.flowCard{
+  padding:6px!important;
+}
+.flowCard h3:after{
+  content:"  • fraco | perigoso | chance | gol";
+  color:#94a3b8;
+  font-size:8px;
+}
+.flowWrap{
+  height:88px!important;
+  background:
+    linear-gradient(180deg,rgba(0,255,135,.04),transparent 49%,rgba(255,255,255,.20) 50%,transparent 51%,rgba(99,102,241,.04)),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.055) 0 1px,transparent 1px calc((100% - 51px)/90))!important;
+}
+.flowSpike{
+  width:2px!important;
+  border-radius:999px!important;
+  opacity:.88!important;
+}
+.flowSpike.home{bottom:50%!important;top:auto!important;margin-bottom:1px!important}
+.flowSpike.away{top:50%!important;bottom:auto!important;margin-top:1px!important}
+.middleLine{
+  height:2px!important;
+  background:rgba(255,255,255,.9)!important;
+}
+.flowMinuteScale{
+  opacity:.9!important;
+}
+.flowLegend{
+  font-size:7px!important;
+}
+.flowIcon.home{bottom:calc(50% + 32px)!important}
+.flowIcon.away{top:calc(50% + 32px)!important}
 
 `;
