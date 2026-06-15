@@ -579,7 +579,8 @@ export default function App() {
 
     if (!sinalReal(item)) return "❌ SEM SINAL REAL";
 
-    const stats = statsDoJogo(item);
+    const stats = statsDoJogo(item);const melhorSinal = melhorSinalDoItem(item);
+            
 const melhorSinal = melhorSinalDoItem(item);
             const gols = totalGols(item);
     const min = minuto(item);
@@ -732,40 +733,40 @@ const melhorSinal = melhorSinalDoItem(item);
     const homeGoals = Number(scoreNums[0] || 0);
     const awayGoals = Number(scoreNums[1] || 0);
 
-    const homePressureTotal =
+    const homeStrength =
       stats.home.ataques * 0.08 +
-      stats.home.perigosos * 0.70 +
-      stats.home.finalizacoes * 2.20 +
-      stats.home.noGol * 5.00 +
-      stats.home.cantos * 1.40 +
+      stats.home.perigosos * 0.75 +
+      stats.home.finalizacoes * 2.25 +
+      stats.home.noGol * 5.5 +
+      stats.home.cantos * 1.5 +
       homeGoals * 7;
 
-    const awayPressureTotal =
+    const awayStrength =
       stats.away.ataques * 0.08 +
-      stats.away.perigosos * 0.70 +
-      stats.away.finalizacoes * 2.20 +
-      stats.away.noGol * 5.00 +
-      stats.away.cantos * 1.40 +
+      stats.away.perigosos * 0.75 +
+      stats.away.finalizacoes * 2.25 +
+      stats.away.noGol * 5.5 +
+      stats.away.cantos * 1.5 +
       awayGoals * 7;
 
-    const total = Math.max(1, homePressureTotal + awayPressureTotal);
-    const homeShare = homePressureTotal / total;
-    const awayShare = awayPressureTotal / total;
+    const totalStrength = Math.max(1, homeStrength + awayStrength);
+    const homeShare = homeStrength / totalStrength;
+    const awayShare = awayStrength / totalStrength;
 
-    const homePerMinute = {
+    const homeRate = {
       atq: stats.home.ataques / Math.max(1, current),
-      danger: stats.home.perigosos / Math.max(1, current),
-      shots: stats.home.finalizacoes / Math.max(1, current),
-      onGoal: stats.home.noGol / Math.max(1, current),
-      corners: stats.home.cantos / Math.max(1, current)
+      per: stats.home.perigosos / Math.max(1, current),
+      fin: stats.home.finalizacoes / Math.max(1, current),
+      sog: stats.home.noGol / Math.max(1, current),
+      cor: stats.home.cantos / Math.max(1, current)
     };
 
-    const awayPerMinute = {
+    const awayRate = {
       atq: stats.away.ataques / Math.max(1, current),
-      danger: stats.away.perigosos / Math.max(1, current),
-      shots: stats.away.finalizacoes / Math.max(1, current),
-      onGoal: stats.away.noGol / Math.max(1, current),
-      corners: stats.away.cantos / Math.max(1, current)
+      per: stats.away.perigosos / Math.max(1, current),
+      fin: stats.away.finalizacoes / Math.max(1, current),
+      sog: stats.away.noGol / Math.max(1, current),
+      cor: stats.away.cantos / Math.max(1, current)
     };
 
     const timeline = [];
@@ -776,42 +777,42 @@ const melhorSinal = melhorSinalDoItem(item);
       const minuteEvents = eventsByMinute.get(minute) || [];
       const recentEvents = eventos.filter((ev) => ev.m >= minute - 2 && ev.m <= minute);
 
-      const group = Math.floor((minute - 1) / 4);
-      const homeSeed = Math.abs(Math.sin((group + 1) * 1.91 + index * 0.31 + minute * 0.04));
-      const awaySeed = Math.abs(Math.cos((group + 2) * 1.77 + index * 0.29 + minute * 0.05));
+      const segment = Math.floor((minute - 1) / 3);
+      const homePulse = Math.abs(Math.sin(segment * 1.29 + minute * 0.07 + index * 0.51));
+      const awayPulse = Math.abs(Math.cos(segment * 1.23 + minute * 0.08 + index * 0.43));
 
       let homeMoment =
-        homeShare * 38 +
-        homePerMinute.atq * 1.2 +
-        homePerMinute.danger * 18 +
-        homePerMinute.shots * 30 +
-        homePerMinute.onGoal * 58 +
-        homePerMinute.corners * 16 +
-        homeSeed * 10;
+        homeShare * 32 +
+        homeRate.atq * 1.1 +
+        homeRate.per * 20 +
+        homeRate.fin * 36 +
+        homeRate.sog * 80 +
+        homeRate.cor * 18 +
+        homePulse * 8;
 
       let awayMoment =
-        awayShare * 38 +
-        awayPerMinute.atq * 1.2 +
-        awayPerMinute.danger * 18 +
-        awayPerMinute.shots * 30 +
-        awayPerMinute.onGoal * 58 +
-        awayPerMinute.corners * 16 +
-        awaySeed * 10;
+        awayShare * 32 +
+        awayRate.atq * 1.1 +
+        awayRate.per * 20 +
+        awayRate.fin * 36 +
+        awayRate.sog * 80 +
+        awayRate.cor * 18 +
+        awayPulse * 8;
 
       recentEvents.forEach((ev) => {
-        const boost = ev.icon === "⚽" ? 46 : ev.icon === "🚩" ? 18 : ev.icon === "🟨" ? 2 : 10;
+        const boost = ev.icon === "⚽" ? 42 : ev.icon === "🚩" ? 16 : ev.icon === "🟨" ? 2 : 9;
         if (ev.team === "home") homeMoment += boost;
         if (ev.team === "away") awayMoment += boost;
       });
 
       minuteEvents.forEach((ev) => {
-        const boost = ev.icon === "⚽" ? 90 : ev.icon === "🚩" ? 28 : ev.icon === "🟨" ? 4 : 18;
+        const boost = ev.icon === "⚽" ? 90 : ev.icon === "🚩" ? 26 : ev.icon === "🟨" ? 4 : 16;
         if (ev.team === "home") homeMoment += boost;
         if (ev.team === "away") awayMoment += boost;
       });
 
-      if (lastTeam === "home") homeMoment += 1.5;
-      if (lastTeam === "away") awayMoment += 1.5;
+      if (lastTeam === "home") homeMoment += 1.2;
+      if (lastTeam === "away") awayMoment += 1.2;
 
       const team = homeMoment >= awayMoment ? "home" : "away";
       streak = team === lastTeam ? streak + 1 : 1;
@@ -819,34 +820,33 @@ const melhorSinal = melhorSinalDoItem(item);
 
       const active = team === "home" ? stats.home : stats.away;
       const passive = team === "home" ? stats.away : stats.home;
-      const activeRate = team === "home" ? homePerMinute : awayPerMinute;
+      const activeRate = team === "home" ? homeRate : awayRate;
       const activeMoment = team === "home" ? homeMoment : awayMoment;
       const passiveMoment = team === "home" ? awayMoment : homeMoment;
 
-      const diff = activeMoment - passiveMoment;
+      const diff = Math.max(0, activeMoment - passiveMoment);
       const ratio = activeMoment / Math.max(1, activeMoment + passiveMoment);
 
       const threat =
-        Math.max(0, diff) * 0.32 +
-        activeRate.danger * 20 +
-        activeRate.shots * 36 +
-        activeRate.onGoal * 75 +
-        activeRate.corners * 16 +
-        (active.perigosos > passive.perigosos ? 3 : 0) +
-        (active.finalizacoes > passive.finalizacoes ? 4 : 0) +
-        (active.noGol > passive.noGol ? 6 : 0) +
+        diff * 0.26 +
+        activeRate.per * 18 +
+        activeRate.fin * 42 +
+        activeRate.sog * 95 +
+        activeRate.cor * 18 +
+        (active.noGol > passive.noGol ? 5 : 0) +
+        (active.finalizacoes > passive.finalizacoes ? 3 : 0) +
         (streak >= 5 ? 2 : 0);
 
       let level = 5;
       let levelName = "fraco";
 
-      if (threat >= 48 || activeRate.onGoal >= 0.11 || ratio >= 0.82) {
-        level = 32;
+      if (threat >= 52 || activeRate.sog >= 0.12 || ratio >= 0.84) {
+        level = 31;
         levelName = "quaseGol";
-      } else if (threat >= 32 || activeRate.shots >= 0.22 || ratio >= 0.72) {
+      } else if (threat >= 36 || activeRate.fin >= 0.24 || ratio >= 0.74) {
         level = 21;
         levelName = "clara";
-      } else if (threat >= 18 || activeRate.danger >= 0.36 || ratio >= 0.61) {
+      } else if (threat >= 20 || activeRate.per >= 0.38 || ratio >= 0.63) {
         level = 12;
         levelName = "perigoso";
       }
@@ -887,22 +887,7 @@ const melhorSinal = melhorSinalDoItem(item);
   }
 
 
-  function sinalPreLiveVip(item) {
-    const type = String(item.type || item.tipo || "").toLowerCase();
-    const status = String(item.status || item.estado || "").toUpperCase();
-    const isPrelive = type.includes("pre") || status.includes("PRE");
-    const conf = Number(item.confidence || item.confianca || 0);
-    const pressure = Number(item.pressure || item.pressao || 0);
-    const mercado = String(item.market || item.mercado || "").trim();
 
-    return (
-      isPrelive &&
-      jogoFonteReal(item) &&
-      mercado !== "" &&
-      conf >= 60 &&
-      pressure >= 30
-    );
-  }
 
   function sinalAceito(item) {
     return sinalReal(item) || sinalPreLiveVip(item);
@@ -922,109 +907,16 @@ const melhorSinal = melhorSinalDoItem(item);
     );
   }
 
-  function chaveJogo(item) {
-    return String(
-      item.fixtureId ||
-      item.gameId ||
-      item.fixture?.id ||
-      item.id ||
-      tituloJogo(item)
-    );
-  }
-
-  function juntarSinaisDoMesmoJogo(lista = []) {
-    const mapa = new Map();
-
-    lista.forEach((item) => {
-      const key = chaveJogo(item);
-      const atual = mapa.get(key);
-
-      if (!atual) {
-        mapa.set(key, {
-          ...item,
-          mercadosAtivos: [item],
-        });
-        return;
-      }
-
-      const mercadosAtivos = [...(atual.mercadosAtivos || []), item]
-        .filter(Boolean)
-        .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a));
-
-      const melhorMercado =
-        mercadosAtivos.find((m) => !mercadoCumprido(m)) ||
-        mercadosAtivos[0] ||
-        item;
-
-      const melhorBase =
-        statsScore(item) > statsScore(atual)
-          ? item
-          : atual;
-
-      mapa.set(key, {
-        ...atual,
-        ...melhorBase,
-        ...melhorMercado,
-        mercadosAtivos,
-        melhorMercado,
-        market: melhorMercado.market || melhorMercado.mercado || atual.market,
-        category: melhorMercado.category || melhorMercado.categoria || atual.category,
-        confidence: Math.max(...mercadosAtivos.map((m) => Number(m.confidence || m.confianca || 0))),
-        pressure: Math.max(...mercadosAtivos.map((m) => Number(m.pressure || m.pressao || 0))),
-      });
-    });
-
-    return Array.from(mapa.values());
-  }
 
 
-  function mercadoCumprido(item) {
-    const gols = totalGols(item || {});
-    const market = String(item?.market || item?.mercado || "").toLowerCase();
 
-    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
-    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
-    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) return true;
-    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) return true;
 
-    return false;
-  }
 
-  function scoreSinalForte(item) {
-    const conf = Number(item?.confidence || item?.confianca || 0);
-    const pressure = Number(item?.pressure || item?.pressao || 0);
-    const market = String(item?.market || item?.mercado || "").toLowerCase();
-    const gols = totalGols(item || {});
-    let score = conf + pressure * 0.45;
 
-    if (market.includes("mais") || market.includes("gol")) score += 18;
-    if (market.includes("over") || market.includes("0.5") || market.includes("0,5")) score += 14;
-    if (market.includes("1.5") || market.includes("1,5")) score += 12;
-    if (market.includes("2.5") || market.includes("2,5")) score += 10;
-    if (market.includes("btts") || market.includes("ambas")) score += 9;
-    if (market.includes("canto") || market.includes("corner")) score += 7;
-    if (market.includes("cart") || market.includes("card")) score += 5;
 
-    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) score -= 100;
-    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) score -= 100;
-    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) score -= 100;
-    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) score -= 100;
 
-    return score;
-  }
 
-  function melhorSinalDoItem(item) {
-    const mercados = Array.isArray(item?.mercadosAtivos) && item.mercadosAtivos.length
-      ? item.mercadosAtivos
-      : [item];
 
-    const abertos = mercados.filter((m) => !mercadoCumprido(m));
-    const base = abertos.length ? abertos : mercados;
-
-    return base
-      .slice()
-      .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
-  }
 
 
   function ultimoEventoReal(item) {
@@ -1108,6 +1000,96 @@ const melhorSinal = melhorSinalDoItem(item);
     };
   }
 
+
+  function etapaSinal(item) {
+    const min = minuto(item);
+    return min > 0 && min <= 45 ? "HT" : "FT";
+  }
+
+  function sinalPreLiveVip(item) {
+    const type = String(item?.type || item?.tipo || "").toLowerCase();
+    const status = String(item?.status || item?.estado || item?.fixture?.status?.short || "").toUpperCase();
+    const min = minuto(item);
+    const mercado = String(item?.market || item?.mercado || "").trim();
+    const conf = Number(item?.confidence || item?.confianca || 0);
+    const pre = type.includes("pre") || status.includes("NS") || status.includes("TBD") || status.includes("PRE") || min === 0;
+    return pre && jogoFonteReal(item) && mercado !== "" && conf >= 45;
+  }
+
+  function mercadosPreLiveVipDoJogo(item) {
+    const conf = Number(item?.confidence || item?.confianca || 55);
+    const pressure = Number(item?.pressure || item?.pressao || 50);
+    const base = Math.max(35, Math.min(88, Math.round(conf * 0.65 + pressure * 0.35)));
+    const nome = tituloJogo(item);
+
+    return [
+      { ...item, market: "Mais gols FT", confidence: Math.min(91, base + 7), preLiveVip: true, preTipo: "MAIS GOL", match: item.match || nome },
+      { ...item, market: "Ambas marcam", confidence: Math.max(35, base - 3), preLiveVip: true, preTipo: "AMBAS", match: item.match || nome },
+      { ...item, market: "Mais cantos", confidence: Math.max(35, base - 5), preLiveVip: true, preTipo: "CANTOS", match: item.match || nome },
+      { ...item, market: "Mais cartões", confidence: Math.max(35, base - 8), preLiveVip: true, preTipo: "CARTÕES", match: item.match || nome },
+      { ...item, market: "Favorito com maior força", confidence: Math.max(35, base - 6), preLiveVip: true, preTipo: "FAVORITO", match: item.match || nome },
+      { ...item, market: "Possível zebra", confidence: Math.max(25, base - 18), preLiveVip: true, preTipo: "ZEBRA", match: item.match || nome }
+    ].filter((s) => Number(s.confidence || 0) >= 40);
+  }
+
+  function mercadoCumprido(item) {
+    const gols = totalGols(item || {});
+    const market = String(item?.market || item?.mercado || "").toLowerCase();
+    if ((market.includes("0.5") || market.includes("0,5")) && gols >= 1) return true;
+    if ((market.includes("1.5") || market.includes("1,5")) && gols >= 2) return true;
+    if ((market.includes("2.5") || market.includes("2,5")) && gols >= 3) return true;
+    if ((market.includes("3.5") || market.includes("3,5")) && gols >= 4) return true;
+    return false;
+  }
+
+  function scoreSinalForte(item) {
+    const conf = Number(item?.confidence || item?.confianca || 0);
+    const pressure = Number(item?.pressure || item?.pressao || 0);
+    const stats = statsDoJogo(item || {});
+    const statsBonus = stats.home.perigosos + stats.away.perigosos + (stats.home.noGol + stats.away.noGol) * 3 + (stats.home.finalizacoes + stats.away.finalizacoes) * 1.5;
+    let score = conf + pressure * 0.45 + statsBonus * 0.08;
+    if (etapaSinal(item) === "FT") score += 4;
+    if (mercadoCumprido(item)) score -= 120;
+    if (String(item?.alert || "").includes("🔥") || String(item?.alert || "").includes("🚨")) score += 16;
+    return score;
+  }
+
+  function melhorSinalDoItem(item) {
+    const mercados = Array.isArray(item?.mercadosAtivos) && item.mercadosAtivos.length ? item.mercadosAtivos : [item];
+    const abertos = mercados.filter((m) => !mercadoCumprido(m));
+    const base = abertos.length ? abertos : mercados;
+    return base.slice().sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a))[0] || item;
+  }
+
+  function chaveJogo(item) {
+    return String(item?.fixtureId || item?.gameId || item?.fixture?.id || item?.id || tituloJogo(item));
+  }
+
+  function juntarSinaisDoMesmoJogo(lista = []) {
+    const mapa = new Map();
+    lista.forEach((item) => {
+      const key = chaveJogo(item);
+      const atual = mapa.get(key);
+      if (!atual) {
+        mapa.set(key, { ...item, mercadosAtivos: [item] });
+        return;
+      }
+      const mercadosAtivos = [...(atual.mercadosAtivos || []), item].filter(Boolean).sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a));
+      const melhor = melhorSinalDoItem({ ...atual, mercadosAtivos });
+      mapa.set(key, {
+        ...atual,
+        ...item,
+        ...melhor,
+        mercadosAtivos,
+        melhorMercado: melhor,
+        market: melhor.market || melhor.mercado || atual.market,
+        confidence: Math.max(...mercadosAtivos.map((m) => Number(m.confidence || m.confianca || 0))),
+        pressure: Math.max(...mercadosAtivos.map((m) => Number(m.pressure || m.pressao || 0))),
+      });
+    });
+    return Array.from(mapa.values());
+  }
+
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
       .filter(sinalAceito)
@@ -1130,7 +1112,7 @@ const melhorSinal = melhorSinalDoItem(item);
         if (filtro === "PRELIVEVIP") return sinalPreLiveVip(item);
         return true;
       })
-      .sort((a, b) => (b.confidence || 70) + (b.pressure || 70) - ((a.confidence || 70) + (a.pressure || 70)));
+      .sort((a, b) => (b.confidence || 70) + (b.pressure || 70) - ((a.confidence || 70) + (a.pressure || 70))));
 
     return juntarSinaisDoMesmoJogo(filtrados).sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
   }, [signals, busca, filtro]);
@@ -1394,7 +1376,7 @@ const melhorSinal = melhorSinalDoItem(item);
                 </div>
 
                 <div className="marketLine">
-                  <div><b>{melhorSinal.market || item.market}</b><span>Status: {status}</span><strong>Odd: {melhorSinal.odd || item.odd || "—"}</strong></div>
+                  <div><b>{melhorSinal.market || item.market}</b><span>{etapaSinal(melhorSinal)} • {status}</span><strong>Odd: {melhorSinal.odd || item.odd || "—"}</strong></div>
                   <div><b>IA {melhorSinal.confidence || item.confidence || 70}%</b><span className="bar"><i style={{ width: `${melhorSinal.confidence || item.confidence || 70}%` }}></i></span><small>Pressão {melhorSinal.pressure || item.pressure || 70}%</small></div>
                 </div>
 
@@ -2174,5 +2156,23 @@ h1{font-size:clamp(25px,2.7vw,38px)!important;letter-spacing:-1px!important}
 }
 .flowIcon.home{bottom:calc(50% + 32px)!important}
 .flowIcon.away{top:calc(50% + 32px)!important}
+
+
+/* ===== AJUSTE FINAL: SINAL AO VIVO, MINI MAPA E PRÉ-LIVE VIP ===== */
+.miniMap{max-height:86px!important;margin-bottom:4px!important}
+.field3d{height:54px!important;margin-top:3px!important;transform:perspective(230px) rotateX(23deg)!important}
+.mapStats{font-size:7px!important}
+.marketLine{
+  border:2px solid rgba(250,204,21,.75)!important;
+  background:linear-gradient(180deg,rgba(250,204,21,.16),rgba(0,0,0,.22))!important;
+  box-shadow:0 0 18px rgba(250,204,21,.22)!important;
+}
+.marketLine div:first-child b{font-size:15px!important;color:#fff!important;text-transform:uppercase!important}
+.marketLine div:first-child span{font-size:12px!important;color:#fff!important;font-weight:900!important}
+.marketLine div:first-child strong{font-size:18px!important;color:#facc15!important}
+.flowWrap{height:82px!important}
+.flowSpike{width:2px!important;opacity:.9!important}
+.flowCard h3:after{content:"  • Sofascore minuto a minuto";color:#94a3b8;font-size:8px}
+.badges .vip,.pill:nth-child(3){box-shadow:0 0 10px rgba(250,204,21,.35)!important}
 
 `;
