@@ -579,7 +579,7 @@ export default function App() {
 
     if (!sinalReal(item)) return "❌ SEM SINAL REAL";
 
-    const stats = statsDoJogo(item);const melhorSinal = melhorSinalDoItem(item);
+    const stats = statsDoJogo(item);
             
 const melhorSinal = melhorSinalDoItem(item);
             const gols = totalGols(item);
@@ -1146,34 +1146,39 @@ const melhorSinal = melhorSinalDoItem(item);
 
   const sinaisFiltrados = useMemo(() => {
     const filtrados = signals
-      .filter(sinalAceito)
+      .filter((item) => sinalReal(item) || sinalPreLiveVip(item) || item.preLiveVip)
       .filter((item) => {
-        const texto = `${item.match} ${item.league} ${item.market}`.toLowerCase();
+        const texto = `${item.match || ""} ${item.league || ""} ${item.market || ""}`.toLowerCase();
         if (!texto.includes(busca.toLowerCase())) return false;
+
         const cat = categoriaMercado(item);
-        if (filtro === "TODOS") return jogoAoVivoReal(item);
+        const marketText = String(item.market || item.mercado || "").toLowerCase();
+
+        if (filtro === "TODOS") return true;
         if (filtro === "LIVE") return jogoAoVivoReal(item) && !item.preLiveVip;
         if (filtro === "ALERTA") return mercadoStatus(item).includes("🔥") || mercadoStatus(item).includes("🚨");
-        if (filtro === "OVER05") return cat === "OVER 0,5" || String(item.market || "").toLowerCase().includes("0.5") || String(item.market || "").toLowerCase().includes("0,5");
-        if (filtro === "OVER15") return cat === "OVER 1,5" || String(item.market || "").toLowerCase().includes("1.5") || String(item.market || "").toLowerCase().includes("1,5");
-        if (filtro === "OVER25") return cat === "OVER 2,5" || String(item.market || "").toLowerCase().includes("2.5") || String(item.market || "").toLowerCase().includes("2,5");
-        if (filtro === "OVER35") return cat === "OVER 3,5" || String(item.market || "").toLowerCase().includes("3.5") || String(item.market || "").toLowerCase().includes("3,5");
-        if (filtro === "CARTÕES") return cat.includes("CARTÕES") || String(item.market || "").toLowerCase().includes("cart");
-        if (filtro === "CANTOS") return cat.includes("CANTOS") || String(item.market || "").toLowerCase().includes("canto") || String(item.market || "").toLowerCase().includes("corner");
-        if (filtro === "BTTS") return cat === "BTTS" || String(item.market || "").toLowerCase().includes("ambas") || String(item.market || "").toLowerCase().includes("btts");
-        if (filtro === "TOP IA") return (item.confidence || 70) >= 82;
-        if (filtro === "VIP") return isVip(item) || sinalPreLiveVip(item);
-        if (filtro === "PRELIVEVIP") return sinalPreLiveVip(item);
+        if (filtro === "OVER05") return cat === "OVER 0,5" || marketText.includes("0.5") || marketText.includes("0,5");
+        if (filtro === "OVER15") return cat === "OVER 1,5" || marketText.includes("1.5") || marketText.includes("1,5");
+        if (filtro === "OVER25") return cat === "OVER 2,5" || marketText.includes("2.5") || marketText.includes("2,5");
+        if (filtro === "OVER35") return cat === "OVER 3,5" || marketText.includes("3.5") || marketText.includes("3,5");
+        if (filtro === "CARTÕES") return cat.includes("CARTÕES") || marketText.includes("cart");
+        if (filtro === "CANTOS") return cat.includes("CANTOS") || marketText.includes("canto") || marketText.includes("corner");
+        if (filtro === "BTTS") return cat === "BTTS" || marketText.includes("ambas") || marketText.includes("btts");
+        if (filtro === "TOP IA") return Number(item.confidence || item.confianca || 0) >= 82;
+        if (filtro === "VIP") return isVip(item);
+        if (filtro === "PRELIVEVIP") return Boolean(item.preLiveVip) || sinalPreLiveVip(item);
+        if (filtro === "HISTORICO") return false;
         return true;
-      })
-      .sort((a, b) => (b.confidence || 70) + (b.pressure || 70) - ((a.confidence || 70) + (a.pressure || 70))));
+      });
 
-    return juntarSinaisDoMesmoJogo(filtrados).sort((a, b) => mercadoPeso(b) - mercadoPeso(a));
+    return juntarSinaisDoMesmoJogo(filtrados)
+      .sort((a, b) => scoreSinalForte(b) - scoreSinalForte(a));
   }, [signals, busca, filtro]);
 
-  const liveCount = signals.filter((s) => jogoAoVivoReal(s)).length;
-  const preliveVipCount = signals.filter((s) => typeof sinalPreLiveVip === 'function' && sinalPreLiveVip(s)).length;
+  const liveCount = signals.filter((s) => sinalReal(s)).length;
   const alertCount = signals.filter((s) => sinalReal(s) && (mercadoStatus(s).includes("🔥") || mercadoStatus(s).includes("🚨") || mercadoStatus(s).includes("✅"))).length;
+  const preliveVipCount = signals.filter((s) => Boolean(s.preLiveVip) || sinalPreLiveVip(s)).length;
+
 
   return (
     <div className="page">
